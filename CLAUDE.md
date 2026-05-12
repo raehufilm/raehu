@@ -127,8 +127,22 @@ Concrete triggers:
 - New workflow or change to the update process → update `docs/updating-the-site.md`.
 - Project shipped, placeholder removed, TODO closed, or new open work identified → update `NOTES.md`.
 - New file under `docs/` → link to it from `README.md` and (if it documents a workflow Claude must follow) from `CLAUDE.md`.
+- **Any substantive change to the site or its rules → append a dated entry to `NOTES.md`'s "Iteration log" (see "The iteration log" below).**
 
 If you find yourself making a substantive change without touching any doc, stop and ask whether that's right. Usually it isn't.
+
+### The iteration log (the owner's changelog)
+
+`NOTES.md` ends with an "Iteration log" — a dated, append-only list of substantive changes. **Every commit that ships a substantive change must append an entry here.** This exists because the site owner is non-technical: they don't read `git log`, and they don't read commit messages on GitHub. The iteration log is where they go to see what changed and when.
+
+Format for each entry:
+- Lead with `**YYYY-MM-DD** — `, using an absolute calendar date. Convert "today" / "this week" / any relative date in your working context to the actual date.
+- One paragraph, 1–4 sentences. Plain English first, technical detail second. The owner should be able to read the entry and understand what happened to the site.
+- One commit, one entry. Multiple changes in the same commit can share one entry.
+
+When to skip: pure internal refactors with no behavior change, typo fixes, edits that don't affect a rule or a user-visible outcome.
+
+The existing entries at the bottom of `NOTES.md` are the reference for tone and granularity. If a change is too small or too internal to deserve an entry there, it's probably also too small to need a commit of its own.
 
 ## Previewing locally
 

@@ -23,7 +23,6 @@ Running state for the raehu.com portfolio site. **Read `CLAUDE.md` first for the
 - Deployment pipeline (DNS, HTTPS, GitHub Pages, three-layer author enforcement)
 
 ### What's placeholder or wrong
-- **Hero illustration** at `index.html` lines 595–611 is a hand-coded SVG approximation of the deck's cover figure. Doesn't resemble the source. Needs either the original vector from the owner, an export from the PDF, or a faithful re-trace.
 - **Every project card** is a CSS gradient with a "Still from X" text label. No real images yet.
 - **About portrait** and **quote portrait** are gradient placeholders.
 - **Project list mismatch vs. the deck:**
@@ -47,7 +46,6 @@ The deck uses a 3-beat per-work template: **title spread → director's note →
 
 ## Open work
 
-- [ ] Replace the hero illustration with the real cover art
 - [ ] Reconcile the landing page works list against the deck's actual works
 - [ ] Add real images: hero, about portrait, every project card
 - [ ] Build the per-project detail page template, then per-work pages for the deck works
@@ -58,3 +56,4 @@ The deck uses a 3-beat per-work template: **title spread → director's note →
 
 - **2026-05-12** — Initial pass on the 2026 PDF (pages 1–31). Identified the per-work template. Reviewed first draft of `index.html`. Set up the repo, custom domain, GitHub Pages, HTTPS enforcement, three-layer author enforcement (pre-commit hook + CI + branch protection). Migrated notes from the owner's working directory into the repo and tightened the architecture rules in CLAUDE.md.
 - **2026-05-12** — Added `docs/updating-the-site.md` documenting the update workflow for both audiences. Added `README.md` at repo root as the public index / site map. Added a "Documentation maintenance" hard constraint to CLAUDE.md requiring docs to be updated in the same commit as any change to repo behavior, structure, or workflow.
+- **2026-05-12** — Extracted the cover illustration from page 9 of the 2026 portfolio PDF to `images/illustration.svg` (31 vector paths, `currentColor`-driven, background stripped for reuse). Inlined it into the hero, replacing the hand-coded SVG approximation. Hero color now resolves to `#6C1B0F` (the PDF's authentic line color) on the existing `--amber: #c8943a` background. Note that the PDF's true amber is `#F0B824` — kept the existing site amber unchanged for now.

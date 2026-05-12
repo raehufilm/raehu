@@ -32,6 +32,8 @@ Live at **https://raehu.com**.
 ├── NOTES.md                    # running state
 ├── docs/                       # operational guides
 │   └── updating-the-site.md
+├── images/                     # committed image assets
+│   └── illustration.svg        # signature line-art portrait (brand asset)
 ├── .github/
 │   └── workflows/
 │       └── check-author.yml    # CI: enforces commit author
