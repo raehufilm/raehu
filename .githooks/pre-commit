@@ -1,0 +1,32 @@
+#!/bin/sh
+# Block commits whose author identity isn't raehufilm.
+# Mirrors the rule enforced server-side by .github/workflows/check-author.yml.
+# See CLAUDE.md for the rationale.
+
+EXPECTED_EMAIL="283902148+raehufilm@users.noreply.github.com"
+EXPECTED_NAME="raehufilm"
+
+CURRENT_EMAIL=$(git config user.email)
+CURRENT_NAME=$(git config user.name)
+
+FAIL=0
+
+if [ "$CURRENT_EMAIL" != "$EXPECTED_EMAIL" ]; then
+    echo "✗ pre-commit: user.email is '$CURRENT_EMAIL', expected '$EXPECTED_EMAIL'" >&2
+    echo "  Fix: git config user.email \"$EXPECTED_EMAIL\"" >&2
+    FAIL=1
+fi
+
+if [ "$CURRENT_NAME" != "$EXPECTED_NAME" ]; then
+    echo "✗ pre-commit: user.name is '$CURRENT_NAME', expected '$EXPECTED_NAME'" >&2
+    echo "  Fix: git config user.name \"$EXPECTED_NAME\"" >&2
+    FAIL=1
+fi
+
+if [ "$FAIL" -eq 1 ]; then
+    echo "" >&2
+    echo "  Commit blocked. See CLAUDE.md for details on the author rule." >&2
+    exit 1
+fi
+
+exit 0
