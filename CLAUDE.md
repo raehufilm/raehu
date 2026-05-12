@@ -84,6 +84,8 @@ For the owner, "update the site" means: tell Claude what to change → Claude ed
 
 **For the operational workflow when handling owner-requested changes — read, edit, preview, commit, push, verify — follow `docs/updating-the-site.md`.** That file also has the owner-facing plain-English explanation of how changes propagate; refer the owner to it when they ask why a change isn't showing up.
 
+**Before any change to look, voice, or copy, consult `docs/portfolio-reference.md`.** It's the design and content reference extracted from the owner's portfolio PDF (palette, typography, canonical bio and quote, voice patterns, full project catalog, sequencing). The PDF itself is not committed (~80 MB binary that lives outside the repo); this markdown is the authoritative substitute.
+
 ## Performance rules (hard constraints)
 
 Static content should stay fast. The site owner cannot manually audit performance — Claude is the only check between an unintentional regression and shipped code. These rules exist to make perf failures impossible by default, not optional.

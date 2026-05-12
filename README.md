@@ -17,6 +17,7 @@ Live at **https://raehu.com**.
 
 - **[CLAUDE.md](CLAUDE.md)** — rules and hard constraints (author identity, architecture, performance, conventions, doc maintenance).
 - **[docs/updating-the-site.md](docs/updating-the-site.md)** — the operational workflow when handling owner-requested changes.
+- **[docs/portfolio-reference.md](docs/portfolio-reference.md)** — design vocabulary, voice, and project catalog extracted from the 2026 portfolio PDF; canonical reference for design requests.
 - **[NOTES.md](NOTES.md)** — running state and open work.
 
 ---
@@ -30,8 +31,9 @@ Live at **https://raehu.com**.
 ├── README.md                   # this file
 ├── CLAUDE.md                   # rules for Claude
 ├── NOTES.md                    # running state
-├── docs/                       # operational guides
-│   └── updating-the-site.md
+├── docs/                       # operational guides + reference
+│   ├── updating-the-site.md
+│   └── portfolio-reference.md
 ├── images/                     # committed image assets
 │   └── illustration.svg        # signature line-art portrait (brand asset)
 ├── .github/
