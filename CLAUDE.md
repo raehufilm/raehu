@@ -37,6 +37,22 @@ git config core.hooksPath .githooks
 
 The first two lines set the author identity locally (without `--global`). The third tells git to look for hooks in the committed `.githooks/` directory instead of the local `.git/hooks/`. Without it, the pre-commit check won't run.
 
+## Stay in sync with the remote (hard constraint)
+
+The site owner may work on raehu from multiple machines, and commits can land on `origin/main` between your sessions. **Before any edit session — and again before any commit — fetch and check whether the local branch is up to date with `origin/main`.**
+
+The check:
+```
+git fetch origin
+git status
+```
+
+If `git status` reports `Your branch is behind 'origin/main' by N commits`, **stop and `git pull` before editing.** Building on a stale tree either silently overwrites the owner's recent work from another machine or creates a confusing merge you may not know how to resolve cleanly.
+
+If both sides have diverged (local is ahead AND behind), do not auto-resolve — surface it to the owner. They may have intentional in-progress work on the other machine that should land first.
+
+The cost of `git fetch` is near-zero; the cost of overwriting the owner's other-machine work is high.
+
 ## Commit hygiene (hard constraint)
 
 **Before making any edit, run `git status` and `git diff` to check the working tree for unstaged user changes.** If files you're about to modify already have uncommitted edits the user made:
