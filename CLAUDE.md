@@ -106,6 +106,30 @@ After any change that adds an image, video, font, or animation, ask:
 
 If yes to either, fix it before committing.
 
+## Documentation maintenance (hard constraint)
+
+This repo has four docs that must stay in sync with reality. Keeping them current is not optional — stale docs are worse than missing docs, because they actively mislead the next reader (including the next Claude session).
+
+### The docs
+
+- **`README.md`** — the public index / site map at the repo root. The entry point on GitHub.
+- **`CLAUDE.md`** (this file) — rules and hard constraints for Claude.
+- **`NOTES.md`** — running state of the site (what's done, what's placeholder, open work).
+- **`docs/`** — operational guides. Currently: `docs/updating-the-site.md` — the update workflow.
+
+### The rule
+
+**In every commit that changes the repo's behavior, structure, or workflow, update the affected doc(s) in the same commit.**
+
+Concrete triggers:
+- New file or directory at the repo root → update `README.md`'s file layout.
+- New architecture rule, performance constraint, or convention → update `CLAUDE.md`.
+- New workflow or change to the update process → update `docs/updating-the-site.md`.
+- Project shipped, placeholder removed, TODO closed, or new open work identified → update `NOTES.md`.
+- New file under `docs/` → link to it from `README.md` and (if it documents a workflow Claude must follow) from `CLAUDE.md`.
+
+If you find yourself making a substantive change without touching any doc, stop and ask whether that's right. Usually it isn't.
+
 ## Previewing locally
 
 The site owner does not have npm/node and will not run a dev server. Previews are run by Claude, not the owner:

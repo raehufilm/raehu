@@ -57,3 +57,4 @@ The deck uses a 3-beat per-work template: **title spread → director's note →
 ## Iteration log
 
 - **2026-05-12** — Initial pass on the 2026 PDF (pages 1–31). Identified the per-work template. Reviewed first draft of `index.html`. Set up the repo, custom domain, GitHub Pages, HTTPS enforcement, three-layer author enforcement (pre-commit hook + CI + branch protection). Migrated notes from the owner's working directory into the repo and tightened the architecture rules in CLAUDE.md.
+- **2026-05-12** — Added `docs/updating-the-site.md` documenting the update workflow for both audiences. Added `README.md` at repo root as the public index / site map. Added a "Documentation maintenance" hard constraint to CLAUDE.md requiring docs to be updated in the same commit as any change to repo behavior, structure, or workflow.
