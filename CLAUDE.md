@@ -66,6 +66,34 @@ The cost of `git fetch` is near-zero; the cost of overwriting the owner's other-
 
 This applies to every commit, regardless of size. A two-line typo fix that quietly drags an unrelated change under it is still bad history.
 
+## Preview before deploy (hard constraint)
+
+The owner is non-technical and cannot read code. Every user-visible change must be previewed in their browser and described in plain English before it goes live. Pushing first and explaining after is not acceptable — that ships unreviewed visual changes to the live site.
+
+### When this rule applies
+
+Any change to user-visible markup, copy, styling, layout, images, fonts, animations, or interactive behavior. In short: anything that changes what a visitor would see or do on raehu.com.
+
+**Skip** for non-visible changes only: docs (`*.md`), git hooks, CI workflows, `.gitignore`, infra config. If unsure whether a change is visible, treat it as visible.
+
+### The required sequence
+
+1. Make the edit.
+2. **Open the local preview** with `open <absolute-path>` (typically `open /Users/mabunday/Desktop/rae/raehu/index.html` for landing-page changes).
+3. **Show the owner the output in this exact format:**
+   - **Preview URL.** Always include the `file://` URL even though you also opened the file. Format: `file:///Users/mabunday/Desktop/rae/raehu/<file>`.
+   - **Refresh note.** Tell the owner that if they already had a preview tab open, they should refresh it (Cmd+R / Ctrl+R) — otherwise they'll see the stale version.
+   - **Where to look.** Name the section of the page in plain language ("the big amber section at the top", "the works grid in the middle", "the footer"). No CSS selectors, no line numbers.
+   - **What changed.** A numbered list. For each change, describe what's different in plain English — what it used to look like, what it looks like now. No code, no class names. The owner should be able to read it without any technical context.
+   - **What's unchanged.** A brief reassurance that adjacent elements weren't touched, when relevant.
+   - **Ask before deploying.** End with an explicit prompt for confirmation, e.g.: *"Ready to push to the live site? (Say 'go' or push back if anything needs tweaking.)"*
+4. **Wait for explicit confirmation** ("go", "yes", "looks good", "push", etc.) before staging, committing, or pushing.
+5. After confirmation, follow the normal commit + push workflow.
+
+### Why this is non-negotiable
+
+The owner does not run dev tools, does not read code, and cannot inspect commit diffs to understand what changed. The preview + plain-English description is the only mechanism by which they review their site. Without this step, they are publishing changes they have not seen — and Claude is the only safeguard against shipping the wrong thing.
+
 ## Architecture (hard constraints)
 
 **The site owner is non-technical and may work from any machine. They do not run dev tools. They update the site by telling Claude what to change.** This sets every rule below — they are constraints, not preferences. Do not relax them without explicit user permission.

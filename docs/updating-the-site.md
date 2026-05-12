@@ -56,9 +56,20 @@ Before you start, run `git status` to see the working tree. If files you're abou
 
 1. **Read** the relevant file(s) to confirm current state before editing.
 2. **Edit** with the Edit tool, preserving the architecture rules in `CLAUDE.md` (no build step, no package manager, no frameworks, no JS-rendered data files).
-3. **Preview locally** when the change is visual:
-   - `open /Users/mabunday/Desktop/rae/raehu/<file>` for instant `file://` preview in the owner's default browser.
-   - `python3 -m http.server` from the repo root if the change needs real HTTP (cross-page links from non-root paths, fetch, etc.).
+3. **Preview, describe, and wait for confirmation (REQUIRED for any user-visible change).** Skip only for non-visible changes: docs, hooks, CI, `.gitignore`, infra.
+
+   - **Preview locally:**
+     - `open /Users/mabunday/Desktop/rae/raehu/<file>` for instant `file://` preview in the owner's default browser.
+     - `python3 -m http.server` from the repo root if the change needs real HTTP (cross-page links from non-root paths, fetch, etc.).
+   - **Show the owner the change** in the exact format defined in `CLAUDE.md` § "Preview before deploy":
+     - The `file://` URL (always include, even after `open`).
+     - A refresh note (in case they already have a stale preview tab open).
+     - Where to look on the page, in plain language (no CSS selectors, no line numbers).
+     - A numbered list of what changed — what it used to look like, what it looks like now. No code, no class names.
+     - What's unchanged (when relevant), as reassurance.
+     - An explicit ask for confirmation: *"Ready to push to the live site? (Say 'go' or push back if anything needs tweaking.)"*
+   - **Wait for explicit confirmation** ("go", "yes", "looks good", "push", etc.) before continuing to step 4. Do not stage, commit, or push without it.
+
 4. **Commit:**
    ```
    git -C /Users/mabunday/Desktop/rae/raehu add <files>
