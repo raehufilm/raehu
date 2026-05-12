@@ -37,18 +37,37 @@ git config core.hooksPath .githooks
 
 The first two lines set the author identity locally (without `--global`). The third tells git to look for hooks in the committed `.githooks/` directory instead of the local `.git/hooks/`. Without it, the pre-commit check won't run.
 
-## Architecture
+## Architecture (hard constraints)
 
-Pure static HTML / CSS / JS. **No build step. No npm. No node_modules. No bundler.**
+**The site owner is non-technical and may work from any machine. They do not run dev tools. They update the site by telling Claude what to change.** This sets every rule below — they are constraints, not preferences. Do not relax them without explicit user permission.
 
-- `index.html` — landing page (CSS + JS inline for now)
-- `CNAME` — custom domain `raehu.com` for GitHub Pages
-- `.github/workflows/check-author.yml` — author enforcement
-- `images/<project-slug>/` — image assets per project (future)
-- `works/<project-slug>/index.html` — per-project detail pages (future)
-- Videos hosted on Vimeo (https://vimeo.com/raehu), embedded via URL — do not commit video files
+### Hard rules
 
-If you find yourself wanting to add a framework or build tooling, stop and confirm with the user first. The non-technical site owner is a hard constraint, not a stylistic preference.
+1. **No build step.** Files on disk are exactly what gets served. No bundler, transpiler, static-site generator, or preprocessor.
+2. **No package manager.** No `package.json`, no `node_modules`, no `requirements.txt`, no installable dependencies of any kind. If a feature needs a library, link it from a stable public CDN inline — but prefer writing it yourself in vanilla JS.
+3. **No frameworks.** No React, Vue, Svelte, Alpine, htmx. Just HTML + CSS + browser JS.
+4. **No CSS preprocessors.** No Sass, Less, Tailwind, postcss. Plain CSS, in `<style>` tags or `.css` files.
+5. **No data files rendered by JS.** Content lives in HTML where the owner can see and point at it. JSON/YAML "content" with a JS renderer is a build step in disguise — don't introduce it.
+6. **No machine-specific paths or assumptions.** Everything in this repo must work on any clone on any OS. No absolute paths, no user-specific config in committed files.
+7. **External dependencies allow-list:** GitHub Pages (hosting), Vimeo (video embeds), Google Fonts CDN (typography). That's it. Anything else, ask.
+
+### Conventions
+
+- `index.html` — landing page (CSS + JS inline)
+- `works/<slug>/index.html` — per-project detail pages
+- `images/<slug>/` — image assets per project, committed to the repo
+- `CNAME` — custom domain
+- Videos hosted on Vimeo (https://vimeo.com/raehu), embedded via URL. **Never commit video files.**
+
+### Self-test before any change
+
+Ask yourself: "If I zipped this repo and emailed it to the owner, could they unzip it, double-click `index.html`, and see what's on raehu.com?"
+
+If yes, you're good. If no, you have broken the architecture — revert and reconsider.
+
+### The owner's update loop
+
+For the owner, "update the site" means: tell Claude what to change → Claude edits a file → Claude commits and pushes. The owner runs no commands. Preserve this workflow with every change you make.
 
 ## Previewing locally
 
