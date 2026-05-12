@@ -37,6 +37,19 @@ git config core.hooksPath .githooks
 
 The first two lines set the author identity locally (without `--global`). The third tells git to look for hooks in the committed `.githooks/` directory instead of the local `.git/hooks/`. Without it, the pre-commit check won't run.
 
+## Commit hygiene (hard constraint)
+
+**Before making any edit, run `git status` and `git diff` to check the working tree for unstaged user changes.** If files you're about to modify already have uncommitted edits the user made:
+
+1. **Never silently pull those edits into your commit.** Mixing them under your own commit message muddies the history and misrepresents what landed.
+2. **Pick one of two paths:**
+   - **Commit the user's prior work first** as a separate commit with a faithful message describing their changes (use `git diff` to read what they did). Then make your own edit as a separate commit.
+   - **Or stage only your hunks** with `git add -p` and tell the user their other changes remain unstaged.
+
+   Default to the first path — it surfaces the user's work in its own commit instead of burying it under yours.
+
+This applies to every commit, regardless of size. A two-line typo fix that quietly drags an unrelated change under it is still bad history.
+
 ## Architecture (hard constraints)
 
 **The site owner is non-technical and may work from any machine. They do not run dev tools. They update the site by telling Claude what to change.** This sets every rule below — they are constraints, not preferences. Do not relax them without explicit user permission.

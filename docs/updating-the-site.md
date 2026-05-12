@@ -52,6 +52,8 @@ The operational workflow for any owner-requested change. The architecture rules 
 
 ### Steps
 
+Before you start, run `git status` to see the working tree. If files you're about to modify have unstaged user changes, follow the "Commit hygiene" rule in `CLAUDE.md` before doing your own edit — usually that means committing the user's prior work first as its own commit.
+
 1. **Read** the relevant file(s) to confirm current state before editing.
 2. **Edit** with the Edit tool, preserving the architecture rules in `CLAUDE.md` (no build step, no package manager, no frameworks, no JS-rendered data files).
 3. **Preview locally** when the change is visual:
