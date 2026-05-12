@@ -69,6 +69,43 @@ If yes, you're good. If no, you have broken the architecture — revert and reco
 
 For the owner, "update the site" means: tell Claude what to change → Claude edits a file → Claude commits and pushes. The owner runs no commands. Preserve this workflow with every change you make.
 
+**For the operational workflow when handling owner-requested changes — read, edit, preview, commit, push, verify — follow `docs/updating-the-site.md`.** That file also has the owner-facing plain-English explanation of how changes propagate; refer the owner to it when they ask why a change isn't showing up.
+
+## Performance rules (hard constraints)
+
+Static content should stay fast. The site owner cannot manually audit performance — Claude is the only check between an unintentional regression and shipped code. These rules exist to make perf failures impossible by default, not optional.
+
+### Hard rules
+
+1. **Never embed Vimeo iframes directly.** Each `<iframe src="https://player.vimeo.com/…">` ships ~600 KB of player JS on load — a works grid with N projects = N × 600 KB of unrequested JS. Use a facade: render a poster `<img>` + play button, and swap in the iframe only on click. Build this when the first real Vimeo embed lands; do not preemptively scaffold.
+
+2. **Every `<img>` must have explicit `width` and `height` attributes** (prevents CLS / layout shift), plus `loading="lazy"` and `decoding="async"` — **except** the hero/LCP image, which must load eagerly and be preloaded in `<head>`:
+   ```html
+   <link rel="preload" as="image" href="images/hero/hero.webp">
+   ```
+
+3. **Serve images as WebP** (or AVIF + WebP fallback via `<picture>`). Never commit raw JPG/PNG when WebP will do. Size budgets after compression — if an image won't fit at acceptable quality, resize it down before committing:
+   - Hero / LCP image: ≤ 250 KB
+   - Project still / full-width image: ≤ 150 KB
+   - Thumbnail: ≤ 50 KB
+
+4. **Google Fonts hygiene.** Only request `font-weight` and `font-style` values the CSS actually references — never "in case we need it later." When adding a typeface, audit the CSS first, then update the URL. Both preconnects must be present in `<head>`:
+   ```html
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+   ```
+   `googleapis` serves the CSS; `gstatic` serves the woff2 files. Missing the second preconnect costs a round-trip on every cold visit.
+
+5. **Animations stay on the compositor.** In anything that fires per-event (`mousemove`, `scroll`, hover on many elements), animate only `transform` and `opacity`. Avoid `left`/`top`/`width`/`height` for movement, and avoid mutating `filter` / `box-shadow` / `mix-blend-mode` in tight loops. Wrap per-event style writes in `requestAnimationFrame`.
+
+### Self-test before any change
+
+After any change that adds an image, video, font, or animation, ask:
+- Does this make first paint slower for a visitor on a 4G phone?
+- Does it download bytes the visitor won't see?
+
+If yes to either, fix it before committing.
+
 ## Previewing locally
 
 The site owner does not have npm/node and will not run a dev server. Previews are run by Claude, not the owner:

@@ -1,6 +1,6 @@
 # raehu — working notes
 
-Running state for the raehu.com portfolio site. **Read `CLAUDE.md` first for the rules.** This file is the running state: what's done, what's not, design context, open work.
+Running state for the raehu.com portfolio site. **Read `CLAUDE.md` first for the rules**, then `docs/updating-the-site.md` for the operational workflow when making changes. This file is the running state: what's done, what's not, design context, open work.
 
 ## At a glance
 
