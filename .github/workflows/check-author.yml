@@ -1,0 +1,46 @@
+name: Check commit author
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check-author:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify commit authors
+        env:
+          ALLOWED_EMAIL: "283902148+raehufilm@users.noreply.github.com"
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            COMMITS=$(git rev-list "$BASE_SHA..$HEAD_SHA")
+          else
+            BEFORE="${{ github.event.before }}"
+            AFTER="${{ github.event.after }}"
+            if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              COMMITS="$AFTER"
+            else
+              COMMITS=$(git rev-list "$BEFORE..$AFTER")
+            fi
+          fi
+
+          FAIL=0
+          for sha in $COMMITS; do
+            email=$(git log -1 --format='%ae' "$sha")
+            if [ "$email" != "$ALLOWED_EMAIL" ]; then
+              echo "::error::Commit $sha has author email '$email', expected '$ALLOWED_EMAIL'"
+              FAIL=1
+            else
+              echo "OK  $sha  ($email)"
+            fi
+          done
+
+          if [ "$FAIL" -eq 1 ]; then
+            exit 1
+          fi
