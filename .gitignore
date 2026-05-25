@@ -4,3 +4,5 @@
 .vscode/
 .idea/
 Thumbs.db
+video_clip_seed/
+.claude/

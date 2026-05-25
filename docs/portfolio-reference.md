@@ -118,13 +118,10 @@ Across the ~10 director's notes in the PDF, a consistent voice emerges. If asked
 
 ## Contact channels
 
-- **Email — on the site**: `hello@raehufilm.com`
-- **Email — in the PDF (page 63)**: a personal `@gmail.com` address — **redacted here** to keep it out of the search index, since this file is web-accessible at `raehu.com/docs/portfolio-reference.md`. Look at page 63 of the PDF when you need the exact value.
+- **Email**: `raehufilm@gmail.com` — used on both the site and the portfolio PDF (page 63). Single canonical address; no separate `hello@` alias.
 - **Instagram**: `@raehufilm` (https://instagram.com/raehufilm)
 - **Vimeo**: display name "Rae Hu" — URL is https://vimeo.com/raehu
 - **Based in**: Shanghai (PDF). Site says "Shanghai · Mexico City" because the debut feature is set in Mexico City.
-
-The email mismatch is worth flagging when the owner edits anything contact-related — confirm which email she wants public.
 
 ---
 

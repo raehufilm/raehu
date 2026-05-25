@@ -19,6 +19,7 @@ Live at **https://raehu.com**.
 - **[docs/updating-the-site.md](docs/updating-the-site.md)** — the operational workflow when handling owner-requested changes.
 - **[docs/portfolio-reference.md](docs/portfolio-reference.md)** — design vocabulary, voice, and project catalog extracted from the 2026 portfolio PDF; canonical reference for design requests.
 - **[docs/portfolio-grid.md](docs/portfolio-grid.md)** — how the irregular portfolio grid layout system works; algorithm, usage, tested presets.
+- **[docs/clip-extraction.md](docs/clip-extraction.md)** — FFmpeg workflow for generating preview thumbnails and highlight clips from source video.
 - **[NOTES.md](NOTES.md)** — running state and open work.
 
 ---
@@ -35,7 +36,8 @@ Live at **https://raehu.com**.
 ├── docs/                       # operational guides + reference
 │   ├── updating-the-site.md
 │   ├── portfolio-reference.md
-│   └── portfolio-grid.md
+│   ├── portfolio-grid.md
+│   └── clip-extraction.md
 ├── js/                         # shared scripts (no build, no npm)
 │   └── portfolio-grid.js       # irregular grid layout engine
 ├── images/                     # committed image assets
