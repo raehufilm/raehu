@@ -411,10 +411,12 @@ The site doesn't yet have an "all works" thumbnail-grid section — only the fea
 
 ## Discrepancies to flag
 
-These are places where the site and PDF disagree. Resolve with the owner before "fixing" either:
+~~These are places where the site and PDF disagree. Resolve with the owner before "fixing" either:~~
 
-1. **Email**: site uses `hello@raehufilm.com`. The PDF lists a different personal `@gmail.com` address — possibly her private account. The `hello@` alias is the public-facing one; confirm with the owner before changing the contact section.
-2. **Based in**: site says "Shanghai · Mexico City", PDF says only Shanghai (debut feature is set in Mexico City).
-3. **"Rooftop"** on the current site: copy is borrowed from *We Don't Dance For Nothing*'s synopsis. Unclear if "Rooftop" is meant to be a separate work or a placeholder for a future short.
-4. **McDonald's** is on the live site but not in the PDF — confirm with the owner whether it's a forthcoming project or one she chose to omit from the portfolio.
-5. **Brands grid**: previously had Fendi and Lancôme duplicated on the site; removed in commit `d82c040`. PDF has 28 unique brands; the site has 30 (PDF + McDonald's + Wieden+Kennedy as separate entry). Keep aligned.
+All five discrepancies below have been resolved as of 2026-05-18:
+
+1. ~~**Email**: site uses `hello@raehufilm.com`. The PDF lists a different personal `@gmail.com` address — possibly her private account.~~ **Resolved 2026-05-18**: updated to `raehufilm@gmail.com` per owner's instruction.
+2. ~~**Based in**: site says "Shanghai · Mexico City", PDF says only Shanghai.~~ **Resolved 2026-05-18**: site now says "Shanghai · Mexico City" — confirmed by owner.
+3. ~~**"Rooftop"** on the current site: copy is borrowed from *We Don't Dance For Nothing*'s synopsis.~~ **Resolved 2026-05-18**: Rooftop card removed from Films tab — was not meant to be a separate work.
+4. ~~**McDonald's** is on the live site but not in the PDF.~~ **Resolved 2026-05-18**: McDonald's project card removed from Commercial tab; not in canonical portfolio.
+5. ~~**Brands grid**: PDF has 28 unique brands; the site had 30 (PDF + McDonald's + Wieden+Kennedy as separate entry).~~ **Resolved 2026-05-18**: brands grid trimmed to 28, matching the PDF exactly.

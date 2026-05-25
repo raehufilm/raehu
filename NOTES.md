@@ -17,19 +17,18 @@ Running state for the raehu.com portfolio site. **Read `CLAUDE.md` first for the
 
 ### What's real
 - Bio copy (about section)
-- Brand/client list (~30 entries as text)
+- Brand/client list (28 entries, matching PDF exactly)
 - Pull quote
-- Contact email and Vimeo link
+- Contact email (`raehufilm@gmail.com`) and Vimeo link
+- Location ("Shanghai · Mexico City")
+- Works list aligned with PDF (Rooftop and McDonald's removed)
+- Hero illustration with subtle ink texture; hero background updated to `#E8B949`
 - Deployment pipeline (DNS, HTTPS, GitHub Pages, three-layer author enforcement)
 
 ### What's placeholder or wrong
 - **Every project card** is a CSS gradient with a "Still from X" text label. No real images yet.
 - **About portrait** and **quote portrait** are gradient placeholders.
-- **Project list mismatch vs. the deck:**
-  - On the landing page but not in the deck: L'Oréal × Xiao Zhan, McDonald's × Wang Leehom, "Rooftop"
-  - In the deck but missing from the landing page: Gucci Dreamscraper, Champion CNY, Under Armour, We Don't Dance For Nothing (possibly the unnamed "Rooftop" with a renamed card)
 - **No per-project detail pages** exist yet (template TBD; would live at `works/<slug>/index.html`).
-- **Brand grid duplicates:** Fendi and Lancôme appear twice.
 
 ## Design system (from the deck)
 
