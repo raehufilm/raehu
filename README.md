@@ -18,6 +18,7 @@ Live at **https://raehu.com**.
 - **[CLAUDE.md](CLAUDE.md)** — rules and hard constraints (author identity, architecture, performance, conventions, doc maintenance).
 - **[docs/updating-the-site.md](docs/updating-the-site.md)** — the operational workflow when handling owner-requested changes.
 - **[docs/portfolio-reference.md](docs/portfolio-reference.md)** — design vocabulary, voice, and project catalog extracted from the 2026 portfolio PDF; canonical reference for design requests.
+- **[docs/portfolio-grid.md](docs/portfolio-grid.md)** — how the irregular portfolio grid layout system works; algorithm, usage, tested presets.
 - **[NOTES.md](NOTES.md)** — running state and open work.
 
 ---
@@ -33,7 +34,10 @@ Live at **https://raehu.com**.
 ├── NOTES.md                    # running state
 ├── docs/                       # operational guides + reference
 │   ├── updating-the-site.md
-│   └── portfolio-reference.md
+│   ├── portfolio-reference.md
+│   └── portfolio-grid.md
+├── js/                         # shared scripts (no build, no npm)
+│   └── portfolio-grid.js       # irregular grid layout engine
 ├── images/                     # committed image assets
 │   └── illustration.svg        # signature line-art portrait (brand asset)
 ├── .github/
