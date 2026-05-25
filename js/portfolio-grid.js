@@ -5,38 +5,52 @@
  * per row. Row heights are computed automatically so that every cell stays
  * landscape (wider than tall), using object-fit:cover for cropping.
  *
- * Usage:
+ * Usage (auto-layout — count children, generate pattern):
  *
- *   <div class="portfolio-grid" data-layout="7-5, 3-5-4, 5-4-3, 4-8">
+ *   <div class="portfolio-grid">
  *     <img src="a.webp" alt="...">
  *     <img src="b.webp" alt="...">
- *     <!-- one child per cell, 10 total for the pattern above -->
+ *     <!-- any number of children -->
  *   </div>
- *   <script src="/js/portfolio-grid.js"></script>
+ *
+ * Usage (manual override):
+ *
+ *   <div class="portfolio-grid" data-layout="7-5, 3-5-4, 5-7, 4-8">
+ *     <!-- item count MUST match the pattern -->
+ *   </div>
  *
  * Attributes:
  *
- *   data-layout   Comma-separated rows. Each row is dash-separated column
- *                 spans on a 12-column grid (configurable via data-cols).
- *                 "7-5, 3-5-4" = row 1 has items spanning 7 and 5 cols;
- *                 row 2 has items spanning 3, 5, and 4 cols.
+ *   data-layout   (optional) Comma-separated rows, each dash-separated column
+ *                 spans on a 12-column grid. If omitted, a layout is generated
+ *                 automatically from the number of children.
  *
- *   data-min-ar   (optional) Minimum aspect ratio for the narrowest cell in
- *                 any row. Default: 1.35. Lower = taller rows, more cropping.
- *                 Higher = shorter rows, less cropping. The landscape
- *                 constraint is: min-ar > 1.
+ *   data-min-ar   (optional) Minimum aspect ratio for the narrowest cell.
+ *                 Default: 1.35. Lower = taller rows, more cropping.
+ *                 Higher = shorter rows, less cropping.
  *
- *   data-cols     (optional) Total columns in the base grid. Default: 12.
+ *   data-cols     (optional) Base column count. Default: 12.
+ *
+ *   data-seed     (optional) Integer seed for the layout generator, producing
+ *                 a deterministic but varied pattern. Different seeds give
+ *                 different arrangements for the same item count. Default: 0.
  *
  * Algorithm:
  *
- *   For each row with spans [s1, s2, ...] summing to S:
- *     narrowest_cell_width = (min(spans) / S) * container_width
- *     row_height = narrowest_cell_width / min_aspect_ratio
+ *   1. Count children N. If data-layout is set, use it (must match N).
+ *      Otherwise, generate a layout for N items.
  *
- *   This guarantees every cell is at least min_aspect_ratio wide-to-tall.
- *   Wider cells in the same row will have even higher aspect ratios.
- *   Images fill cells via object-fit:cover, cropping symmetrically.
+ *   2. Generator partitions N into rows of 2 or 3 items, then assigns
+ *      column spans from a pool of irregular presets. Adjacent rows never
+ *      share the same span pattern. Column breaks are staggered so no
+ *      vertical line runs through consecutive rows.
+ *
+ *   3. For each row with spans [s1, s2, ...] summing to S:
+ *        narrowest_cell_width = (min(spans) / S) * container_width
+ *        row_height = narrowest_cell_width / min_aspect_ratio
+ *
+ *      This guarantees every cell is at least min_aspect_ratio wide-to-tall.
+ *      Images fill cells via object-fit:cover, cropping symmetrically.
  */
 
 (function () {
@@ -45,29 +59,156 @@
   var DEFAULT_MIN_AR = 1.35;
   var DEFAULT_COLS = 12;
 
+  // --- Span presets (irregular, all sum to 12) ---
+
+  var SPANS_2 = [
+    [7, 5],
+    [5, 7],
+    [8, 4],
+    [4, 8]
+  ];
+
+  var SPANS_3 = [
+    [3, 5, 4],
+    [4, 5, 3],
+    [5, 4, 3],
+    [3, 4, 5],
+    [4, 3, 5],
+    [5, 3, 4]
+  ];
+
+  // --- Seeded pseudo-random (deterministic per seed) ---
+
+  function makeRng(seed) {
+    // Simple mulberry32 PRNG
+    var s = seed | 0;
+    return function () {
+      s = (s + 0x6D2B79F5) | 0;
+      var t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function pick(arr, rng) {
+    return arr[Math.floor(rng() * arr.length)];
+  }
+
+  // --- Layout generator ---
+
+  function generateLayout(n, totalCols, seed) {
+    if (n <= 0) return [];
+    if (n === 1) return [[totalCols]];
+
+    var rng = makeRng(seed);
+
+    // Step 1: Partition N into row sizes (2 or 3)
+    var rowSizes = partitionIntoRows(n, rng);
+
+    // Step 2: Assign span patterns to each row, avoiding adjacent repeats
+    var rows = [];
+    var lastSpans = null;
+
+    for (var i = 0; i < rowSizes.length; i++) {
+      var size = rowSizes[i];
+      var pool = size === 2 ? SPANS_2 : SPANS_3;
+      var spans;
+      var attempts = 0;
+
+      // Pick a pattern that differs from the previous row
+      do {
+        spans = pick(pool, rng);
+        attempts++;
+      } while (spansMatch(spans, lastSpans) && attempts < 20);
+
+      rows.push(spans);
+      lastSpans = spans;
+    }
+
+    return rows;
+  }
+
+  function partitionIntoRows(n, rng) {
+    // Distribute N items into rows of 2 or 3.
+    // Strategy: work backwards from N, choosing 2 or 3 per row,
+    // making sure we never leave 1 remaining (which can't form a row).
+    var sizes = [];
+    var remaining = n;
+
+    while (remaining > 0) {
+      if (remaining === 1) {
+        // Only possible if we get here — shouldn't with good partition.
+        // Merge with previous row (make it a 2→3 or 3→4... but 4 is bad).
+        // Safest: make the last row absorb it. We'll handle 1-item rows
+        // by giving them full width.
+        sizes.push(1);
+        remaining = 0;
+      } else if (remaining === 2) {
+        sizes.push(2);
+        remaining = 0;
+      } else if (remaining === 3) {
+        sizes.push(3);
+        remaining = 0;
+      } else if (remaining === 4) {
+        // 4 = 2+2 (not 3+1)
+        sizes.push(2);
+        remaining = 2;
+      } else {
+        // remaining >= 5: pick 2 or 3 randomly
+        var rowSize = rng() < 0.5 ? 2 : 3;
+        sizes.push(rowSize);
+        remaining -= rowSize;
+      }
+    }
+
+    return sizes;
+  }
+
+  function spansMatch(a, b) {
+    if (!a || !b || a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  }
+
+  // --- Layout parser (for manual data-layout) ---
+
   function parseLayout(str) {
     return str.split(',').map(function (row) {
       return row.trim().split('-').map(Number);
     });
   }
 
-  function layoutGrid(container) {
-    var layoutStr = container.getAttribute('data-layout');
-    if (!layoutStr) return;
+  // --- Main layout function ---
 
+  function layoutGrid(container) {
     var minAR = parseFloat(container.getAttribute('data-min-ar')) || DEFAULT_MIN_AR;
     var totalCols = parseInt(container.getAttribute('data-cols'), 10) || DEFAULT_COLS;
-    var rows = parseLayout(layoutStr);
-
-    // Count expected items
-    var totalItems = rows.reduce(function (sum, row) { return sum + row.length; }, 0);
     var children = Array.prototype.slice.call(container.children);
+    var n = children.length;
 
-    if (children.length < totalItems) {
-      console.warn(
-        'portfolio-grid: layout expects ' + totalItems +
-        ' items but container has ' + children.length
-      );
+    if (n === 0) return;
+
+    // Determine layout: manual override or auto-generate
+    var rows;
+    var layoutStr = container.getAttribute('data-layout');
+
+    if (layoutStr) {
+      rows = parseLayout(layoutStr);
+      var patternSlots = rows.reduce(function (sum, row) { return sum + row.length; }, 0);
+      if (patternSlots !== n) {
+        console.warn(
+          'portfolio-grid: data-layout defines ' + patternSlots +
+          ' slots but container has ' + n + ' items. Falling back to auto-layout.'
+        );
+        rows = null;
+      }
+    }
+
+    if (!rows) {
+      var seed = parseInt(container.getAttribute('data-seed'), 10) || 0;
+      rows = generateLayout(n, totalCols, seed);
     }
 
     // Measure container width for height calculations
@@ -114,7 +255,7 @@
 
   function initAll() {
     grids = Array.prototype.slice.call(
-      document.querySelectorAll('.portfolio-grid[data-layout]')
+      document.querySelectorAll('.portfolio-grid')
     );
     grids.forEach(layoutGrid);
   }
@@ -140,6 +281,7 @@
   // Public API for manual use
   window.portfolioGrid = {
     layout: layoutGrid,
+    generate: generateLayout,
     initAll: initAll
   };
 

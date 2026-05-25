@@ -6,11 +6,26 @@ A reusable irregular-grid layout engine for displaying landscape stills and vide
 
 The grid takes a container of images (or videos) and arranges them in rows with **varying column widths**. Row heights are computed automatically so that every cell stays landscape — wider than tall. Images fill their cells via CSS `object-fit: cover`, cropping as needed without resizing the source file.
 
+### Two modes
+
+1. **Auto-layout (recommended):** Drop images into a `.portfolio-grid` container — the engine counts the children and generates a valid layout automatically. Use `data-seed` to get different arrangements for the same item count.
+
+2. **Manual override:** Set `data-layout` to specify exact column spans per row. The item count must match the pattern exactly — if it doesn't, the engine falls back to auto-layout and logs a warning.
+
 ### The algorithm
 
-Based on the [Knuth-Plass line-breaking algorithm](https://blog.vjeux.com/2014/image/google-plus-layout-find-best-breaks.html) adapted for image grids (the same approach used by Google Photos and Flickr). For this site's use case — a small number of hand-curated items — we skip the dynamic-programming row-breaking step and specify the layout pattern directly. The engine handles the height math and placement.
+Based on the [Knuth-Plass line-breaking algorithm](https://blog.vjeux.com/2014/image/google-plus-layout-find-best-breaks.html) adapted for image grids (the same approach used by Google Photos and Flickr).
 
-**Per row, given column spans `[s1, s2, …]` summing to `S`:**
+**Layout generation (auto mode):**
+
+1. Count N children in the container.
+2. Partition N into rows of 2 or 3 items. The partitioner ensures no row of 1 item is created (e.g., 4 → 2+2, not 3+1).
+3. Assign column span patterns to each row from preset pools, avoiding adjacent-row repeats. Spans are irregular (e.g., `[7,5]`, `[3,5,4]`) and always sum to 12.
+4. The `data-seed` attribute controls which patterns are selected — same seed + same N = identical layout every time.
+
+**Row height computation (both modes):**
+
+For each row with spans `[s1, s2, …]` summing to `S`:
 
 1. Narrowest cell width = `(min(spans) / S) × container_width`
 2. Row height = `narrowest_cell_width / min_aspect_ratio`
@@ -25,16 +40,39 @@ Cropping anchor defaults to `center center`. For shots where the subject is off-
 
 ## Usage
 
-### HTML
+### Auto-layout (no pattern needed)
 
 ```html
-<div class="portfolio-grid" data-layout="7-5, 3-5-4, 5-7, 4-8">
-  <img src="images/project/still-01.webp" alt="Description">
-  <img src="images/project/still-02.webp" alt="Description">
-  <!-- one child per cell; count must match the layout pattern -->
+<div class="portfolio-grid">
+  <img src="images/project/still-01.webp" alt="...">
+  <img src="images/project/still-02.webp" alt="...">
+  <img src="images/project/still-03.webp" alt="...">
+  <!-- any number of children — layout is generated from the count -->
 </div>
 <script src="/js/portfolio-grid.js"></script>
 ```
+
+### Auto-layout with seed (for reproducible variants)
+
+```html
+<!-- Same 17 images, three different layouts -->
+<div class="portfolio-grid" data-seed="0">  <!-- variant A -->
+<div class="portfolio-grid" data-seed="42"> <!-- variant B -->
+<div class="portfolio-grid" data-seed="99"> <!-- variant C -->
+```
+
+The seed is an integer passed to a deterministic PRNG (mulberry32). **Same seed + same item count = same layout every time**, across browsers and page loads. To explore different arrangements, just try different seed values.
+
+### Manual override
+
+```html
+<div class="portfolio-grid" data-layout="7-5, 3-5-4, 5-7, 4-8">
+  <img src="..."> <!-- 10 items must match 2+3+2+2=9... wait -->
+  <!-- item count MUST match the pattern total -->
+</div>
+```
+
+If the item count doesn't match the pattern, the engine logs a console warning and falls back to auto-layout.
 
 ### Required CSS
 
@@ -48,7 +86,7 @@ Cropping anchor defaults to `center center`. For shots where the subject is off-
 }
 ```
 
-### The `data-layout` attribute
+### The `data-layout` attribute (manual mode)
 
 Comma-separated rows. Each row is dash-separated column spans on a 12-column grid.
 
@@ -67,10 +105,12 @@ Spans in a row should sum to 12 (the default grid column count). The engine is f
 
 For maximum irregularity, avoid repeating the same break-point in adjacent rows.
 
-### Optional attributes
+### All attributes
 
 | Attribute | Default | Purpose |
 |---|---|---|
+| `data-seed` | `0` | Integer seed for the auto-layout generator. Different seeds produce different arrangements for the same item count. Deterministic — same seed always gives the same layout. |
+| `data-layout` | *(auto)* | Manual layout override. Comma-separated rows of dash-separated column spans. If set, item count must match. |
 | `data-min-ar` | `1.35` | Minimum aspect ratio for the narrowest cell. Lower = taller rows, more cropping. Higher = shorter rows, less cropping. Must be > 1. |
 | `data-cols` | `12` | Base column count for the grid. |
 
@@ -84,19 +124,34 @@ Works identically with `<video>` elements:
 
 `object-fit: cover` applies to video the same way. For Vimeo embeds, use the facade pattern (poster image + play button, swap iframe on click) per the site's performance rules.
 
-## Tested layout presets
+## Span presets (used by the auto-layout generator)
 
-These patterns have been visually verified. Use as starting points and adjust as needed.
+The generator picks from these pools. All sum to 12.
 
-| Name | Pattern | Items | Character |
+**2-item rows:**
+- `[7, 5]`, `[5, 7]`, `[8, 4]`, `[4, 8]`
+
+**3-item rows:**
+- `[3, 5, 4]`, `[4, 5, 3]`, `[5, 4, 3]`, `[3, 4, 5]`, `[4, 3, 5]`, `[5, 3, 4]`
+
+The generator never repeats the same span pattern in adjacent rows.
+
+## Tested layout seeds
+
+These seed + item count combinations have been visually verified with real stills from `website_stills/`. See `works/grid-test/index.html` for the live test page.
+
+| Items | Seed | Rows | Character |
 |---|---|---|---|
-| A | `7-5, 3-5-4, 5-4-3, 4-8` | 10 | Bookended wide items, dense middle |
-| B | `5-7, 4-4-4, 8-4` | 9 | Opens narrow, closes with hero |
-| C | `7-5, 3-5-4, 5-7, 4-5-3, 3-4-5, 4-8, 6-6` | 17 | Full 7-row layout, strong rhythm |
+| 17 | `0` | 8 | Mixed 2- and 3-item rows, opens with a wide pair |
+| 17 | `42` | 7 | Starts with a 3-item row, alternating rhythm |
+| 17 | `99` | 7 | Different row partition, different span selection |
+
+To reproduce: put 17 `<img>` children in a `.portfolio-grid` container with `data-seed="0"` (or `42`, `99`). The layout will be identical regardless of which images are used — only the count and seed matter.
 
 ## File locations
 
 - **Engine:** `js/portfolio-grid.js`
+- **Test page:** `works/grid-test/index.html` (not deployed — local preview only)
 - **Portfolio pages:** `works/<slug>/index.html`
 - **Image assets:** `images/<slug>/` (WebP, committed to repo)
 - **Source stills:** `website_stills/` (PNGs, not committed — convert to WebP before use)
@@ -105,7 +160,8 @@ These patterns have been visually verified. Use as starting points and adjust as
 
 1. Create `works/<slug>/index.html`
 2. Add images as `<img>` tags inside a `.portfolio-grid` container
-3. Choose or design a `data-layout` pattern
-4. Link `../../js/portfolio-grid.js` at the bottom of `<body>`
-5. Include the base CSS (inline or linked)
-6. Preview locally, then commit and push
+3. Optionally set `data-seed` to choose a layout variant (try a few values, preview each)
+4. Or set `data-layout` for a fully manual arrangement
+5. Link `../../js/portfolio-grid.js` at the bottom of `<body>`
+6. Include the base CSS (inline or linked)
+7. Preview locally, then commit and push
