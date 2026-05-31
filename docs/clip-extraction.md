@@ -2,7 +2,11 @@
 
 How to pull highlight clips from longer source video for use on the portfolio site. Requires **FFmpeg** (installed via Homebrew: `brew install ffmpeg`).
 
-Source videos live in `video_clip_seed/`. Outputs go in subfolders within the same directory — never committed to the repo (too large; `video_clip_seed/` is in `.gitignore`).
+- **Input (seed directory):** `/Users/rae/Documents/Works & SHOWREEL/`
+- **Output (clips):** `video_clip_seed/clips/<project>/`
+- **Previews:** `video_clip_seed/previews/<project>/`
+
+Each project gets its own subfolder in both `clips/` and `previews/`. Source files are never moved or modified. Neither directory is committed to the repo (too large; both are in `.gitignore`).
 
 ---
 
@@ -11,7 +15,7 @@ Source videos live in `video_clip_seed/`. Outputs go in subfolders within the sa
 Get duration and confirm the file is readable:
 
 ```bash
-ffprobe -v quiet -show_entries format=duration -of csv=p=0 "video_clip_seed/YourFile.mov"
+ffprobe -v quiet -show_entries format=duration -of csv=p=0 "/path/to/YourFile.mov"
 ```
 
 ---
@@ -21,7 +25,7 @@ ffprobe -v quiet -show_entries format=duration -of csv=p=0 "video_clip_seed/Your
 Run scene detection to find all shot boundaries. Threshold `0.2` works well for typical narrative/commercial footage — raise it (e.g. `0.3`) if you get too many false positives in a high-motion piece.
 
 ```bash
-ffmpeg -i "video_clip_seed/YourFile.mov" \
+ffmpeg -i "/path/to/YourFile.mov" \
   -vf "select=gt(scene\,0.2),showinfo" -vsync vfr -f null - 2>&1 \
   | grep "pts_time" | grep -oP 'pts_time:\K[0-9.]+' \
   | awk -v total=<DURATION_IN_SECONDS> '
@@ -48,12 +52,12 @@ Replace `<DURATION_IN_SECONDS>` with the value from Step 1.
 For each candidate shot, extract a single frame from its midpoint. This lets the owner approve moments before full clip generation.
 
 ```bash
-mkdir -p "video_clip_seed/previews"
+mkdir -p "video_clip_seed/previews/<project>"
 
 # One command per candidate — use the midpoint of each shot's time range.
 # Example for a shot from 18.16s to 23.84s (midpoint = 21.0s):
-ffmpeg -ss 21.0 -i "video_clip_seed/YourFile.mov" \
-  -frames:v 1 "video_clip_seed/previews/shot13_18s-24s.jpg" -y
+ffmpeg -ss 21.0 -i "/path/to/YourFile.mov" \
+  -frames:v 1 "video_clip_seed/previews/<project>/shot13_18s-24s.jpg" -y
 
 # Run multiple in parallel by appending & to each and then: wait
 ```
@@ -61,7 +65,7 @@ ffmpeg -ss 21.0 -i "video_clip_seed/YourFile.mov" \
 Open the folder and share the thumbnails with the owner for review:
 
 ```bash
-open "video_clip_seed/previews/"
+open "video_clip_seed/previews/<project>/"
 ```
 
 **Wait for approval before proceeding.** The owner picks which shots become clips.
@@ -87,14 +91,14 @@ These clips are silent by design. Every clip produced by this workflow should ha
 ### Commands
 
 ```bash
-mkdir -p "video_clip_seed/clips"
+mkdir -p "video_clip_seed/clips/<project>"
 
 # Replace -ss (start) and -t (duration) for each approved shot.
 # Example for a shot from 18.16s, duration 5.68s:
-ffmpeg -ss 18.16 -i "video_clip_seed/YourFile.mov" -t 5.68 \
+ffmpeg -ss 18.16 -i "/path/to/YourFile.mov" -t 5.68 \
   -c:v libx264 -crf 23 -preset fast \
   -an -movflags +faststart -pix_fmt yuv420p \
-  "video_clip_seed/clips/shot13_18s-24s.mp4" -y
+  "video_clip_seed/clips/<project>/shot13_18s-24s.mp4" -y
 
 # Run multiple in parallel by appending & to each, then wait:
 # ffmpeg ... "clip_a.mp4" -y &
@@ -107,7 +111,7 @@ ffmpeg -ss 18.16 -i "video_clip_seed/YourFile.mov" -t 5.68 \
 After extraction, confirm no audio track is present and the file is web-ready:
 
 ```bash
-ffprobe -v quiet -show_streams "video_clip_seed/clips/shot13_18s-24s.mp4" \
+ffprobe -v quiet -show_streams "video_clip_seed/clips/<project>/shot13_18s-24s.mp4" \
   | grep codec_type
 # Should output only: codec_type=video
 # If codec_type=audio appears, re-run with -an
@@ -115,15 +119,50 @@ ffprobe -v quiet -show_streams "video_clip_seed/clips/shot13_18s-24s.mp4" \
 
 ---
 
+## Step 5 — Score clips and flag outliers
+
+After extraction, score every clip by its **encoded KB/s** — the compressed file size relative to duration. This is a free signal from libx264: content-rich shots (people, motion, texture) compress large; logos, title cards, fades to black, and static frames compress tiny.
+
+**Flag threshold: 100 KB/s.** Any clip below this is a likely logo or near-static frame and should be reviewed before use.
+
+```bash
+THRESHOLD=100  # KB/s
+
+for f in "video_clip_seed/clips/<project>"/*.mp4; do
+  SIZE=$(stat -f%z "$f")
+  DUR=$(ffprobe -v quiet -show_entries format=duration -of csv=p=0 "$f")
+  KBPS=$(awk "BEGIN {printf \"%.0f\", $SIZE / $DUR / 1024}")
+  if [ "$KBPS" -lt "$THRESHOLD" ]; then
+    echo "⚠️  FLAGGED: $(basename $f) — ${KBPS} KB/s (likely logo/static/fade)"
+  else
+    echo "✓  $(basename $f) — ${KBPS} KB/s"
+  fi
+done
+```
+
+### KB/s reference
+
+| KB/s | Likely content |
+|---|---|
+| < 50 | Fade to black, solid colour, title card |
+| 50–100 | Logo on plain background, near-static — **flag zone** |
+| 100–200 | Slow or dark cinematic shot — borderline, review |
+| 200+ | Normal visual content — safe |
+
+**Note:** A legitimately dark or slow cinematic shot may also score low. The flag is a prompt to review, not an automatic rejection.
+
+---
+
 ## Output structure
 
 ```
 video_clip_seed/
-├── YourFile.mov          # source (never committed)
-├── previews/             # thumbnails for owner review (never committed)
-│   └── shot13_18s-24s.jpg
-└── clips/                # final clips ready for the site (never committed)
-    └── shot13_18s-24s.mp4
+├── previews/
+│   └── <project>/          # thumbnails for owner review (never committed)
+│       └── shot13_18s-24s.jpg
+└── clips/
+    └── <project>/          # final clips ready for the site (never committed)
+        └── shot13_18s-24s.mp4
 ```
 
 Clips from `video_clip_seed/clips/` can be moved into the site as needed once approved.
