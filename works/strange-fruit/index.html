@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strange Fruit (奇怪的果) — Rae Hu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --tracker-left: 2rem;
+      --tracker-content-space: 5.75rem;
+    }
+
+    body {
+      background: #0a0a0a;
+      color: #f4f1ec;
+      font-family: 'EB Garamond', serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    /* --- Page structure --- */
+    .work-pages {
+      width: 100%;
+      padding-left: var(--tracker-content-space);
+    }
+
+    .work-page {
+      position: relative;
+      width: 100%;
+      scroll-margin-top: 0;
+    }
+
+    /* --- Section tracker --- */
+    .section-tracker {
+      position: fixed;
+      top: 50%;
+      left: var(--tracker-left);
+      transform: translateY(-50%);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.85rem;
+    }
+
+    .section-tracker a {
+      display: block;
+      font-family: 'EB Garamond', serif;
+      font-size: 1rem;
+      line-height: 1.1;
+      color: #6f6f6f;
+      text-decoration: none;
+      transition: color 0.25s ease;
+    }
+
+    .section-tracker-dot {
+      --red-dot-size: 0.42em;
+      --red-dot-offset-y: 0;
+      margin-right: 0.45em;
+      visibility: hidden;
+    }
+
+    .section-tracker a[aria-current="true"] {
+      color: #f4f1ec;
+    }
+
+    .section-tracker a[aria-current="true"] .section-tracker-dot {
+      visibility: visible;
+    }
+
+    .section-tracker a:hover {
+      color: #f4f1ec;
+    }
+
+    /* --- Trailer facade --- */
+    .trailer-wrap {
+      position: relative;
+      width: calc(100% - 6rem);
+      height: calc(100vh - 3rem);
+      margin: 0 3rem 3rem;
+      background: #000;
+      cursor: pointer;
+      overflow: hidden;
+    }
+
+    .trailer-poster {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .trailer-play {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      opacity: 0.9;
+      transition: opacity 2s ease;
+    }
+
+    .trailer-play:hover { opacity: 1; }
+
+    .trailer-wrap iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* --- Header block: text + hero image --- */
+    .work-header {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      width: 100%;
+    }
+
+    .work-header-text {
+      padding: 3.25rem 3rem 6.5rem 4.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .work-title {
+      font-family: 'EB Garamond', serif;
+      font-weight: 500;
+      font-size: 3rem;
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+      margin-bottom: 1.8rem;
+    }
+
+    .work-subtext {
+      font-family: 'EB Garamond', serif;
+      font-weight: 400;
+      font-size: 1.6rem;
+      line-height: 1.6;
+      color: #ccc;
+      margin-bottom: 2.5rem;
+    }
+
+    .work-label {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-family: 'Syne', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #f4f1ec;
+    }
+
+    .red-dot {
+      --red-dot-size: 8px;
+      --red-dot-color: #c0392b;
+      --red-dot-offset-y: 0;
+      display: block;
+      width: var(--red-dot-size);
+      height: var(--red-dot-size);
+      background: var(--red-dot-color);
+      border-radius: 50%;
+      flex-shrink: 0;
+      transform: translateY(var(--red-dot-offset-y));
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+
+    .section-tracker .red-dot {
+      display: inline-block;
+      vertical-align: baseline;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .red-dot { animation: none; }
+    }
+
+    .work-header-image-wrap {
+      padding: 3.25rem 4rem 6.5rem 0;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .work-header-image {
+      max-width: 100%;
+      max-height: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    /* --- Grid wrapper (insets the slideshow + stills from screen edges) --- */
+    .grid-wrapper {
+      padding: 3rem 3rem 0;
+    }
+
+    /* --- Stills grid --- */
+    .portfolio-grid { width: 100%; }
+    .portfolio-grid > * {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="section-tracker" aria-label="Project sections">
+    <a href="#trailer" data-section-link="trailer" aria-current="true">
+      <span class="red-dot section-tracker-dot" aria-hidden="true"></span>
+      <span>trailer</span>
+    </a>
+    <a href="#note" data-section-link="note">
+      <span class="red-dot section-tracker-dot" aria-hidden="true"></span>
+      <span>note</span>
+    </a>
+    <a href="#highlight" data-section-link="highlight">
+      <span class="red-dot section-tracker-dot" aria-hidden="true"></span>
+      <span>highlight</span>
+    </a>
+  </nav>
+
+  <main class="work-pages" data-work="strange-fruit">
+    <section class="work-page work-page--trailer"
+             id="trailer"
+             data-section-page="trailer"
+             data-section-title="Trailer"
+             aria-label="Trailer">
+      <!-- Trailer facade (poster + play button; iframe loads on click) -->
+      <div class="trailer-wrap" id="trailer-player">
+        <img class="trailer-poster"
+             src="https://i.vimeocdn.com/video/758361997-5fc135f2f719df1c22e6a9485d8bbb8c18c9327a67154e746ba22ad34b5dbf4b-d_1920x1080"
+             alt="Strange Fruit Trailer">
+        <button class="trailer-play" aria-label="Play trailer">
+          <svg viewBox="0 0 68 48" width="68" height="48"><path d="M66.5 7.7c-.8-2.9-2.5-5.4-5.4-6.2C55.8.1 34 0 34 0S12.2.1 6.9 1.5c-2.9.8-4.6 3.3-5.4 6.2C.1 13 0 24 0 24s.1 11 1.5 16.3c.8 2.9 2.5 5.4 5.4 6.2C12.2 47.9 34 48 34 48s21.8-.1 27.1-1.5c2.9-.8 4.6-3.3 5.4-6.2C67.9 35 68 24 68 24s-.1-11-1.5-16.3z" fill="rgba(255,255,255,0.85)"/><path d="M45 24L27 14v20z" fill="#0a0a0a"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <section class="work-page work-page--note"
+             id="note"
+             data-section-page="note"
+             data-section-title="Note"
+             aria-label="Director's note">
+      <!-- Header block -->
+      <div class="work-header">
+        <div class="work-header-text">
+          <h1 class="work-title">Set in 1990s Wenzhou, China.<br>About a six-year-old girl who learns<br>to lie for the first time in her life.</h1>
+          <p class="work-subtext">Absent parents. A girl finding edges she wasn't supposed to see.<br>It started as something about loss of innocence, but really it's about the silence before you understand what you lost.</p>
+          <div class="work-label"><div class="red-dot"></div> Director's note</div>
+        </div>
+        <div class="work-header-image-wrap">
+          <img class="work-header-image" src="stills/hero.png" alt="Strange Fruit">
+        </div>
+      </div>
+    </section>
+
+    <section class="work-page work-page--highlight"
+             id="highlight"
+             data-section-page="highlight"
+             data-section-title="Highlight"
+             aria-label="Highlight">
+      <!-- Stills grid wrapper -->
+      <div class="grid-wrapper">
+
+      <!-- Stills grid: 5 items -->
+      <div class="portfolio-grid" data-layout="7-5, 4-5-3">
+        <img src="stills/still-01.png" alt="Strange Fruit still">
+        <img src="stills/still-02.png" alt="Strange Fruit still">
+        <video src="stills/shot39_7m09s.mp4" muted playsinline autoplay loop></video>
+        <img src="stills/still-04.png" alt="Strange Fruit still">
+        <img src="stills/still-05.png" alt="Strange Fruit still">
+      </div>
+
+      </div><!-- .grid-wrapper -->
+    </section>
+  </main>
+
+  <script src="../../js/portfolio-grid.js"></script>
+  <script>
+    // Trailer facade: swap poster for iframe on click
+    (function () {
+      var wrap = document.getElementById('trailer-player');
+      wrap.addEventListener('click', function () {
+        var iframe = document.createElement('iframe');
+        iframe.src = 'https://player.vimeo.com/video/316363898?autoplay=1&badge=0&autopause=0&player_id=0&app_id=58479';
+        iframe.setAttribute('frameborder', '0');
+        iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
+        iframe.setAttribute('allowfullscreen', '');
+        wrap.innerHTML = '';
+        wrap.appendChild(iframe);
+        wrap.style.cursor = 'default';
+      });
+    })();
+
+    // Section tracker: update active label and smooth-scroll on click
+    (function () {
+      var sections = Array.prototype.slice.call(document.querySelectorAll('[data-section-page]'));
+      var links = Array.prototype.slice.call(document.querySelectorAll('[data-section-link]'));
+      var ticking = false;
+
+      function setActive(sectionName) {
+        links.forEach(function (link) {
+          var isActive = link.getAttribute('data-section-link') === sectionName;
+          if (isActive) {
+            link.setAttribute('aria-current', 'true');
+          } else {
+            link.removeAttribute('aria-current');
+          }
+        });
+      }
+
+      function updateActiveSection() {
+        var anchorY = window.innerHeight * 0.4;
+        var active = sections[0];
+
+        sections.forEach(function (section) {
+          var rect = section.getBoundingClientRect();
+          if (rect.top <= anchorY) {
+            active = section;
+          }
+        });
+
+        if (active) {
+          setActive(active.getAttribute('data-section-page'));
+        }
+
+        ticking = false;
+      }
+
+      function requestUpdate() {
+        if (!ticking) {
+          ticking = true;
+          requestAnimationFrame(updateActiveSection);
+        }
+      }
+
+      links.forEach(function (link) {
+        link.addEventListener('click', function (event) {
+          var target = document.querySelector(link.getAttribute('href'));
+          if (!target) return;
+          event.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          setActive(link.getAttribute('data-section-link'));
+          history.replaceState(null, '', link.getAttribute('href'));
+        });
+      });
+
+      window.addEventListener('scroll', requestUpdate, { passive: true });
+      window.addEventListener('resize', requestUpdate);
+      updateActiveSection();
+    })();
+  </script>
+
+</body>
+</html>
