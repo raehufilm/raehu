@@ -50,12 +50,14 @@ Live at **https://raehu.com**.
 │   └── illustration.svg        # signature line-art portrait (brand asset)
 ├── pages/                      # source content for generated project pages
 │   └── works/
+│       ├── commercials/
+│       └── films/
 ├── scripts/
 │   └── generate_pages.py       # dependency-free page generator
 ├── templates/
 │   └── work-page.html          # shared generated work-page template
 ├── tests/                      # generator tests
-├── works/                      # generated project pages, served at /works/<slug>/
+├── works/                      # generated works index plus generated project pages
 ├── .github/
 │   └── workflows/
 │       ├── check-author.yml
@@ -66,7 +68,7 @@ Live at **https://raehu.com**.
 └── .gitignore
 ```
 
-Generated per-project pages live at `works/<slug>/index.html` and are served at `https://raehu.com/works/<slug>/`. Source content lives under `pages/works/<slug>/`. See [PAGES.md](PAGES.md) for the folder rules.
+The generated works index lives at `works/index.html` and is served at `https://raehu.com/works/`. Generated per-project pages live at `works/<slug>/index.html` and are served at `https://raehu.com/works/<slug>/`. Source content lives under `pages/works/commercials/<slug>/` or `pages/works/films/<slug>/`. See [PAGES.md](PAGES.md) for the folder rules.
 
 ---
 

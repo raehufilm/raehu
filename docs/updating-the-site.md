@@ -56,7 +56,7 @@ Before you start, run `git status` to see the working tree. If files you're abou
 
 1. **Read** the relevant file(s) to confirm current state before editing.
 2. **Edit** with the Edit tool, preserving the architecture rules in `CLAUDE.md` (no deploy-time build step, no package manager, no frameworks, no JS-rendered data files).
-   - For generated project pages, edit the source content under `pages/works/<slug>/`, then run `python3 scripts/generate_pages.py` so `works/<slug>/index.html` is regenerated from the template.
+   - For generated project pages, edit the source content under `pages/works/commercials/<slug>/` or `pages/works/films/<slug>/`, then run `python3 scripts/generate_pages.py` so `works/index.html` and `works/<slug>/index.html` are regenerated from the templates.
    - Before committing generated project pages, run `python3 -m unittest discover -s tests` and `python3 scripts/generate_pages.py --check`.
 3. **Preview, describe, and wait for confirmation (REQUIRED for any user-visible change).** Skip only for non-visible changes: docs, hooks, CI, `.gitignore`, infra.
 
@@ -107,7 +107,7 @@ Before you start, run `git status` to see the working tree. If files you're abou
 ### Never
 
 - Install anything to the repo (`npm install`, `pip install`, etc.) — violates the architecture rules in `CLAUDE.md`.
-- Edit a generated `works/<slug>/index.html` directly when that work is managed by `pages/works/<slug>/`; edit the source folder and rerun `scripts/generate_pages.py`.
+- Edit a generated `works/<slug>/index.html` directly when that work is managed by `pages/works/commercials/<slug>/` or `pages/works/films/<slug>/`; edit the source folder and rerun `scripts/generate_pages.py`.
 - Commit raw video files. Link trailers and longform videos to Vimeo (https://vimeo.com/raehu). Approved short MP4 clips are allowed only as ordered work-page media under `pages/works/**/media/`.
 - Bypass the pre-commit hook with `--no-verify`.
 - Force-push to `main`. Branch protection blocks it and that's intentional.

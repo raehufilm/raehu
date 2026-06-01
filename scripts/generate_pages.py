@@ -27,7 +27,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PAGES_WORKS_DIR = REPO_ROOT / "pages" / "works"
 WORKS_OUTPUT_DIR = REPO_ROOT / "works"
 WORK_PAGE_TEMPLATE = REPO_ROOT / "templates" / "work-page.html"
+WORKS_INDEX_TEMPLATE = REPO_ROOT / "templates" / "works-index.html"
 
+WORK_CATEGORIES = ("films", "commercials")
 SECTION_ORDER = ("trailer", "note", "highlight", "bts")
 IGNORED_NAMES = {".DS_Store"}
 IMAGE_EXTENSIONS = {".avif", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
@@ -63,6 +65,7 @@ class WorkContent:
     highlight_media: tuple[MediaItem, ...]
     bts_text_html: str
     bts_media: tuple[MediaItem, ...]
+    category: str = ""
 
 
 def html_escape(value: str) -> str:
@@ -336,6 +339,19 @@ def output_relative_url(output_html: Path, target: Path) -> str:
     return "/".join(quote(part) for part in Path(relative_path).parts)
 
 
+def repo_relative_url(output_html: Path, *parts: str) -> str:
+    return output_relative_url(output_html, REPO_ROOT.joinpath(*parts))
+
+
+def work_output_html(work: WorkContent) -> Path:
+    return WORKS_OUTPUT_DIR / work.slug / "index.html"
+
+
+def work_public_url_from(output_html: Path, work: WorkContent) -> str:
+    href = output_relative_url(output_html, work_output_html(work).parent)
+    return href if href.endswith("/") else f"{href}/"
+
+
 def media_tag(
     item: MediaItem,
     output_html: Path,
@@ -388,6 +404,7 @@ def load_work(work_dir: Path, write_assets: bool = False) -> WorkContent:
         highlight_media=highlight_media,
         bts_text_html=bts_text_html,
         bts_media=bts_media,
+        category=work_dir.parent.name,
     )
 
 
@@ -402,6 +419,10 @@ def render_tracker_links(sections: Iterable[str]) -> str:
             "    </a>"
         )
     return "\n".join(lines)
+
+
+def category_label(category: str) -> str:
+    return category.replace("-", " ")
 
 
 def default_grid_layout(count: int) -> str:
@@ -557,8 +578,74 @@ def render_work(work: WorkContent, template: str, output_html: Path) -> str:
     replacements = {
         "{{DOCUMENT_TITLE}}": html_escape(work.title),
         "{{WORK_SLUG}}": html_escape(work.slug),
+        "{{WORK_CATEGORY}}": html_escape(work.category),
+        "{{ROOT_INDEX_URL}}": repo_relative_url(output_html, "index.html"),
+        "{{PORTFOLIO_GRID_JS_URL}}": repo_relative_url(output_html, "js", "portfolio-grid.js"),
         "{{SECTION_TRACKER_LINKS}}": render_tracker_links(SECTION_ORDER),
         "{{WORK_SECTIONS}}": "\n\n".join(sections),
+    }
+
+    rendered = template
+    for placeholder, value in replacements.items():
+        rendered = rendered.replace(placeholder, value)
+    return rendered
+
+
+def render_works_index_grid_item(work: WorkContent, output_html: Path) -> str:
+    href = work_public_url_from(output_html, work)
+    if work.trailer_poster_url:
+        poster_src = html_escape(work.trailer_poster_url)
+    else:
+        poster_src = output_relative_url(output_html, work.note_media.path)
+
+    title = html_escape(work.title)
+    return f"""        <a class="works-grid-link" href="{href}" aria-label="{title}">
+          <img src="{poster_src}" alt="{title} trailer preview" loading="lazy" decoding="async">
+          <span class="works-grid-title">{title}</span>
+        </a>"""
+
+
+def render_works_index_section(
+    category: str,
+    works: tuple[WorkContent, ...],
+    output_html: Path,
+) -> str:
+    grid_items = "\n".join(
+        render_works_index_grid_item(work, output_html)
+        for work in works
+    )
+    empty = ""
+    if not grid_items:
+        empty = '        <p class="works-index-empty">Coming soon.</p>'
+
+    return f"""    <section class="works-index-page"
+             id="{html_escape(category)}"
+             data-section-page="{html_escape(category)}"
+             data-section-title="{html_escape(category_label(category))}"
+             aria-label="{html_escape(category_label(category))}">
+      <div class="works-index-grid-wrap">
+        <div class="portfolio-grid works-index-grid" data-seed="{len(category)}">
+{grid_items or empty}
+        </div>
+      </div>
+    </section>"""
+
+
+def render_works_index(works: tuple[WorkContent, ...], template: str, output_html: Path) -> str:
+    works_by_category = {
+        category: tuple(work for work in works if work.category == category)
+        for category in WORK_CATEGORIES
+    }
+    sections = [
+        render_works_index_section(category, works_by_category[category], output_html)
+        for category in WORK_CATEGORIES
+    ]
+
+    replacements = {
+        "{{ROOT_INDEX_URL}}": repo_relative_url(output_html, "index.html"),
+        "{{PORTFOLIO_GRID_JS_URL}}": repo_relative_url(output_html, "js", "portfolio-grid.js"),
+        "{{SECTION_TRACKER_LINKS}}": render_tracker_links(WORK_CATEGORIES),
+        "{{WORKS_INDEX_SECTIONS}}": "\n\n".join(sections),
     }
 
     rendered = template
@@ -572,27 +659,67 @@ def discover_work_dirs(pages_works_dir: Path, selected_slug: str | None = None) 
         raise PageGenerationError(f"Missing pages works folder: {pages_works_dir}")
 
     work_dirs = []
-    for work_dir in sorted(path for path in pages_works_dir.iterdir() if path.is_dir()):
-        if work_dir.name.startswith("."):
+    seen_slugs: dict[str, Path] = {}
+    for category in WORK_CATEGORIES:
+        category_dir = pages_works_dir / category
+        if not category_dir.is_dir():
             continue
-        if selected_slug and work_dir.name != selected_slug:
-            continue
-        if valid_started_work(work_dir):
+        for work_dir in sorted(path for path in category_dir.iterdir() if path.is_dir()):
+            if work_dir.name.startswith("."):
+                continue
+            if selected_slug and work_dir.name != selected_slug:
+                continue
+            if not valid_started_work(work_dir):
+                continue
+            existing = seen_slugs.get(work_dir.name)
+            if existing:
+                raise PageGenerationError(
+                    f"Duplicate work slug '{work_dir.name}' in {existing} and {work_dir}"
+                )
+            seen_slugs[work_dir.name] = work_dir
             work_dirs.append(work_dir)
     return work_dirs
 
 
 def generate(check: bool = False, selected_slug: str | None = None) -> int:
-    template = read_text(WORK_PAGE_TEMPLATE)
+    work_template = read_text(WORK_PAGE_TEMPLATE)
     work_dirs = discover_work_dirs(PAGES_WORKS_DIR, selected_slug)
     if selected_slug and not work_dirs:
         raise PageGenerationError(f"No valid started work found for slug: {selected_slug}")
 
     failures = 0
+    works: list[WorkContent] = []
     for work_dir in work_dirs:
         work = load_work(work_dir, write_assets=not check)
-        output_html = WORKS_OUTPUT_DIR / work.slug / "index.html"
-        rendered = render_work(work, template, output_html)
+        works.append(work)
+        output_html = work_output_html(work)
+        rendered = render_work(work, work_template, output_html)
+
+        if check:
+            current = output_html.read_text(encoding="utf-8") if output_html.exists() else ""
+            if current != rendered:
+                failures += 1
+                diff = difflib.unified_diff(
+                    current.splitlines(),
+                    rendered.splitlines(),
+                    fromfile=str(output_html),
+                    tofile=f"generated:{output_html}",
+                    lineterm="",
+                )
+                print(
+                    f"Generated page is out of date: {output_html}",
+                    file=sys.stderr,
+                )
+                print("\n".join(diff), file=sys.stderr)
+        else:
+            output_html.parent.mkdir(parents=True, exist_ok=True)
+            output_html.write_text(rendered, encoding="utf-8")
+            print(f"generated {output_html.relative_to(REPO_ROOT)}")
+
+    if not selected_slug:
+        works_index_template = read_text(WORKS_INDEX_TEMPLATE)
+        output_html = WORKS_OUTPUT_DIR / "index.html"
+        rendered = render_works_index(tuple(works), works_index_template, output_html)
 
         if check:
             current = output_html.read_text(encoding="utf-8") if output_html.exists() else ""

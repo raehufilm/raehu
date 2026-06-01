@@ -1,3 +1,5 @@
+import contextlib
+import io
 import tempfile
 import unittest
 from pathlib import Path
@@ -125,6 +127,176 @@ class GeneratePagesTests(unittest.TestCase):
 
     def test_default_layout_preserves_current_five_item_highlight_shape(self):
         self.assertEqual(generate_pages.default_grid_layout(5), "7-5, 4-5-3")
+
+    def test_discover_work_dirs_traverses_commercials_and_films(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pages_works = Path(tmp) / "pages" / "works"
+            commercial = pages_works / "commercials" / "sample-ad"
+            film = pages_works / "films" / "sample-film"
+            (commercial / "trailer").mkdir(parents=True)
+            (film / "trailer").mkdir(parents=True)
+            (commercial / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/1",
+                encoding="utf-8",
+            )
+            (film / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/2",
+                encoding="utf-8",
+            )
+
+            work_dirs = generate_pages.discover_work_dirs(pages_works)
+
+        self.assertEqual(
+            [path.relative_to(pages_works).as_posix() for path in work_dirs],
+            ["films/sample-film", "commercials/sample-ad"],
+        )
+
+    def test_discover_work_dirs_rejects_duplicate_slugs_across_categories(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pages_works = Path(tmp) / "pages" / "works"
+            commercial = pages_works / "commercials" / "same-slug"
+            film = pages_works / "films" / "same-slug"
+            (commercial / "trailer").mkdir(parents=True)
+            (film / "trailer").mkdir(parents=True)
+            (commercial / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/1",
+                encoding="utf-8",
+            )
+            (film / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/2",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(generate_pages.PageGenerationError):
+                generate_pages.discover_work_dirs(pages_works)
+
+    def test_generate_writes_category_source_to_public_work_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "pages" / "works" / "films" / "sample-work"
+            output = root / "works"
+            template = root / "templates" / "work-page.html"
+
+            (source / "trailer").mkdir(parents=True)
+            (source / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/123456789",
+                encoding="utf-8",
+            )
+            (source / "note" / "media").mkdir(parents=True)
+            (source / "note" / "text.md").write_text(
+                "# Sample Work\n\nA sample note.",
+                encoding="utf-8",
+            )
+            (source / "note" / "media" / "1_note.webp").write_text(
+                "webp",
+                encoding="utf-8",
+            )
+            (source / "highlight" / "media").mkdir(parents=True)
+            (source / "highlight" / "media" / "1_highlight.webp").write_text(
+                "webp",
+                encoding="utf-8",
+            )
+            (source / "bts" / "media").mkdir(parents=True)
+            (source / "bts" / "text.md").write_text("Credits", encoding="utf-8")
+            (source / "bts" / "media" / "1_bts.webp").write_text(
+                "webp",
+                encoding="utf-8",
+            )
+            template.parent.mkdir()
+            template.write_text(
+                "<title>{{DOCUMENT_TITLE}}</title>"
+                "{{WORK_CATEGORY}}"
+                "{{ROOT_INDEX_URL}}"
+                "{{PORTFOLIO_GRID_JS_URL}}"
+                "{{WORK_SECTIONS}}",
+                encoding="utf-8",
+            )
+
+            with (
+                contextlib.redirect_stdout(io.StringIO()),
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "PAGES_WORKS_DIR", source.parent.parent),
+                mock.patch.object(generate_pages, "WORKS_OUTPUT_DIR", output),
+                mock.patch.object(generate_pages, "WORK_PAGE_TEMPLATE", template),
+                mock.patch.object(generate_pages, "vimeo_thumbnail_url", return_value=None),
+            ):
+                failures = generate_pages.generate(selected_slug="sample-work")
+
+            output_html = output / "sample-work" / "index.html"
+            subpages_output_html = root / "works" / "subpages" / "sample-work" / "index.html"
+
+            self.assertEqual(failures, 0)
+            self.assertTrue(output_html.exists())
+            self.assertFalse(subpages_output_html.exists())
+            generated = output_html.read_text(encoding="utf-8")
+            self.assertIn("films", generated)
+            self.assertIn("../../index.html", generated)
+            self.assertIn("../../js/portfolio-grid.js", generated)
+
+    def test_render_works_index_uses_category_sections_and_trailer_posters(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            works_output = root / "works"
+            output_html = works_output / "index.html"
+            film = generate_pages.WorkContent(
+                slug="sample-film",
+                title="Sample Film",
+                trailer_embed_url="https://player.vimeo.com/video/1",
+                trailer_poster_url="https://i.vimeocdn.com/video/film_1280",
+                note=generate_pages.NoteContent(title_html="Film", body_html="Body"),
+                note_media=generate_pages.MediaItem(
+                    1,
+                    root / "pages" / "works" / "films" / "sample-film" / "note" / "media" / "1_note.webp",
+                    "image",
+                ),
+                highlight_media=(),
+                bts_text_html="Credits",
+                bts_media=(),
+                category="films",
+            )
+            commercial = generate_pages.WorkContent(
+                slug="sample-ad",
+                title="Sample Ad",
+                trailer_embed_url="https://player.vimeo.com/video/2",
+                trailer_poster_url="https://i.vimeocdn.com/video/ad_1280",
+                note=generate_pages.NoteContent(title_html="Ad", body_html="Body"),
+                note_media=generate_pages.MediaItem(
+                    1,
+                    root / "pages" / "works" / "commercials" / "sample-ad" / "note" / "media" / "1_note.webp",
+                    "image",
+                ),
+                highlight_media=(),
+                bts_text_html="Credits",
+                bts_media=(),
+                category="commercials",
+            )
+            template = (
+                "{{SECTION_TRACKER_LINKS}}"
+                "{{WORKS_INDEX_SECTIONS}}"
+                "{{ROOT_INDEX_URL}}"
+                "{{PORTFOLIO_GRID_JS_URL}}"
+            )
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "WORKS_OUTPUT_DIR", works_output),
+            ):
+                rendered = generate_pages.render_works_index(
+                    (commercial, film),
+                    template,
+                    output_html,
+                )
+
+        films_index = rendered.index('id="films"')
+        commercials_index = rendered.index('id="commercials"')
+
+        self.assertLess(films_index, commercials_index)
+        self.assertIn('href="sample-film/"', rendered)
+        self.assertIn('href="sample-ad/"', rendered)
+        self.assertIn('src="https://i.vimeocdn.com/video/film_1280"', rendered)
+        self.assertIn('src="https://i.vimeocdn.com/video/ad_1280"', rendered)
+        self.assertIn("../index.html", rendered)
+        self.assertIn("../js/portfolio-grid.js", rendered)
 
 
 if __name__ == "__main__":

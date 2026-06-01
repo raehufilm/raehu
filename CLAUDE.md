@@ -111,8 +111,10 @@ The owner does not run dev tools, does not read code, and cannot inspect commit 
 ### Conventions
 
 - `index.html` — landing page (CSS + JS inline)
+- `works/index.html` — generated works index page served at `/works/`
 - `works/<slug>/index.html` — generated per-project detail pages served at `/works/<slug>/`
-- `pages/works/<slug>/` — editable source-content folders for generated per-project pages
+- `pages/works/commercials/<slug>/` — editable source-content folders for generated commercial pages
+- `pages/works/films/<slug>/` — editable source-content folders for generated film pages
 - `templates/work-page.html` — shared generated-work-page HTML template
 - `scripts/generate_pages.py` — dependency-free generator/checker for `pages/works` content
 - `generate_website` — root macOS-clickable generate/test/commit/push/publish wrapper

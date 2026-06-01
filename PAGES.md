@@ -10,10 +10,11 @@ Keep it updated whenever the folder schema, naming rules, supported media types,
 The public website output still lives in the normal static site paths, such as:
 
 ```text
+works/index.html
 works/<work-slug>/index.html
 ```
 
-`scripts/generate_pages.py` reads valid work folders under `pages/works/` and writes the static HTML output. The owner should not need to understand code; Claude/Codex runs it after content changes and commits the generated HTML. On this Mac, the root `generate_website` script is also available as a double-clickable publish path.
+`scripts/generate_pages.py` reads valid work folders under `pages/works/commercials/` and `pages/works/films/` and writes the static HTML output for both the works index and the per-work pages. The owner should not need to understand code; Claude/Codex runs it after content changes and commits the generated HTML. On this Mac, the root `generate_website` script is also available as a double-clickable publish path.
 
 ## Current Structure
 
@@ -22,40 +23,57 @@ The working content skeleton is:
 ```text
 pages/
   works/
-    strange-fruit/
-      trailer/
-        trailer_link.md
-      note/
-        text.md
-        media/
-          1_hero.webp
-      highlight/
-        media/
-          1_still-01.webp
-          2_still-02.webp
-          3_shot39_7m09s.mp4
-          4_still-04.webp
-          5_still-05.webp
-      bts/
-        text.md
-        media/
-          1_bts.webp
-          2_bts.webp
-          3_bts.webp
-          4_bts.webp
-          5_bts.webp
+    commercials/
+      champion/
+        trailer/
+          trailer_link.md
+        note/
+          text.md
+          media/
+            1_note.webp
+        highlight/
+          media/
+            1_highlight.webp
+            2_highlight.webp
+            3_highlight.webp
+        bts/
+          text.md
+          media/
+            1_bts.webp
+            2_bts.webp
+    films/
+      strange-fruit/
+        trailer/
+          trailer_link.md
+        note/
+          text.md
+          media/
+            1_hero.webp
+        highlight/
+          media/
+            1_still-01.webp
+            2_still-02.webp
+            3_shot39_7m09s.mp4
+        bts/
+          text.md
+          media/
+            1_bts.webp
+            2_bts.webp
 ```
 
 The current `trailer`, `note`, `highlight`, and `bts` sections are the first sections being formalized.
 
 ## General Rules
 
-- `pages/works/<work-slug>/` maps to `works/<work-slug>/index.html`.
+- `pages/works/commercials/<work-slug>/` maps to `works/<work-slug>/index.html` and one grid item in `works/index.html`.
+- `pages/works/films/<work-slug>/` maps to `works/<work-slug>/index.html` and one grid item in `works/index.html`.
+- Both categories are traversed for valid started work folders.
+- Work slugs must be unique across `commercials` and `films`, because both categories share the public `/works/<slug>/` URL space.
 - Each child folder under a work represents a page section.
 - Section folder names should match the site section IDs and tracker labels where practical: `trailer`, `note`, `highlight`, `bts`.
 - Empty folders are useful locally, but Git does not preserve empty directories. A folder needs real content or a placeholder file before it can be committed.
 - The generated/static HTML remains the deployable website output. `pages/` is the editable content source, not a runtime JavaScript data store.
-- Generated files such as `works/<work-slug>/index.html` should not be edited directly once a work is managed by `pages/`; update `pages/` and rerun the generator instead.
+- Generated files such as `works/<work-slug>/index.html` should not be edited directly once a work is managed by `pages/`; update `pages/works/commercials/` or `pages/works/films/` and rerun the generator instead.
 - The generator currently treats a work as a candidate only when the work folder contains real source files. Empty draft folders are ignored.
 - A started work folder must be valid before it can generate: missing required files, unsupported media types, duplicate media numbers, or invalid Vimeo links are errors.
 
@@ -100,6 +118,8 @@ Generator rules:
 - It uses only the Python standard library; do not add package-manager dependencies.
 - `--check` fails if committed HTML differs from generated HTML.
 - The shared HTML wrapper lives at `templates/work-page.html`.
+- The works index wrapper lives at `templates/works-index.html`.
+- The works index output is `works/index.html`.
 - The current generated page output is `works/<work-slug>/index.html`.
 - The current work title is derived from the folder slug, such as `strange-fruit` → `Strange Fruit`. A richer work-title metadata rule is still open.
 - Image inputs in `media/` are converted to WebP with ffmpeg.
@@ -176,7 +196,7 @@ The current `bts` section behavior is:
 - Slideshow media is ordered by `NUMBER_`.
 - Slideshow controls are previous/next arrows that appear only when hovering over the slideshow.
 
-The generated HTML currently references media directly from `pages/works/strange-fruit/bts/media/`. This is acceptable for local proof-of-concept work, but final deployable assets still need an optimized media workflow.
+The generated HTML currently references media directly from `pages/works/<category>/<slug>/bts/media/`. This is acceptable for local proof-of-concept work, but final deployable assets still need an optimized media workflow.
 
 ## Current Note Template Rules
 
@@ -203,7 +223,20 @@ The current `highlight` section behavior is:
 - The layout adapts to the number of media items. Five-item grids currently use `7-5, 4-5-3`; seven-item grids currently use `7-5, 4-4-4, 6-6`.
 - Media items can be images or muted looping video clips.
 
-The generated HTML currently references allowed media directly from `pages/works/<slug>/highlight/media/`. The publish workflow copies only `.webp` and `.mp4` files from those media folders into the Pages artifact.
+The generated HTML currently references allowed media directly from `pages/works/<category>/<slug>/highlight/media/`. The publish workflow copies only `.webp` and `.mp4` files from those media folders into the Pages artifact.
+
+## Current Works Index Template Rules
+
+The current `works/index.html` behavior is:
+
+- It is generated from all valid work folders under `pages/works/films/` and `pages/works/commercials/`.
+- It has two stacked sections: `films`, then `commercials`.
+- It uses the same fixed left-side section tracker behavior as generated work pages.
+- Each category section uses the shared irregular `.portfolio-grid` layout engine.
+- Each grid entry links to the generated public work page at `works/<slug>/index.html`.
+- Each grid entry uses the work's Vimeo trailer poster image when Vimeo returns one.
+- If Vimeo does not return a trailer poster image, the generator falls back to the work's note media image.
+- The grids are automatically sized by item count, so adding/removing valid work folders changes the rows/columns without hand-editing `works/index.html`.
 
 ## Deployment And Media Quality
 

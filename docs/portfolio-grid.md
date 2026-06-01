@@ -152,6 +152,7 @@ To reproduce: put 17 `<img>` children in a `.portfolio-grid` container with `dat
 
 - **Engine:** `js/portfolio-grid.js`
 - **Test page:** `works/grid-test/index.html` (not deployed — local preview only)
+- **Works index:** `works/index.html`
 - **Portfolio pages:** `works/<slug>/index.html`
 - **Image assets:** `images/<slug>/` (WebP, committed to repo)
 - **Source stills:** `website_stills/` (PNGs, not committed — convert to WebP before use)
@@ -162,6 +163,6 @@ To reproduce: put 17 `<img>` children in a `.portfolio-grid` container with `dat
 2. Add images as `<img>` tags inside a `.portfolio-grid` container
 3. Optionally set `data-seed` to choose a layout variant (try a few values, preview each)
 4. Or set `data-layout` for a fully manual arrangement
-5. Link `../../js/portfolio-grid.js` at the bottom of `<body>`
+5. Link the repo-relative `js/portfolio-grid.js` path at the bottom of `<body>`
 6. Include the base CSS (inline or linked)
 7. Preview locally, then commit and push
