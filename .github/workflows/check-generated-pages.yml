@@ -17,8 +17,5 @@ jobs:
       - name: Run generator tests
         run: python -m unittest discover -s tests
 
-      - name: Confirm ffmpeg is available
-        run: ffmpeg -version
-
       - name: Check generated HTML is up to date
         run: python scripts/generate_pages.py --check

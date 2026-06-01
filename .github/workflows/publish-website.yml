@@ -25,9 +25,6 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Confirm ffmpeg is available
-        run: ffmpeg -version
-
       - name: Run generator tests
         run: python -m unittest discover -s tests
 
