@@ -83,6 +83,7 @@ cd "$REPO_DIR"
 
 export GIT_TERMINAL_PROMPT=0
 export GH_PROMPT_DISABLED=1
+export PYTHONDONTWRITEBYTECODE=1
 
 require_tool() {
   command -v "$1" >/dev/null 2>&1 || fail "Missing required tool: $1"
