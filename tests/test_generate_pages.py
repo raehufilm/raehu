@@ -207,6 +207,7 @@ class GeneratePagesTests(unittest.TestCase):
                 "<title>{{DOCUMENT_TITLE}}</title>"
                 "{{WORK_CATEGORY}}"
                 "{{ROOT_INDEX_URL}}"
+                "{{WORKS_INDEX_URL}}"
                 "{{PORTFOLIO_GRID_JS_URL}}"
                 "{{WORK_SECTIONS}}",
                 encoding="utf-8",
@@ -231,6 +232,7 @@ class GeneratePagesTests(unittest.TestCase):
             generated = output_html.read_text(encoding="utf-8")
             self.assertIn("films", generated)
             self.assertIn("../../index.html", generated)
+            self.assertIn("../", generated)
             self.assertIn("../../js/portfolio-grid.js", generated)
 
     def test_render_works_index_uses_category_sections_and_trailer_posters(self):
@@ -274,6 +276,7 @@ class GeneratePagesTests(unittest.TestCase):
                 "{{SECTION_TRACKER_LINKS}}"
                 "{{WORKS_INDEX_SECTIONS}}"
                 "{{ROOT_INDEX_URL}}"
+                "{{WORKS_INDEX_URL}}"
                 "{{PORTFOLIO_GRID_JS_URL}}"
             )
 
@@ -296,6 +299,7 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertIn('src="https://i.vimeocdn.com/video/film_1280"', rendered)
         self.assertIn('src="https://i.vimeocdn.com/video/ad_1280"', rendered)
         self.assertIn("../index.html", rendered)
+        self.assertIn("./", rendered)
         self.assertIn("../js/portfolio-grid.js", rendered)
 
 

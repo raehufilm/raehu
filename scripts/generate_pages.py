@@ -352,6 +352,13 @@ def work_public_url_from(output_html: Path, work: WorkContent) -> str:
     return href if href.endswith("/") else f"{href}/"
 
 
+def works_index_url_from(output_html: Path) -> str:
+    href = output_relative_url(output_html, WORKS_OUTPUT_DIR)
+    if href in {"", "."}:
+        return "./"
+    return href if href.endswith("/") else f"{href}/"
+
+
 def media_tag(
     item: MediaItem,
     output_html: Path,
@@ -580,6 +587,7 @@ def render_work(work: WorkContent, template: str, output_html: Path) -> str:
         "{{WORK_SLUG}}": html_escape(work.slug),
         "{{WORK_CATEGORY}}": html_escape(work.category),
         "{{ROOT_INDEX_URL}}": repo_relative_url(output_html, "index.html"),
+        "{{WORKS_INDEX_URL}}": works_index_url_from(output_html),
         "{{PORTFOLIO_GRID_JS_URL}}": repo_relative_url(output_html, "js", "portfolio-grid.js"),
         "{{SECTION_TRACKER_LINKS}}": render_tracker_links(SECTION_ORDER),
         "{{WORK_SECTIONS}}": "\n\n".join(sections),
@@ -643,6 +651,7 @@ def render_works_index(works: tuple[WorkContent, ...], template: str, output_htm
 
     replacements = {
         "{{ROOT_INDEX_URL}}": repo_relative_url(output_html, "index.html"),
+        "{{WORKS_INDEX_URL}}": works_index_url_from(output_html),
         "{{PORTFOLIO_GRID_JS_URL}}": repo_relative_url(output_html, "js", "portfolio-grid.js"),
         "{{SECTION_TRACKER_LINKS}}": render_tracker_links(WORK_CATEGORIES),
         "{{WORKS_INDEX_SECTIONS}}": "\n\n".join(sections),
