@@ -1,0 +1,607 @@
+#!/usr/bin/env python3
+"""Generate static work pages from the editable pages/works source tree.
+
+This script intentionally uses only the Python standard library so it can run
+locally and in GitHub Actions without package installation.
+"""
+
+from __future__ import annotations
+
+import argparse
+import difflib
+import html
+import os
+import re
+import shutil
+import subprocess
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable
+from urllib.parse import parse_qs, quote, urlencode, urlparse
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+PAGES_WORKS_DIR = REPO_ROOT / "pages" / "works"
+WORKS_OUTPUT_DIR = REPO_ROOT / "works"
+WORK_PAGE_TEMPLATE = REPO_ROOT / "templates" / "work-page.html"
+
+SECTION_ORDER = ("trailer", "note", "highlight", "bts")
+IGNORED_NAMES = {".DS_Store"}
+IMAGE_EXTENSIONS = {".avif", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
+VIDEO_EXTENSIONS = {".mp4"}
+WEB_IMAGE_EXTENSION = ".webp"
+
+
+class PageGenerationError(Exception):
+    """Raised when source content cannot be converted into a page."""
+
+
+@dataclass(frozen=True)
+class MediaItem:
+    index: int
+    path: Path
+    kind: str
+
+
+@dataclass(frozen=True)
+class NoteContent:
+    title_html: str
+    body_html: str
+
+
+@dataclass(frozen=True)
+class WorkContent:
+    slug: str
+    title: str
+    trailer_embed_url: str
+    note: NoteContent
+    note_media: MediaItem
+    highlight_media: tuple[MediaItem, ...]
+    bts_text_html: str
+    bts_media: tuple[MediaItem, ...]
+
+
+def html_escape(value: str) -> str:
+    return html.escape(value, quote=True)
+
+
+def title_from_slug(slug: str) -> str:
+    return " ".join(part.capitalize() for part in slug.split("-") if part)
+
+
+def read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise PageGenerationError(f"Missing required file: {path}") from exc
+
+
+def non_empty_lines(text: str) -> list[str]:
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+def read_first_non_empty_line(path: Path) -> str:
+    lines = non_empty_lines(read_text(path))
+    if not lines:
+        raise PageGenerationError(f"{path} must contain one non-empty line")
+    return lines[0]
+
+
+def apply_inline_markdown(value: str) -> str:
+    """Apply the small Markdown subset currently supported by pages/ text files."""
+    escaped = html_escape(value)
+
+    def link_repl(match: re.Match[str]) -> str:
+        label = match.group(1)
+        url = match.group(2)
+        return f'<a href="{url}">{label}</a>'
+
+    escaped = re.sub(
+        r"\[([^\]\n]+)\]\((https?://[^)\s]+)\)",
+        link_repl,
+        escaped,
+    )
+    escaped = re.sub(r"\*\*([^*\n]+)\*\*", r"<strong>\1</strong>", escaped)
+    escaped = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"<em>\1</em>", escaped)
+    return escaped
+
+
+def render_markdown_lines(lines: Iterable[str]) -> str:
+    trimmed = list(lines)
+    while trimmed and not trimmed[0].strip():
+        trimmed.pop(0)
+    while trimmed and not trimmed[-1].strip():
+        trimmed.pop()
+    return "<br>".join(apply_inline_markdown(line.strip()) for line in trimmed)
+
+
+def parse_note_text(path: Path) -> NoteContent:
+    lines = read_text(path).splitlines()
+
+    title_index = None
+    title = None
+    for index, line in enumerate(lines):
+        if line.strip().startswith("# "):
+            title_index = index
+            title = line.strip()[2:].strip()
+            break
+
+    if title_index is None or not title:
+        raise PageGenerationError(f"{path} must start its title with '# '")
+
+    body_lines = lines[title_index + 1 :]
+    body_html = render_markdown_lines(body_lines)
+    if not body_html:
+        raise PageGenerationError(f"{path} must include body text after the heading")
+
+    return NoteContent(
+        title_html=render_markdown_lines([title]),
+        body_html=body_html,
+    )
+
+
+def parse_vimeo_url(raw_url: str) -> tuple[str, str | None]:
+    url = raw_url.strip()
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        raise PageGenerationError(f"Vimeo URL must start with http:// or https://: {raw_url}")
+
+    host = parsed.netloc.lower()
+    if host.startswith("www."):
+        host = host[4:]
+    if host not in {"vimeo.com", "player.vimeo.com"}:
+        raise PageGenerationError(f"Unsupported Vimeo host in URL: {raw_url}")
+
+    parts = [part for part in parsed.path.split("/") if part]
+    video_id = None
+    hash_value = None
+
+    for index, part in enumerate(parts):
+        if part.isdigit():
+            video_id = part
+            if index + 1 < len(parts):
+                hash_value = parts[index + 1]
+            break
+
+    if not video_id:
+        raise PageGenerationError(f"Could not find Vimeo numeric video ID in URL: {raw_url}")
+
+    query_hash = parse_qs(parsed.query).get("h")
+    if query_hash:
+        hash_value = query_hash[0]
+
+    return video_id, hash_value
+
+
+def vimeo_embed_url(raw_url: str) -> str:
+    video_id, hash_value = parse_vimeo_url(raw_url)
+    params = [
+        ("autoplay", "1"),
+        ("badge", "0"),
+        ("autopause", "0"),
+        ("player_id", "0"),
+        ("app_id", "58479"),
+    ]
+    if hash_value:
+        params.insert(0, ("h", hash_value))
+    return f"https://player.vimeo.com/video/{video_id}?{urlencode(params)}"
+
+
+def media_kind(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix in IMAGE_EXTENSIONS:
+        return "image"
+    if suffix in VIDEO_EXTENSIONS:
+        return "video"
+    raise PageGenerationError(f"Unsupported media type: {path}")
+
+
+def converted_image_path(path: Path) -> Path:
+    return path.with_suffix(WEB_IMAGE_EXTENSION)
+
+
+def needs_conversion(source: Path, target: Path) -> bool:
+    if not target.exists():
+        return True
+    return source.stat().st_mtime_ns > target.stat().st_mtime_ns
+
+
+def convert_image_to_webp(source: Path, target: Path) -> None:
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise PageGenerationError(
+            "ffmpeg is required to convert source images to WebP. "
+            "Install ffmpeg or provide .webp files directly."
+        )
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    command = [
+        ffmpeg,
+        "-y",
+        "-loglevel",
+        "error",
+        "-i",
+        str(source),
+        "-vf",
+        r"scale=w=min(1920\,iw):h=-2",
+        "-c:v",
+        "libwebp",
+        "-quality",
+        "82",
+        "-compression_level",
+        "6",
+        str(target),
+    ]
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as exc:
+        raise PageGenerationError(f"ffmpeg failed to convert {source} to {target}") from exc
+
+
+def canonical_media_path(path: Path, write_assets: bool) -> Path:
+    kind = media_kind(path)
+    if kind != "image":
+        return path
+
+    target = converted_image_path(path)
+    if path.suffix.lower() == WEB_IMAGE_EXTENSION:
+        return path
+
+    if needs_conversion(path, target):
+        if not write_assets:
+            raise PageGenerationError(
+                f"Converted WebP is missing or stale for {path}. "
+                "Run python3 scripts/generate_pages.py."
+            )
+        convert_image_to_webp(path, target)
+    return target
+
+
+def media_index(path: Path) -> int:
+    match = re.match(r"^(\d+)_", path.name)
+    if not match:
+        raise PageGenerationError(f"Media file must start with NUMBER_: {path}")
+    return int(match.group(1))
+
+
+def ordered_media(media_dir: Path, write_assets: bool = False) -> tuple[MediaItem, ...]:
+    if not media_dir.is_dir():
+        raise PageGenerationError(f"Missing required media folder: {media_dir}")
+
+    media: list[MediaItem] = []
+    seen_indexes: dict[int, Path] = {}
+    seen_paths: set[Path] = set()
+    for path in media_dir.iterdir():
+        if path.name in IGNORED_NAMES or path.name.startswith("."):
+            continue
+        if not path.is_file():
+            continue
+        index = media_index(path)
+        canonical_path = canonical_media_path(path, write_assets=write_assets)
+        if canonical_path in seen_paths:
+            continue
+        if index in seen_indexes:
+            raise PageGenerationError(
+                f"Duplicate media number {index}: {seen_indexes[index]} and {canonical_path}"
+            )
+        seen_indexes[index] = canonical_path
+        seen_paths.add(canonical_path)
+        media.append(
+            MediaItem(
+                index=index,
+                path=canonical_path,
+                kind=media_kind(canonical_path),
+            )
+        )
+
+    if not media:
+        raise PageGenerationError(f"No media found in: {media_dir}")
+
+    return tuple(sorted(media, key=lambda item: item.index))
+
+
+def output_relative_url(output_html: Path, target: Path) -> str:
+    relative_path = os.path.relpath(target, start=output_html.parent)
+    return "/".join(quote(part) for part in Path(relative_path).parts)
+
+
+def media_tag(
+    item: MediaItem,
+    output_html: Path,
+    alt: str,
+    class_name: str | None = None,
+    active: bool = False,
+) -> str:
+    src = output_relative_url(output_html, item.path)
+    class_attr = ""
+    if class_name:
+        classes = class_name + (" is-active" if active else "")
+        class_attr = f' class="{classes}"'
+
+    if item.kind == "image":
+        return f'<img{class_attr} src="{src}" alt="{html_escape(alt)}">'
+    return f'<video{class_attr} src="{src}" muted playsinline autoplay loop></video>'
+
+
+def valid_started_work(work_dir: Path) -> bool:
+    for path in work_dir.rglob("*"):
+        if path.is_file() and path.name not in IGNORED_NAMES and not path.name.startswith("."):
+            return True
+    return False
+
+
+def load_work(work_dir: Path, write_assets: bool = False) -> WorkContent:
+    slug = work_dir.name
+    trailer_link = read_first_non_empty_line(work_dir / "trailer" / "trailer_link.md")
+    note = parse_note_text(work_dir / "note" / "text.md")
+    note_media = ordered_media(work_dir / "note" / "media", write_assets=write_assets)
+    highlight_media = ordered_media(work_dir / "highlight" / "media", write_assets=write_assets)
+    bts_text = read_text(work_dir / "bts" / "text.md")
+    bts_text_html = render_markdown_lines(bts_text.splitlines())
+    bts_media = ordered_media(work_dir / "bts" / "media", write_assets=write_assets)
+
+    if len(note_media) != 1:
+        raise PageGenerationError(
+            f"{work_dir / 'note' / 'media'} must contain exactly one media item"
+        )
+    if not bts_text_html:
+        raise PageGenerationError(f"{work_dir / 'bts' / 'text.md'} must not be empty")
+
+    return WorkContent(
+        slug=slug,
+        title=title_from_slug(slug),
+        trailer_embed_url=vimeo_embed_url(trailer_link),
+        note=note,
+        note_media=note_media[0],
+        highlight_media=highlight_media,
+        bts_text_html=bts_text_html,
+        bts_media=bts_media,
+    )
+
+
+def render_tracker_links(sections: Iterable[str]) -> str:
+    lines: list[str] = []
+    for index, section in enumerate(sections):
+        current = ' aria-current="true"' if index == 0 else ""
+        lines.append(
+            f'    <a href="#{section}" data-section-link="{section}"{current}>\n'
+            '      <span class="red-dot section-tracker-dot" aria-hidden="true"></span>\n'
+            f"      <span>{section}</span>\n"
+            "    </a>"
+        )
+    return "\n".join(lines)
+
+
+def default_grid_layout(count: int) -> str:
+    layouts = {
+        1: "12",
+        2: "6-6",
+        3: "4-4-4",
+        4: "6-6, 6-6",
+        5: "7-5, 4-5-3",
+        6: "4-4-4, 4-4-4",
+        7: "7-5, 4-4-4, 6-6",
+        8: "7-5, 3-5-4, 5-7",
+    }
+    if count in layouts:
+        return layouts[count]
+
+    rows = []
+    remaining = count
+    while remaining > 0:
+        row_count = min(3, remaining)
+        rows.append("-".join(["4"] * row_count))
+        remaining -= row_count
+    return ", ".join(rows)
+
+
+def render_trailer_section(work: WorkContent) -> str:
+    return f"""    <section class="work-page work-page--trailer"
+             id="trailer"
+             data-section-page="trailer"
+             data-section-title="Trailer"
+             data-page-padding
+             aria-label="Trailer">
+      <div class="trailer-wrap"
+           id="trailer-player"
+           data-vimeo-embed="{html_escape(work.trailer_embed_url)}">
+        <div class="trailer-poster trailer-poster--placeholder" aria-hidden="true"></div>
+        <button class="trailer-play" aria-label="Play trailer">
+          <svg viewBox="0 0 68 48" width="68" height="48"><path d="M66.5 7.7c-.8-2.9-2.5-5.4-5.4-6.2C55.8.1 34 0 34 0S12.2.1 6.9 1.5c-2.9.8-4.6 3.3-5.4 6.2C.1 13 0 24 0 24s.1 11 1.5 16.3c.8 2.9 2.5 5.4 5.4 6.2C12.2 47.9 34 48 34 48s21.8-.1 27.1-1.5c2.9-.8 4.6-3.3 5.4-6.2C67.9 35 68 24 68 24s-.1-11-1.5-16.3z" fill="rgba(255,255,255,0.85)"/><path d="M45 24L27 14v20z" fill="#0a0a0a"/></svg>
+        </button>
+      </div>
+    </section>"""
+
+
+def render_note_section(work: WorkContent, output_html: Path) -> str:
+    media_html = media_tag(work.note_media, output_html, work.title, class_name="work-header-image")
+    return f"""    <section class="work-page work-page--note"
+             id="note"
+             data-section-page="note"
+             data-section-title="Note"
+             data-page-padding
+             aria-label="Director's note">
+      <div class="work-header">
+        <div class="work-header-text">
+          <h1 class="work-title">{work.note.title_html}</h1>
+          <p class="work-subtext">{work.note.body_html}</p>
+          <div class="work-label"><div class="red-dot"></div> Director's note</div>
+        </div>
+        <div class="work-header-image-wrap">
+          {media_html}
+        </div>
+      </div>
+    </section>"""
+
+
+def render_highlight_section(work: WorkContent, output_html: Path) -> str:
+    media_lines = [
+        "        " + media_tag(item, output_html, f"{work.title} highlight")
+        for item in work.highlight_media
+    ]
+    media_html = "\n".join(media_lines)
+    layout = default_grid_layout(len(work.highlight_media))
+    return f"""    <section class="work-page work-page--highlight"
+             id="highlight"
+             data-section-page="highlight"
+             data-section-title="Highlight"
+             data-page-padding
+             aria-label="Highlight">
+      <div class="grid-wrapper">
+        <div class="portfolio-grid" data-layout="{html_escape(layout)}">
+{media_html}
+        </div>
+      </div>
+    </section>"""
+
+
+def render_bts_section(work: WorkContent, output_html: Path) -> str:
+    slide_lines = [
+        "          "
+        + media_tag(
+            item,
+            output_html,
+            f"{work.title} behind the scenes",
+            class_name="bts-slide",
+            active=index == 0,
+        )
+        for index, item in enumerate(work.bts_media)
+    ]
+    controls = ""
+    if len(work.bts_media) > 1:
+        controls = """
+          <button class="bts-slide-control bts-slide-control--prev"
+                  type="button"
+                  data-bts-slide-control="prev"
+                  aria-label="Previous BTS image">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 18l-6-6 6-6"></path>
+            </svg>
+          </button>
+          <button class="bts-slide-control bts-slide-control--next"
+                  type="button"
+                  data-bts-slide-control="next"
+                  aria-label="Next BTS image">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 6l6 6-6 6"></path>
+            </svg>
+          </button>"""
+
+    return f"""    <section class="work-page work-page--bts"
+             id="bts"
+             data-section-page="bts"
+             data-section-title="BTS"
+             data-page-padding
+             aria-label="Behind the scenes">
+      <div class="bts-layout">
+        <div class="bts-slideshow" aria-label="Behind the scenes slideshow">
+{chr(10).join(slide_lines)}{controls}
+        </div>
+
+        <div class="bts-copy">
+          <p class="bts-text">{work.bts_text_html}</p>
+        </div>
+      </div>
+    </section>"""
+
+
+def render_work(work: WorkContent, template: str, output_html: Path) -> str:
+    sections = [
+        render_trailer_section(work),
+        render_note_section(work, output_html),
+        render_highlight_section(work, output_html),
+        render_bts_section(work, output_html),
+    ]
+
+    replacements = {
+        "{{DOCUMENT_TITLE}}": html_escape(work.title),
+        "{{WORK_SLUG}}": html_escape(work.slug),
+        "{{SECTION_TRACKER_LINKS}}": render_tracker_links(SECTION_ORDER),
+        "{{WORK_SECTIONS}}": "\n\n".join(sections),
+    }
+
+    rendered = template
+    for placeholder, value in replacements.items():
+        rendered = rendered.replace(placeholder, value)
+    return rendered
+
+
+def discover_work_dirs(pages_works_dir: Path, selected_slug: str | None = None) -> list[Path]:
+    if not pages_works_dir.is_dir():
+        raise PageGenerationError(f"Missing pages works folder: {pages_works_dir}")
+
+    work_dirs = []
+    for work_dir in sorted(path for path in pages_works_dir.iterdir() if path.is_dir()):
+        if work_dir.name.startswith("."):
+            continue
+        if selected_slug and work_dir.name != selected_slug:
+            continue
+        if valid_started_work(work_dir):
+            work_dirs.append(work_dir)
+    return work_dirs
+
+
+def generate(check: bool = False, selected_slug: str | None = None) -> int:
+    template = read_text(WORK_PAGE_TEMPLATE)
+    work_dirs = discover_work_dirs(PAGES_WORKS_DIR, selected_slug)
+    if selected_slug and not work_dirs:
+        raise PageGenerationError(f"No valid started work found for slug: {selected_slug}")
+
+    failures = 0
+    for work_dir in work_dirs:
+        work = load_work(work_dir, write_assets=not check)
+        output_html = WORKS_OUTPUT_DIR / work.slug / "index.html"
+        rendered = render_work(work, template, output_html)
+
+        if check:
+            current = output_html.read_text(encoding="utf-8") if output_html.exists() else ""
+            if current != rendered:
+                failures += 1
+                diff = difflib.unified_diff(
+                    current.splitlines(),
+                    rendered.splitlines(),
+                    fromfile=str(output_html),
+                    tofile=f"generated:{output_html}",
+                    lineterm="",
+                )
+                print(
+                    f"Generated page is out of date: {output_html}",
+                    file=sys.stderr,
+                )
+                print("\n".join(diff), file=sys.stderr)
+        else:
+            output_html.parent.mkdir(parents=True, exist_ok=True)
+            output_html.write_text(rendered, encoding="utf-8")
+            print(f"generated {output_html.relative_to(REPO_ROOT)}")
+
+    return failures
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="fail if generated HTML differs from committed output",
+    )
+    parser.add_argument(
+        "--work",
+        metavar="SLUG",
+        help="generate/check only one work slug",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(sys.argv[1:] if argv is None else argv)
+    try:
+        failures = generate(check=args.check, selected_slug=args.work)
+    except PageGenerationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -4,5 +4,14 @@
 .vscode/
 .idea/
 Thumbs.db
+__pycache__/
+*.py[cod]
+
+# pages/ media source folders commit only web-ready media.
+# Raw image drops can stay local; the generator converts them to WebP.
+pages/works/**/media/*
+!pages/works/**/media/*.webp
+!pages/works/**/media/*.mp4
+
 video_clip_seed/
 .claude/
