@@ -128,7 +128,7 @@ For the owner, "update the site" means: tell Claude what to change → Claude ed
 
 **For the operational workflow when handling owner-requested changes — read, edit, preview, commit, push, verify — follow `docs/updating-the-site.md`.** That file also has the owner-facing plain-English explanation of how changes propagate; refer the owner to it when they ask why a change isn't showing up.
 
-**For extracting highlight clips from source video, follow `docs/clip-extraction.md`.** The workflow is: detect shots → generate preview thumbnails → get owner approval → extract approved clips as web-ready MP4s. Never skip the preview step.
+**For extracting highlight clips from source video, follow `docs/clip-extraction.md`.** The workflow is: detect shots → generate preview thumbnails → get owner approval → extract approved clips as web-ready MP4s. Never skip the preview step. The two shell scripts `generate-candidates` and `extract-clips` (documented in `docs/clip-scripts.md`, installed at `~/bin/`) automate this workflow — prefer them over manual FFmpeg commands.
 
 **Before any change to look, voice, or copy, consult `docs/portfolio-reference.md`.** It's the design and content reference extracted from the owner's portfolio PDF (palette, typography, canonical bio and quote, voice patterns, full project catalog, sequencing). The PDF itself is not committed (~80 MB binary that lives outside the repo); this markdown is the authoritative substitute.
 
