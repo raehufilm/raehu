@@ -17,6 +17,32 @@ class GeneratePagesTests(unittest.TestCase):
             "https://player.vimeo.com/video/123456789?h=abcdef1234&autoplay=1&badge=0&autopause=0&player_id=0&app_id=58479",
         )
 
+    def test_vimeo_public_url_normalizes_manage_links(self):
+        public_url = generate_pages.vimeo_public_url(
+            "https://vimeo.com/manage/videos/1119717934"
+        )
+
+        self.assertEqual(public_url, "https://vimeo.com/1119717934")
+
+    def test_render_trailer_uses_thumbnail_when_available(self):
+        work = generate_pages.WorkContent(
+            slug="sample",
+            title="Sample",
+            trailer_embed_url="https://player.vimeo.com/video/123",
+            trailer_poster_url="https://i.vimeocdn.com/video/example_1280",
+            note=generate_pages.NoteContent(title_html="Title", body_html="Body"),
+            note_media=generate_pages.MediaItem(1, Path("note.webp"), "image"),
+            highlight_media=(),
+            bts_text_html="Credits",
+            bts_media=(),
+        )
+
+        html = generate_pages.render_trailer_section(work)
+
+        self.assertIn('class="trailer-poster"', html)
+        self.assertIn('src="https://i.vimeocdn.com/video/example_1280"', html)
+        self.assertNotIn("trailer-poster--placeholder", html)
+
     def test_ordered_media_sorts_by_numeric_prefix(self):
         with tempfile.TemporaryDirectory() as tmp:
             media_dir = Path(tmp)

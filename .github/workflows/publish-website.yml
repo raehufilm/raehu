@@ -1,0 +1,152 @@
+name: Publish website
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Confirm ffmpeg is available
+        run: ffmpeg -version
+
+      - name: Run generator tests
+        run: python -m unittest discover -s tests
+
+      - name: Check generated HTML is up to date
+        run: python scripts/generate_pages.py --check
+
+      - name: Check media policy and size budget
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          LIMIT_BYTES = 800 * 1024 * 1024
+          ALLOWED_WORK_MEDIA = {".webp", ".mp4"}
+          MEDIA_EXTENSIONS = {
+              ".avif", ".bmp", ".gif", ".heic", ".jpeg", ".jpg", ".m4v", ".mkv",
+              ".mov", ".mp4", ".png", ".tif", ".tiff", ".webm", ".webp",
+          }
+
+          result = subprocess.run(
+              ["git", "ls-files", "-z", "-co", "--exclude-standard"],
+              check=True,
+              stdout=subprocess.PIPE,
+          )
+          paths = [
+              Path(raw.decode("utf-8"))
+              for raw in result.stdout.split(b"\0")
+              if raw
+          ]
+
+          bad = []
+          publishable_media_bytes = 0
+
+          for path in paths:
+              if not path.is_file():
+                  continue
+
+              suffix = path.suffix.lower()
+              parts = path.parts
+              in_work_media = (
+                  len(parts) >= 5
+                  and parts[0] == "pages"
+                  and parts[1] == "works"
+                  and "media" in parts
+              )
+
+              if in_work_media:
+                  if suffix not in ALLOWED_WORK_MEDIA:
+                      bad.append(str(path))
+                  else:
+                      publishable_media_bytes += path.stat().st_size
+              elif suffix in MEDIA_EXTENSIONS and suffix not in ALLOWED_WORK_MEDIA:
+                  bad.append(str(path))
+
+          print(
+              "Publishable work media size: "
+              f"{publishable_media_bytes / (1024 * 1024):.2f} MB / 800.00 MB"
+          )
+
+          if bad:
+              print("Only .webp and .mp4 media may be published:", file=sys.stderr)
+              for path in bad:
+                  print(f"  {path}", file=sys.stderr)
+              sys.exit(1)
+
+          if publishable_media_bytes > LIMIT_BYTES:
+              print(
+                  "Publishable work media exceeds the 800 MB repository budget.",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+          PY
+
+      - name: Build Pages artifact
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+
+          root = Path(".")
+          site = Path("_site")
+          allowed_media = {".webp", ".mp4"}
+
+          if site.exists():
+              shutil.rmtree(site)
+          site.mkdir()
+          (site / ".nojekyll").write_text("", encoding="utf-8")
+
+          for name in ("index.html", "CNAME"):
+              source = root / name
+              if source.exists():
+                  shutil.copy2(source, site / name)
+
+          for dirname in ("images", "js", "works"):
+              source = root / dirname
+              if source.exists():
+                  shutil.copytree(source, site / dirname)
+
+          pages_root = root / "pages" / "works"
+          if pages_root.exists():
+              for source in pages_root.rglob("*"):
+                  if not source.is_file():
+                      continue
+                  if "media" not in source.parts:
+                      continue
+                  if source.suffix.lower() not in allowed_media:
+                      continue
+                  destination = site / source
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(source, destination)
+          PY
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

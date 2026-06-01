@@ -77,6 +77,7 @@
     }
 
     .work-page--bts {
+      --page-padding-top: 6rem;
       min-height: calc(100vh - var(--site-header-height));
     }
 
@@ -274,13 +275,13 @@
       grid-template-columns: minmax(0, 7fr) minmax(16rem, 3fr);
       gap: var(--page-padding);
       min-height: calc(100vh - var(--site-header-height));
-      padding: var(--page-padding);
+      padding: var(--page-padding-top, var(--page-padding)) var(--page-padding) var(--page-padding);
       align-items: stretch;
     }
 
     .bts-slideshow {
       position: relative;
-      min-height: calc(100vh - var(--site-header-height) - var(--page-padding-double));
+      min-height: calc(100vh - var(--site-header-height) - var(--page-padding-top, var(--page-padding)) - var(--page-padding));
       overflow: hidden;
       background: #000;
     }
@@ -402,7 +403,7 @@
       <div class="trailer-wrap"
            id="trailer-player"
            data-vimeo-embed="https://player.vimeo.com/video/316363898?autoplay=1&amp;badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479">
-        <div class="trailer-poster trailer-poster--placeholder" aria-hidden="true"></div>
+        <img class="trailer-poster" src="https://i.vimeocdn.com/video/758361997-5fc135f2f719df1c22e6a9485d8bbb8c18c9327a67154e746ba22ad34b5dbf4b-d_1280?region=us" alt="Strange Fruit trailer">
         <button class="trailer-play" aria-label="Play trailer">
           <svg viewBox="0 0 68 48" width="68" height="48"><path d="M66.5 7.7c-.8-2.9-2.5-5.4-5.4-6.2C55.8.1 34 0 34 0S12.2.1 6.9 1.5c-2.9.8-4.6 3.3-5.4 6.2C.1 13 0 24 0 24s.1 11 1.5 16.3c.8 2.9 2.5 5.4 5.4 6.2C12.2 47.9 34 48 34 48s21.8-.1 27.1-1.5c2.9-.8 4.6-3.3 5.4-6.2C67.9 35 68 24 68 24s-.1-11-1.5-16.3z" fill="rgba(255,255,255,0.85)"/><path d="M45 24L27 14v20z" fill="#0a0a0a"/></svg>
         </button>

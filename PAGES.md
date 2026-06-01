@@ -13,7 +13,7 @@ The public website output still lives in the normal static site paths, such as:
 works/<work-slug>/index.html
 ```
 
-`scripts/generate_pages.py` reads valid work folders under `pages/works/` and writes the static HTML output. The owner should not need to run the script, install tools, or understand code; Claude/Codex runs it after content changes and commits the generated HTML.
+`scripts/generate_pages.py` reads valid work folders under `pages/works/` and writes the static HTML output. The owner should not need to understand code; Claude/Codex runs it after content changes and commits the generated HTML. On this Mac, the root `generate_website` script is also available as a double-clickable publish path.
 
 ## Current Structure
 
@@ -87,6 +87,14 @@ python3 -m unittest discover -s tests
 
 CI runs the same tests and `--check` via `.github/workflows/check-generated-pages.yml`.
 
+Owner/Claude publish command:
+
+```sh
+./generate_website
+```
+
+That wrapper runs generation, tests, the generated-page check, the media policy check, commits/pushes approved site changes, switches GitHub Pages to workflow publishing if needed, dispatches `.github/workflows/publish-website.yml`, and waits for deployment.
+
 Generator rules:
 
 - It uses only the Python standard library; do not add package-manager dependencies.
@@ -96,6 +104,8 @@ Generator rules:
 - The current work title is derived from the folder slug, such as `strange-fruit` → `Strange Fruit`. A richer work-title metadata rule is still open.
 - Image inputs in `media/` are converted to WebP with ffmpeg.
 - WebP conversion is skipped on rerun when the matching `.webp` file already exists and is newer than the source image.
+- Publishable work-page media is limited to `.webp` and `.mp4`.
+- The combined size of publishable work-page media under `pages/works/**/media/` must stay under 800 MB.
 
 ## Text Files
 
@@ -150,8 +160,8 @@ The current `trailer` section behavior is:
 - Blank lines before or after the URL should be ignored so copy/paste is forgiving.
 - After trimming, the first non-empty line should be treated as the trailer URL.
 - The template/generator should translate normal Vimeo URLs into Vimeo player embed URLs.
-- The rendered page should keep using the Vimeo facade pattern: poster or placeholder plus play button first, iframe only after click.
-- The current source schema has no trailer poster field, so generated trailer facades use a black placeholder behind the play button. A poster-source rule is still open.
+- The rendered page should keep using the Vimeo facade pattern: poster plus play button first, iframe only after click.
+- The generator fetches the trailer poster from Vimeo's oEmbed endpoint when possible. If Vimeo does not return a thumbnail, the template falls back to a black placeholder.
 
 Private or unlisted Vimeo links may include a hash path after the numeric ID, such as `https://vimeo.com/123456789/abcdef1234`; the generator should preserve that hash when creating the embed URL.
 
@@ -190,26 +200,25 @@ The current `highlight` section behavior is:
 - Full-width irregular grid built from `highlight/media/`.
 - Media can be images or video clips.
 - Grid media is ordered by `NUMBER_`.
-- The current proof-of-concept grid uses five positions.
-- Position 3 is currently a muted looping video clip.
-- The rendered HTML currently uses a manual `data-layout` value of `7-5, 4-5-3` for the five-item grid.
+- The layout adapts to the number of media items. Five-item grids currently use `7-5, 4-5-3`; seven-item grids currently use `7-5, 4-4-4, 6-6`.
+- Media items can be images or muted looping video clips.
 
-The generated HTML currently references media directly from `pages/works/strange-fruit/highlight/media/`. This preserves the source-content order while the optimized media workflow is still being decided.
+The generated HTML currently references allowed media directly from `pages/works/<slug>/highlight/media/`. The publish workflow copies only `.webp` and `.mp4` files from those media folders into the Pages artifact.
 
 ## Deployment And Media Quality
 
 This repo is a static GitHub Pages site. Before content is deployed:
 
 - Generated HTML should use repo-relative paths only.
-- Images should be optimized for the web, preferably WebP or AVIF where practical.
-- Raw full-size PNG/JPG files are acceptable while drafting locally, but should not be treated as final deployable assets.
-- Raw videos should not be committed as final site assets. Use Vimeo embeds or approved optimized clips according to the repo media rules.
-- The current `pages/works/strange-fruit/` media files are raw proof-of-concept assets. Before deployment, replace them with optimized committed assets or add an explicit generation step that writes optimized assets to the final asset location.
+- Images in work-page `media/` folders are generated/served as WebP.
+- Short work-page clips may be served as optimized MP4.
+- Raw full-size PNG/JPG files are acceptable while drafting locally, but they are ignored by Git and must not be pushed.
+- Raw source videos such as `.mov` must not be committed as final site assets. Use Vimeo embeds for trailers/longform video or approved optimized MP4 clips for highlight grids.
+- The root `generate_website` script and the publish workflow both enforce the `.webp`/`.mp4` media rule and the 800 MB publishable-media budget.
+- GitHub Pages should be configured with `build_type=workflow`, not legacy branch publishing, so the custom publish workflow replaces `pages-build-deployment`.
 
 ## Open Decisions
 
 - Whether work-level metadata should use a file such as `title.md` to preserve titles that cannot be derived from the slug.
-- How trailer poster images should be supplied.
 - Whether generated pages should reference `pages/` media directly or copy optimized assets into `images/<work-slug>/`.
 - Whether empty section folders should be preserved in Git with placeholder files.
-- The final optimized media output location for generated website assets.

@@ -18,7 +18,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, quote, urlencode, urlparse
+from urllib.request import Request, urlopen
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -55,6 +57,7 @@ class WorkContent:
     slug: str
     title: str
     trailer_embed_url: str
+    trailer_poster_url: str | None
     note: NoteContent
     note_media: MediaItem
     highlight_media: tuple[MediaItem, ...]
@@ -174,6 +177,13 @@ def parse_vimeo_url(raw_url: str) -> tuple[str, str | None]:
     return video_id, hash_value
 
 
+def vimeo_public_url(raw_url: str) -> str:
+    video_id, hash_value = parse_vimeo_url(raw_url)
+    if hash_value:
+        return f"https://vimeo.com/{video_id}/{hash_value}"
+    return f"https://vimeo.com/{video_id}"
+
+
 def vimeo_embed_url(raw_url: str) -> str:
     video_id, hash_value = parse_vimeo_url(raw_url)
     params = [
@@ -186,6 +196,26 @@ def vimeo_embed_url(raw_url: str) -> str:
     if hash_value:
         params.insert(0, ("h", hash_value))
     return f"https://player.vimeo.com/video/{video_id}?{urlencode(params)}"
+
+
+def vimeo_thumbnail_url(raw_url: str) -> str | None:
+    public_url = vimeo_public_url(raw_url)
+    endpoint = "https://vimeo.com/api/oembed.json?" + urlencode(
+        {"url": public_url, "width": "1280"}
+    )
+    request = Request(endpoint, headers={"User-Agent": "raehu-page-generator/1.0"})
+
+    try:
+        with urlopen(request, timeout=10) as response:
+            payload = response.read().decode("utf-8")
+    except (HTTPError, URLError, TimeoutError, OSError):
+        return None
+
+    match = re.search(r'"thumbnail_url"\s*:\s*"([^"]+)"', payload)
+    if not match:
+        return None
+
+    return match.group(1).replace("\\/", "/")
 
 
 def media_kind(path: Path) -> str:
@@ -352,6 +382,7 @@ def load_work(work_dir: Path, write_assets: bool = False) -> WorkContent:
         slug=slug,
         title=title_from_slug(slug),
         trailer_embed_url=vimeo_embed_url(trailer_link),
+        trailer_poster_url=vimeo_thumbnail_url(trailer_link),
         note=note,
         note_media=note_media[0],
         highlight_media=highlight_media,
@@ -397,6 +428,15 @@ def default_grid_layout(count: int) -> str:
 
 
 def render_trailer_section(work: WorkContent) -> str:
+    if work.trailer_poster_url:
+        poster_html = (
+            f'<img class="trailer-poster" '
+            f'src="{html_escape(work.trailer_poster_url)}" '
+            f'alt="{html_escape(work.title)} trailer">'
+        )
+    else:
+        poster_html = '<div class="trailer-poster trailer-poster--placeholder" aria-hidden="true"></div>'
+
     return f"""    <section class="work-page work-page--trailer"
              id="trailer"
              data-section-page="trailer"
@@ -406,7 +446,7 @@ def render_trailer_section(work: WorkContent) -> str:
       <div class="trailer-wrap"
            id="trailer-player"
            data-vimeo-embed="{html_escape(work.trailer_embed_url)}">
-        <div class="trailer-poster trailer-poster--placeholder" aria-hidden="true"></div>
+        {poster_html}
         <button class="trailer-play" aria-label="Play trailer">
           <svg viewBox="0 0 68 48" width="68" height="48"><path d="M66.5 7.7c-.8-2.9-2.5-5.4-5.4-6.2C55.8.1 34 0 34 0S12.2.1 6.9 1.5c-2.9.8-4.6 3.3-5.4 6.2C.1 13 0 24 0 24s.1 11 1.5 16.3c.8 2.9 2.5 5.4 5.4 6.2C12.2 47.9 34 48 34 48s21.8-.1 27.1-1.5c2.9-.8 4.6-3.3 5.4-6.2C67.9 35 68 24 68 24s-.1-11-1.5-16.3z" fill="rgba(255,255,255,0.85)"/><path d="M45 24L27 14v20z" fill="#0a0a0a"/></svg>
         </button>

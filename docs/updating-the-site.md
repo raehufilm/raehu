@@ -4,9 +4,9 @@ How this site gets changed — what Rae asks for, what Claude does, and how the 
 
 ## The simple version
 
-The site is a folder of files stored on GitHub. When something needs to change, Rae tells Claude. Claude edits the files and sends them to GitHub. Usually within a minute, the change is live at https://raehu.com.
+The site is a folder of files stored on GitHub. When something needs to change, Rae tells Claude. Claude edits the files, sends them to GitHub, and runs the publication workflow. Usually within a minute, the change is live at https://raehu.com.
 
-No apps to install, no commands to run, no code to read.
+No apps to install, no code to read. There is also a double-clickable `generate_website` file at the repo root for the rare case where Rae wants to publish approved local content directly from this Mac.
 
 ---
 
@@ -26,7 +26,7 @@ If the request isn't clear, Claude will ask before doing anything.
 
 ### How long the change takes to appear
 
-Usually within a minute after Claude pushes. GitHub (where the site is hosted) takes ~30 seconds to rebuild it after each change.
+Usually within a minute after Claude publishes. GitHub (where the site is hosted) takes ~30 seconds to deploy the site after the publish workflow starts.
 
 ### If you don't see your change
 
@@ -72,22 +72,29 @@ Before you start, run `git status` to see the working tree. If files you're abou
      - An explicit ask for confirmation: *"Ready to push to the live site? (Say 'go' or push back if anything needs tweaking.)"*
    - **Wait for explicit confirmation** ("go", "yes", "looks good", "push", etc.) before continuing to step 4. Do not stage, commit, or push without it.
 
-4. **Commit:**
+4. **Commit and publish.** Prefer the root wrapper when publishing generated project pages or any normal site update:
+   ```
+   ./generate_website --message "<concise imperative message>" --no-pause
+   ```
+   The script runs the generator, tests, generated-HTML drift check, media policy check, commit, push, GitHub Pages workflow-mode configuration, workflow dispatch, and deployment watch.
+
+   Manual commit/push is still acceptable for narrow maintenance work:
    ```
    git -C /Users/mabunday/Desktop/rae/raehu add <files>
    git -C /Users/mabunday/Desktop/rae/raehu commit -m "<concise imperative message>"
    ```
    The pre-commit hook verifies local git identity. If it fails, fix the local config (see `CLAUDE.md`) — never bypass with `--no-verify`.
-5. **Push:**
+5. **Push manually only if you did not use `generate_website`:**
    ```
    git -C /Users/mabunday/Desktop/rae/raehu push origin main
    ```
    The CI author check runs on every push. Branch protection blocks force-pushes and deletions to `main`. Work with these layers, never around them.
-6. **Verify the deploy:**
+6. **Verify the deploy.** If you used `generate_website`, it already watches the `Publish website` workflow. For manual checks:
    ```
-   gh api repos/raehufilm/raehu/pages/builds/latest --jq '{status, error_message: .error.message, commit}'
+   gh run list --workflow publish-website.yml --branch main --limit 1
+   gh api repos/raehufilm/raehu/pages --jq '{html_url, build_type, status, cname}'
    ```
-   Expect `status: "built"`, `error_message: null`, and `commit` matching your push. Build typically completes within 30 seconds.
+   Expect `build_type: "workflow"` and a successful latest `Publish website` run. Deployment typically completes within 30 seconds.
 7. **Confirm with the owner.** Tell them the change is live. If they don't see it, walk them through hard refresh (see the "For Rae" section above).
 
 ### When the owner reports the site looks wrong
@@ -101,7 +108,7 @@ Before you start, run `git status` to see the working tree. If files you're abou
 
 - Install anything to the repo (`npm install`, `pip install`, etc.) — violates the architecture rules in `CLAUDE.md`.
 - Edit a generated `works/<slug>/index.html` directly when that work is managed by `pages/works/<slug>/`; edit the source folder and rerun `scripts/generate_pages.py`.
-- Commit video files. Link to Vimeo (https://vimeo.com/raehu) instead.
+- Commit raw video files. Link trailers and longform videos to Vimeo (https://vimeo.com/raehu). Approved short MP4 clips are allowed only as ordered work-page media under `pages/works/**/media/`.
 - Bypass the pre-commit hook with `--no-verify`.
 - Force-push to `main`. Branch protection blocks it and that's intentional.
 - Use absolute paths or other machine-specific values in committed files.

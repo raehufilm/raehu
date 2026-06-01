@@ -1,0 +1,303 @@
+#!/bin/zsh
+set -euo pipefail
+
+OWNER="raehufilm"
+REPO="raehu"
+BRANCH="main"
+WORKFLOW_FILE="publish-website.yml"
+EXPECTED_GH_USER="raehufilm"
+EXPECTED_GIT_NAME="raehufilm"
+EXPECTED_GIT_EMAIL="283902148+raehufilm@users.noreply.github.com"
+
+DRY_RUN=0
+NO_PAUSE=0
+COMMIT_MESSAGE="Update generated website content"
+
+usage() {
+  cat <<'USAGE'
+Usage: ./generate_website [options]
+
+Generate the site, test it, commit the generated content, push it, and publish it
+with the GitHub Pages workflow.
+
+Options:
+  --dry-run            Generate and test only; do not commit, push, or publish.
+  --message MESSAGE   Commit message to use when generated content changed.
+  --no-pause          Do not wait for Return before closing the terminal window.
+  -h, --help          Show this help.
+USAGE
+}
+
+log() {
+  printf "\n==> %s\n" "$1"
+}
+
+fail() {
+  printf "\nERROR: %s\n" "$1" >&2
+  exit 1
+}
+
+finish() {
+  local exit_status=$?
+  if [[ "$NO_PAUSE" != "1" && -t 0 ]]; then
+    printf "\n"
+    if [[ $exit_status -eq 0 ]]; then
+      printf "Website generation finished.\n"
+    else
+      printf "Website generation stopped with an error.\n"
+    fi
+    printf "Press Return to close this window..."
+    read -r reply || true
+  fi
+  exit $exit_status
+}
+
+trap finish EXIT
+
+while (( $# > 0 )); do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=1
+      ;;
+    --message)
+      shift
+      (( $# > 0 )) || fail "--message requires a value"
+      COMMIT_MESSAGE="$1"
+      ;;
+    --no-pause)
+      NO_PAUSE=1
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      fail "Unknown option: $1"
+      ;;
+  esac
+  shift
+done
+
+REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$REPO_DIR"
+
+export GIT_TERMINAL_PROMPT=0
+export GH_PROMPT_DISABLED=1
+
+require_tool() {
+  command -v "$1" >/dev/null 2>&1 || fail "Missing required tool: $1"
+}
+
+check_media_policy() {
+  python3 - <<'PY'
+from pathlib import Path
+import subprocess
+import sys
+
+LIMIT_BYTES = 800 * 1024 * 1024
+ALLOWED_WORK_MEDIA = {".webp", ".mp4"}
+MEDIA_EXTENSIONS = {
+    ".avif", ".bmp", ".gif", ".heic", ".jpeg", ".jpg", ".m4v", ".mkv",
+    ".mov", ".mp4", ".png", ".tif", ".tiff", ".webm", ".webp",
+}
+
+result = subprocess.run(
+    ["git", "ls-files", "-z", "-co", "--exclude-standard"],
+    check=True,
+    stdout=subprocess.PIPE,
+)
+paths = [Path(raw.decode("utf-8")) for raw in result.stdout.split(b"\0") if raw]
+
+bad = []
+publishable_media_bytes = 0
+
+for path in paths:
+    if not path.is_file():
+        continue
+
+    suffix = path.suffix.lower()
+    parts = path.parts
+    in_work_media = (
+        len(parts) >= 5
+        and parts[0] == "pages"
+        and parts[1] == "works"
+        and "media" in parts
+    )
+
+    if in_work_media:
+        if suffix not in ALLOWED_WORK_MEDIA:
+            bad.append(str(path))
+        else:
+            publishable_media_bytes += path.stat().st_size
+    elif suffix in MEDIA_EXTENSIONS and suffix not in ALLOWED_WORK_MEDIA:
+        bad.append(str(path))
+
+print(
+    "Publishable work media size: "
+    f"{publishable_media_bytes / (1024 * 1024):.2f} MB / 800.00 MB"
+)
+
+if bad:
+    print("Only .webp and .mp4 media may be pushed. Offending files:", file=sys.stderr)
+    for path in bad:
+        print(f"  {path}", file=sys.stderr)
+    sys.exit(1)
+
+if publishable_media_bytes > LIMIT_BYTES:
+    print(
+        "Publishable work media exceeds the 800 MB repository budget.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+PY
+}
+
+stage_site_changes() {
+  local stage_paths=(
+    generate_website
+    CNAME
+    index.html
+    images
+    js
+    pages
+    works
+    scripts
+    templates
+    tests
+    .github/workflows
+    .githooks
+    .gitignore
+    README.md
+    CLAUDE.md
+    NOTES.md
+    PAGES.md
+    docs
+  )
+
+  git add -A -- $stage_paths
+}
+
+wait_for_workflow_file() {
+  local attempt
+  for attempt in {1..24}; do
+    if gh workflow view "$WORKFLOW_FILE" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 5
+  done
+
+  return 1
+}
+
+configure_pages_workflow_mode() {
+  local current_build_type
+  current_build_type="$(gh api "repos/$OWNER/$REPO/pages" --jq '.build_type // ""')"
+
+  if [[ "$current_build_type" == "workflow" ]]; then
+    log "GitHub Pages is already configured for workflow publishing"
+    return 0
+  fi
+
+  log "Switching GitHub Pages from legacy branch publishing to workflow publishing"
+  gh api --method PUT "repos/$OWNER/$REPO/pages" -f build_type=workflow >/dev/null
+}
+
+dispatch_publish_workflow() {
+  local head_sha run_id attempt
+  head_sha="$(git rev-parse HEAD)"
+
+  log "Waiting for GitHub to register $WORKFLOW_FILE"
+  wait_for_workflow_file || fail "GitHub did not register $WORKFLOW_FILE after push"
+
+  log "Dispatching the publish workflow"
+  gh workflow run "$WORKFLOW_FILE" --ref "$BRANCH" >/dev/null
+
+  for attempt in {1..24}; do
+    run_id="$(
+      gh run list \
+        --workflow "$WORKFLOW_FILE" \
+        --branch "$BRANCH" \
+        --json databaseId,event,headSha \
+        --jq ".[] | select(.event == \"workflow_dispatch\" and .headSha == \"$head_sha\") | .databaseId" \
+        | head -n 1
+    )"
+    if [[ -n "$run_id" ]]; then
+      break
+    fi
+    sleep 5
+  done
+
+  [[ -n "$run_id" ]] || fail "Could not find the publish workflow run"
+
+  log "Watching publish workflow run $run_id"
+  gh run watch "$run_id" --exit-status
+
+  log "Published Pages status"
+  gh api "repos/$OWNER/$REPO/pages" --jq '{html_url, build_type, status, cname}'
+}
+
+log "Checking required tools"
+require_tool git
+require_tool python3
+require_tool ffmpeg
+require_tool gh
+
+log "Checking GitHub account"
+gh auth status --active >/dev/null
+gh_user="$(gh api user --jq .login)"
+[[ "$gh_user" == "$EXPECTED_GH_USER" ]] || fail "Active gh user is $gh_user, expected $EXPECTED_GH_USER"
+
+log "Configuring local git identity"
+git config user.name "$EXPECTED_GIT_NAME"
+git config user.email "$EXPECTED_GIT_EMAIL"
+git config core.hooksPath .githooks
+
+current_branch="$(git branch --show-current)"
+[[ "$current_branch" == "$BRANCH" ]] || fail "Current branch is $current_branch, expected $BRANCH"
+
+log "Checking for remote changes"
+git fetch origin "$BRANCH"
+counts="$(git rev-list --left-right --count "HEAD...origin/$BRANCH")"
+ahead="${counts%%[[:space:]]*}"
+behind="${counts##*[[:space:]]}"
+if (( behind > 0 )); then
+  fail "Local branch is behind origin/$BRANCH by $behind commit(s). Pull/reconcile before publishing."
+fi
+
+log "Generating pages"
+python3 scripts/generate_pages.py
+
+log "Running tests"
+python3 -m unittest discover -s tests
+
+log "Checking generated HTML"
+python3 scripts/generate_pages.py --check
+
+log "Checking media policy and 800 MB budget"
+check_media_policy
+
+if (( DRY_RUN )); then
+  log "Dry run complete; no commit, push, or publish was performed"
+  git status --short --branch
+  exit 0
+fi
+
+log "Staging site changes"
+stage_site_changes
+
+if git diff --cached --quiet; then
+  log "No changes to commit"
+else
+  log "Committing changes"
+  git commit -m "$COMMIT_MESSAGE"
+fi
+
+log "Pushing to origin/$BRANCH"
+git push origin "$BRANCH"
+
+configure_pages_workflow_mode
+dispatch_publish_workflow
+
+log "Live work pages"
+printf "https://raehu.com/works/strange-fruit/\n"
+printf "https://raehu.com/works/champion/\n"

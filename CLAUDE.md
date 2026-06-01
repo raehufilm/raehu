@@ -111,13 +111,14 @@ The owner does not run dev tools, does not read code, and cannot inspect commit 
 ### Conventions
 
 - `index.html` — landing page (CSS + JS inline)
-- `works/<slug>/index.html` — per-project detail pages
+- `works/<slug>/index.html` — generated per-project detail pages served at `/works/<slug>/`
 - `pages/works/<slug>/` — editable source-content folders for generated per-project pages
 - `templates/work-page.html` — shared generated-work-page HTML template
 - `scripts/generate_pages.py` — dependency-free generator/checker for `pages/works` content
+- `generate_website` — root macOS-clickable generate/test/commit/push/publish wrapper
 - `images/<slug>/` — image assets per project, committed to the repo
 - `CNAME` — custom domain
-- Videos hosted on Vimeo (https://vimeo.com/raehu), embedded via URL. **Never commit video files.**
+- Trailers and longform videos are hosted on Vimeo (https://vimeo.com/raehu), embedded via URL. Approved short MP4 clips may be committed only as ordered work-page media under `pages/works/**/media/`; raw source video formats such as `.mov` must not be committed.
 
 ### Self-test before any change
 
@@ -127,13 +128,13 @@ If yes, you're good. If no, you have broken the architecture — revert and reco
 
 ### The owner's update loop
 
-For the owner, "update the site" means: tell Claude what to change → Claude edits a file → Claude commits and pushes. The owner runs no commands. Preserve this workflow with every change you make.
+For the owner, "update the site" means: tell Claude what to change → Claude edits a file → Claude commits, pushes, and publishes. The owner normally runs no commands. If the owner does want to publish directly from the local machine, the root `generate_website` script is the sanctioned double-clickable path.
 
 **For the operational workflow when handling owner-requested changes — read, edit, preview, commit, push, verify — follow `docs/updating-the-site.md`.** That file also has the owner-facing plain-English explanation of how changes propagate; refer the owner to it when they ask why a change isn't showing up.
 
 **For extracting highlight clips from source video, follow `docs/clip-extraction.md`.** The workflow is: detect shots → generate preview thumbnails → get owner approval → extract approved clips as web-ready MP4s. Never skip the preview step. The two shell scripts `generate-candidates` and `extract-clips` (documented in `docs/clip-scripts.md`, installed at `~/bin/`) automate this workflow — prefer them over manual FFmpeg commands.
 
-**For the developing non-technical `pages/` content-source workflow, follow `PAGES.md`.** That file records the folder schema, generator commands, `text.md` rules, `media/` ordering rules, and current template behavior. Keep it updated whenever the schema, generator, or template assumptions change. Generated/static website output must still live in the normal deployable paths such as `works/<slug>/index.html`; run `python3 scripts/generate_pages.py` after editing `pages/`, and use `python3 scripts/generate_pages.py --check` before committing generated-page changes.
+**For the developing non-technical `pages/` content-source workflow, follow `PAGES.md`.** That file records the folder schema, generator commands, `text.md` rules, `media/` ordering rules, current template behavior, and publication path. Keep it updated whenever the schema, generator, or template assumptions change. Generated/static website output must still live in the normal deployable paths such as `works/<slug>/index.html`; run `python3 scripts/generate_pages.py` after editing `pages/`, and use `python3 scripts/generate_pages.py --check` before committing generated-page changes. When the owner approves publication, prefer `./generate_website --message "<commit message>" --no-pause` so generation, tests, media policy checks, push, and Pages deployment happen through the same path.
 
 **Before any change to look, voice, or copy, consult `docs/portfolio-reference.md`.** It's the design and content reference extracted from the owner's portfolio PDF (palette, typography, canonical bio and quote, voice patterns, full project catalog, sequencing). The PDF itself is not committed (~80 MB binary that lives outside the repo); this markdown is the authoritative substitute.
 
@@ -218,4 +219,8 @@ The site owner does not have npm/node and will not run a dev server. Previews ar
 
 ## Deployment
 
-Push to `main` → GitHub Pages rebuilds in ~30 sec. No PR / staging flow; iteration happens locally and we push when ready. Custom domain + HTTPS are already configured at the DNS level (4 A records + 1 CNAME at Namecheap).
+Publication is now driven by the custom GitHub Actions workflow `.github/workflows/publish-website.yml`. The root `generate_website` script generates pages locally, runs tests, enforces the media policy, commits, pushes to `main`, switches GitHub Pages to `build_type=workflow` if needed, dispatches the workflow, and waits for it to finish.
+
+The older automatic `pages-build-deployment` path is GitHub Pages' legacy branch publisher. It is disabled by switching the repository Pages setting from `legacy` to `workflow`; the script does this with the GitHub Pages REST API before publishing.
+
+Custom domain + HTTPS are already configured at the DNS level (4 A records + 1 CNAME at Namecheap).

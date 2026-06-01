@@ -4,10 +4,10 @@ Running state for the raehu.com portfolio site. **Read `CLAUDE.md` first for the
 
 ## At a glance
 
-- **Live site:** https://raehu.com (HTTPS-enforced, GitHub Pages from `main` root)
+- **Live site:** https://raehu.com (HTTPS-enforced, GitHub Pages via custom workflow)
 - **Repo:** https://github.com/raehufilm/raehu
 - **Owner:** Rae Hu — director and filmmaker, Shanghai
-- **Video host:** https://vimeo.com/raehu (embed by URL; never commit video files)
+- **Video host:** https://vimeo.com/raehu for trailers/longform; approved WebP/MP4 media can be committed for generated work pages
 - **Domain registrar:** Namecheap (DNS = 4 A records on `@` + 1 CNAME on `www`)
 - **Source of truth for visual design:** the 2026 portfolio PDF the owner shared (not committed; lives outside the repo in the owner's working directory)
 
@@ -23,12 +23,14 @@ Running state for the raehu.com portfolio site. **Read `CLAUDE.md` first for the
 - Location ("Shanghai · Mexico City")
 - Works list aligned with PDF (Rooftop and McDonald's removed)
 - Hero illustration with subtle ink texture; hero background updated to `#E8B949`
-- Deployment pipeline (DNS, HTTPS, GitHub Pages, three-layer author enforcement)
+- Generated per-project proof-of-concept pages for Strange Fruit and Champion
+- `pages/works/` source-content skeleton and generator for trailer, note, highlight, and BTS sections
+- Deployment pipeline (DNS, HTTPS, custom GitHub Pages publish workflow, three-layer author enforcement)
 
 ### What's placeholder or wrong
 - **Every project card** is a CSS gradient with a "Still from X" text label. No real images yet.
 - **About portrait** and **quote portrait** are gradient placeholders.
-- **No per-project detail pages** exist yet (template TBD; would live at `works/<slug>/index.html`).
+- **Generated Strange Fruit and Champion pages** are still proof-of-concept pages, not final editorial/design sign-off.
 
 ## Design system (from the deck)
 
@@ -41,13 +43,13 @@ Running state for the raehu.com portfolio site. **Read `CLAUDE.md` first for the
 
 ## Content structure (deck → site)
 
-The deck uses a 3-beat per-work template: **title spread → director's note → stills grids**. On the landing page, each work collapses to a card (title + meta tags + 1-line subtitle). The full 3-beat treatment is reserved for per-project detail pages — those don't exist yet, but should be the template when we build them.
+The deck uses a 3-beat per-work template: **title spread → director's note → stills grids**. On the landing page, each work collapses to a card (title + meta tags + 1-line subtitle). The generated per-project proof of concept currently expands that into trailer, director's note, highlight grid, and BTS sections.
 
 ## Open work
 
 - [ ] Reconcile the landing page works list against the deck's actual works
 - [ ] Add real images: hero, about portrait, every project card
-- [ ] Build the per-project detail page template, then per-work pages for the deck works
+- [ ] Continue hardening the generated per-project detail page template and expand it to the deck works
 - [ ] Clean up brand grid duplicates
 - [ ] Decide whether to self-host fonts (currently CDN; the only thing that softens the "zip and email" self-test in CLAUDE.md)
 
@@ -78,3 +80,4 @@ The deck uses a 3-beat per-work template: **title spread → director's note →
 - **2026-06-01** — Added `pages/works/strange-fruit/trailer/trailer_link.md` with the user-facing Vimeo URL for the Strange Fruit trailer. Updated `PAGES.md` to specify whitespace-tolerant trailer link parsing and Vimeo URL-to-embed translation.
 - **2026-06-01** — Added the first dependency-free `pages/works` generator: `scripts/generate_pages.py` reads valid work folders, renders `templates/work-page.html`, and writes static `works/<slug>/index.html` output. Added unit tests, a GitHub Actions check for generated-page drift, and updated the docs to clarify that this is a local/CI maintenance step rather than a deploy-time build.
 - **2026-06-01** — Extended the generator media pipeline so ffmpeg converts source images in `pages/works/**/media/` to WebP, skips conversion when the WebP is already up to date, and generated HTML references the WebP assets. Raw image drops are ignored by Git; WebP and MP4 remain commit candidates.
+- **2026-06-01** — Added a double-clickable root `generate_website` publishing script and a custom `Publish website` GitHub Actions workflow. The script generates and tests pages locally, enforces that publishable work-page media is only WebP/MP4 and stays under 800 MB, pushes approved changes, switches GitHub Pages from legacy branch publishing to workflow publishing, and waits for the deployment to finish.
