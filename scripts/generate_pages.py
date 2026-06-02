@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import hashlib
 import html
 import json
 import os
@@ -45,6 +46,11 @@ IGNORED_NAMES = {".DS_Store"}
 IMAGE_EXTENSIONS = {".avif", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
 VIDEO_EXTENSIONS = {".mp4"}
 WEB_IMAGE_EXTENSION = ".webp"
+GRID_SPANS_BY_ROW_SIZE = {
+    1: ((12,),),
+    2: ((7, 5), (5, 7), (8, 4), (4, 8)),
+    3: ((3, 5, 4), (4, 5, 3), (5, 4, 3), (3, 4, 5), (4, 3, 5), (5, 3, 4)),
+}
 
 
 class PageGenerationError(Exception):
@@ -526,27 +532,70 @@ def category_label(category: str) -> str:
     return category.replace("-", " ")
 
 
-def default_grid_layout(count: int) -> str:
-    layouts = {
-        1: "12",
-        2: "6-6",
-        3: "4-4-4",
-        4: "6-6, 6-6",
-        5: "7-5, 4-5-3",
-        6: "4-4-4, 4-4-4",
-        7: "7-5, 4-4-4, 6-6",
-        8: "7-5, 3-5-4, 5-7",
-    }
-    if count in layouts:
-        return layouts[count]
+class StableRng:
+    """Small deterministic PRNG so grid layouts do not depend on Python random."""
 
-    rows = []
-    remaining = count
-    while remaining > 0:
-        row_count = min(3, remaining)
-        rows.append("-".join(["4"] * row_count))
-        remaining -= row_count
-    return ", ".join(rows)
+    def __init__(self, seed: int) -> None:
+        self.state = seed & 0xFFFFFFFF
+
+    def random(self) -> float:
+        self.state = (self.state + 0x6D2B79F5) & 0xFFFFFFFF
+        value = self.state
+        value = (value ^ (value >> 15)) * (1 | value)
+        value &= 0xFFFFFFFF
+        value ^= (value + ((value ^ (value >> 7)) * (61 | value))) & 0xFFFFFFFF
+        value &= 0xFFFFFFFF
+        return ((value ^ (value >> 14)) & 0xFFFFFFFF) / 4294967296
+
+    def choice(self, values):
+        if not values:
+            raise ValueError("cannot choose from an empty tuple")
+        return values[int(self.random() * len(values))]
+
+
+def stable_seed(value: str) -> int:
+    digest = hashlib.sha256(value.encode("utf-8")).digest()
+    return int.from_bytes(digest[:4], "big")
+
+
+def row_size_patterns(count: int) -> tuple[tuple[int, ...], ...]:
+    if count <= 0:
+        return ()
+    if count == 1:
+        return ((1,),)
+
+    patterns: list[tuple[int, ...]] = []
+
+    def collect(remaining: int, rows: tuple[int, ...]) -> None:
+        if remaining == 0:
+            patterns.append(rows)
+            return
+        for row_size in (2, 3):
+            if remaining >= row_size:
+                collect(remaining - row_size, rows + (row_size,))
+
+    collect(count, ())
+    return tuple(patterns)
+
+
+def highlight_grid_layout(count: int, layout_key: str) -> str:
+    patterns = row_size_patterns(count)
+    if not patterns:
+        return ""
+
+    rng = StableRng(stable_seed(f"highlight-grid:{layout_key}:{count}"))
+    row_sizes = rng.choice(patterns)
+    rows: list[tuple[int, ...]] = []
+    previous: tuple[int, ...] | None = None
+
+    for row_size in row_sizes:
+        span_pool = GRID_SPANS_BY_ROW_SIZE[row_size]
+        choices = tuple(spans for spans in span_pool if spans != previous) or span_pool
+        spans = rng.choice(choices)
+        rows.append(spans)
+        previous = spans
+
+    return ", ".join("-".join(str(span) for span in row) for row in rows)
 
 
 def render_trailer_section(work: WorkContent) -> str:
@@ -603,7 +652,10 @@ def render_highlight_section(work: WorkContent, output_html: Path) -> str:
         for item in work.highlight_media
     ]
     media_html = "\n".join(media_lines)
-    layout = default_grid_layout(len(work.highlight_media))
+    layout = highlight_grid_layout(
+        len(work.highlight_media),
+        f"{work.category}/{work.slug}",
+    )
     return f"""    <section class="work-page work-page--highlight"
              id="highlight"
              data-section-page="highlight"

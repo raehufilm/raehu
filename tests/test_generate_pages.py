@@ -183,8 +183,21 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertEqual(note.title_html, "A title with <em>emphasis</em>")
         self.assertEqual(note.body_html, "First body line.<br>Second body line.")
 
-    def test_default_layout_preserves_current_five_item_highlight_shape(self):
-        self.assertEqual(generate_pages.default_grid_layout(5), "7-5, 4-5-3")
+    def test_highlight_grid_layout_is_deterministic_for_work_key(self):
+        first = generate_pages.highlight_grid_layout(7, "commercials/champion")
+        second = generate_pages.highlight_grid_layout(7, "commercials/champion")
+
+        self.assertEqual(first, second)
+        self.assertEqual(sum(len(row.split("-")) for row in first.split(", ")), 7)
+
+    def test_highlight_grid_layout_varies_between_work_keys(self):
+        first = generate_pages.highlight_grid_layout(8, "commercials/bose-global")
+        second = generate_pages.highlight_grid_layout(
+            8,
+            "commercials/coach-unbox-your-joy",
+        )
+
+        self.assertNotEqual(first, second)
 
     def test_render_highlight_wraps_media_with_expand_controls(self):
         with tempfile.TemporaryDirectory() as tmp:

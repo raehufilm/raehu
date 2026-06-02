@@ -217,6 +217,7 @@ Hard requirements:
 - Generated HTML is committed output. Source content lives in `editable-content/works/films/` and `editable-content/works/commercials/`.
 - Work slugs must be unique across `films` and `commercials`, because both publish to `works/<slug>/`.
 - Do not edit generated `generated-website/index.html`, `generated-website/works/index.html`, or `generated-website/works/<slug>/index.html` directly. Edit source folders, templates, source assets, or generator code, then regenerate.
+- Highlight grids use deterministic slug-based layouts. Keep media ordered by the `NUMBER_` filename prefix, and vary only the generated grid pattern so users can rearrange media by renaming files.
 
 Generated-site mechanism:
 
