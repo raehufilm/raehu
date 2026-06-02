@@ -49,8 +49,8 @@ editable-content/works/films/my-film/
     # or 1_trailer.jpg
     # or 1_trailer.mp4
   note/
-    text.md
-    1_note-image.jpg
+    1_text.md
+    2_note-image.jpg
   highlight/
     1_opening.jpg
     2_close-up.png
@@ -100,7 +100,7 @@ Do not mix these options. If the generator finds more than one trailer source, i
 
 ### Note
 
-Put the page title and note text in `note/text.md`.
+Put the page title and note text in one numbered Markdown file.
 
 Example:
 
@@ -112,12 +112,23 @@ A short director's note or project description goes here.
 
 The `#` line becomes the title. The text below it becomes the body.
 
-The note section needs exactly one media file:
+The note section needs exactly one text file and exactly one image or video file.
+Use `1_` for the left column and `2_` for the right column.
+
+Text on the left, image on the right:
 
 ```text
 note/
-  text.md
+  1_text.md
+  2_note-image.jpg
+```
+
+Image on the left, text on the right:
+
+```text
+note/
   1_note-image.jpg
+  2_text.md
 ```
 
 ### Highlight
@@ -254,7 +265,7 @@ Media rules:
 - Media order is numeric by `NUMBER_` prefix.
 - Duplicate media numbers in one section folder are invalid.
 - `trailer/` must contain exactly one source: either a non-empty `trailer_link.md`, one numbered image, or one numbered `.mp4`.
-- `note/` must contain exactly one media item, alongside `text.md`.
+- `note/` must contain exactly one numbered Markdown file and exactly one numbered media item. Together they must use positions `1_` and `2_` exactly once so the user can swap left/right layout by renaming files.
 - Total publishable work media must stay under 800 MB.
 
 Validation and publishing:

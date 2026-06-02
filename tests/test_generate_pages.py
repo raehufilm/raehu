@@ -203,7 +203,7 @@ class GeneratePagesTests(unittest.TestCase):
 
     def test_note_markdown_uses_heading_for_title_and_body_for_copy(self):
         with tempfile.TemporaryDirectory() as tmp:
-            note_file = Path(tmp) / "text.md"
+            note_file = Path(tmp) / "1_text.md"
             note_file.write_text(
                 "# A title with *emphasis*\n\n"
                 "First body line.\n"
@@ -215,6 +215,56 @@ class GeneratePagesTests(unittest.TestCase):
 
         self.assertEqual(note.title_html, "A title with <em>emphasis</em>")
         self.assertEqual(note.body_html, "First body line.<br>Second body line.")
+        self.assertEqual(note.index, 1)
+
+    def test_load_note_content_uses_numbered_position(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            note_dir = Path(tmp)
+            (note_dir / "2_text.md").write_text(
+                "# Right Text\n\nBody copy.",
+                encoding="utf-8",
+            )
+
+            note = generate_pages.load_note_content(note_dir)
+
+        self.assertEqual(note.index, 2)
+
+    def test_render_note_orders_media_before_text_when_media_is_position_one(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_html = root / "generated-website" / "works" / "sample" / "index.html"
+            media = (
+                root
+                / "editable-content"
+                / "works"
+                / "films"
+                / "sample"
+                / "note"
+                / "1_note.webp"
+            )
+            work = generate_pages.WorkContent(
+                slug="sample",
+                title="Sample",
+                trailer_embed_url="https://player.vimeo.com/video/123",
+                trailer_poster_url=None,
+                note=generate_pages.NoteContent(
+                    title_html="Title",
+                    body_html="Body",
+                    index=2,
+                ),
+                note_media=generate_pages.MediaItem(1, media, "image"),
+                highlight_media=(),
+                bts_text_html="Credits",
+                bts_media=(),
+            )
+
+            rendered = generate_pages.render_note_section(work, output_html)
+
+        self.assertLess(
+            rendered.index("work-header-image-wrap"),
+            rendered.index("work-header-text"),
+        )
+        self.assertIn("work-header-piece--left", rendered)
 
     def test_highlight_grid_layout_is_deterministic_for_work_key(self):
         first = generate_pages.highlight_grid_layout(7, "commercials/champion")
@@ -325,11 +375,11 @@ class GeneratePagesTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (source / "note").mkdir(parents=True)
-            (source / "note" / "text.md").write_text(
+            (source / "note" / "1_text.md").write_text(
                 "# Sample Work\n\nA sample note.",
                 encoding="utf-8",
             )
-            (source / "note" / "1_note.webp").write_text(
+            (source / "note" / "2_note.webp").write_text(
                 "webp",
                 encoding="utf-8",
             )
@@ -410,6 +460,44 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertIn("Keep exactly one source", message)
         self.assertIn("Remove the extra source", message)
 
+    def test_load_work_rejects_note_text_and_media_same_position(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "editable-content" / "works" / "films" / "sample-work"
+
+            (source / "trailer").mkdir(parents=True)
+            (source / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/123456789",
+                encoding="utf-8",
+            )
+            (source / "note").mkdir(parents=True)
+            (source / "note" / "1_text.md").write_text(
+                "# Sample Work\n\nA sample note.",
+                encoding="utf-8",
+            )
+            (source / "note" / "1_note.webp").write_text(
+                "webp",
+                encoding="utf-8",
+            )
+            (source / "highlight").mkdir(parents=True)
+            (source / "highlight" / "1_highlight.webp").write_text(
+                "webp",
+                encoding="utf-8",
+            )
+            (source / "bts").mkdir(parents=True)
+            (source / "bts" / "text.md").write_text("Credits", encoding="utf-8")
+            (source / "bts" / "1_bts.webp").write_text(
+                "webp",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(generate_pages.PageGenerationError) as context:
+                generate_pages.load_work(source)
+
+        message = str(context.exception)
+        self.assertIn("both using 1_", message)
+        self.assertIn("Use 1_ for the left column and 2_ for the right column", message)
+
     def test_works_index_grid_uses_local_video_trailer_preview(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -462,8 +550,8 @@ class GeneratePagesTests(unittest.TestCase):
                 trailer_poster_url="https://i.vimeocdn.com/video/film_1280",
                 note=generate_pages.NoteContent(title_html="Film", body_html="Body"),
                 note_media=generate_pages.MediaItem(
-                    1,
-                    root / "editable-content" / "works" / "films" / "sample-film" / "note" / "1_note.webp",
+                    2,
+                    root / "editable-content" / "works" / "films" / "sample-film" / "note" / "2_note.webp",
                     "image",
                 ),
                 highlight_media=(),
@@ -478,8 +566,8 @@ class GeneratePagesTests(unittest.TestCase):
                 trailer_poster_url="https://i.vimeocdn.com/video/ad_1280",
                 note=generate_pages.NoteContent(title_html="Ad", body_html="Body"),
                 note_media=generate_pages.MediaItem(
-                    1,
-                    root / "editable-content" / "works" / "commercials" / "sample-ad" / "note" / "1_note.webp",
+                    2,
+                    root / "editable-content" / "works" / "commercials" / "sample-ad" / "note" / "2_note.webp",
                     "image",
                 ),
                 highlight_media=(),

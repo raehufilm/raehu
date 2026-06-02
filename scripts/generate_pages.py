@@ -68,6 +68,7 @@ class MediaItem:
 class NoteContent:
     title_html: str
     body_html: str
+    index: int = 1
 
 
 @dataclass(frozen=True)
@@ -151,14 +152,14 @@ def render_markdown_lines(lines: Iterable[str]) -> str:
     return "<br>".join(apply_inline_markdown(line.strip()) for line in trimmed)
 
 
-def parse_note_text(path: Path) -> NoteContent:
+def parse_note_text(path: Path, index: int = 1) -> NoteContent:
     lines = read_text(path).splitlines()
 
     title_index = None
     title = None
-    for index, line in enumerate(lines):
+    for line_index, line in enumerate(lines):
         if line.strip().startswith("# "):
-            title_index = index
+            title_index = line_index
             title = line.strip()[2:].strip()
             break
 
@@ -173,6 +174,7 @@ def parse_note_text(path: Path) -> NoteContent:
     return NoteContent(
         title_html=render_markdown_lines([title]),
         body_html=body_html,
+        index=index,
     )
 
 
@@ -378,11 +380,82 @@ def canonical_media_path(path: Path, write_assets: bool) -> Path:
     return target
 
 
-def media_index(path: Path) -> int:
+def content_index(path: Path, label: str) -> int:
     match = re.match(r"^(\d+)_", path.name)
     if not match:
-        raise PageGenerationError(f"Media file must start with NUMBER_: {path}")
+        raise PageGenerationError(f"{label} must start with NUMBER_: {path}")
     return int(match.group(1))
+
+
+def media_index(path: Path) -> int:
+    return content_index(path, "Media file")
+
+
+def note_text_files(note_dir: Path) -> tuple[Path, ...]:
+    if not note_dir.is_dir():
+        raise PageGenerationError(f"Missing required note folder: {note_dir}")
+    return tuple(
+        sorted(
+            path
+            for path in note_dir.iterdir()
+            if path.is_file()
+            and path.suffix.lower() == ".md"
+            and path.name not in IGNORED_NAMES
+            and not path.name.startswith(".")
+        )
+    )
+
+
+def load_note_content(note_dir: Path) -> NoteContent:
+    paths = note_text_files(note_dir)
+    if len(paths) != 1:
+        if not paths:
+            raise PageGenerationError(
+                f"{note_dir} must contain exactly one numbered note text file. "
+                "Add 1_text.md for text on the left, or 2_text.md for text on the right."
+            )
+        raise PageGenerationError(
+            f"{note_dir} has multiple note text files: {', '.join(str(path) for path in paths)}. "
+            "Keep exactly one: either 1_text.md or 2_text.md."
+        )
+
+    path = paths[0]
+    index = content_index(path, "Note text file")
+    if index not in {1, 2}:
+        raise PageGenerationError(
+            f"{path} uses position {index}. Note text must use 1_ for the left column "
+            "or 2_ for the right column."
+        )
+    return parse_note_text(path, index=index)
+
+
+def validate_note_content(
+    note_dir: Path,
+    note: NoteContent,
+    note_media: tuple[MediaItem, ...],
+) -> MediaItem:
+    if len(note_media) != 1:
+        if not note_media:
+            raise PageGenerationError(
+                f"{note_dir} must contain exactly one numbered note media file. "
+                "Add 1_image.jpg for media on the left, or 2_image.jpg for media on the right."
+            )
+        raise PageGenerationError(
+            f"{note_dir} has multiple note media files. Keep exactly one numbered image/video file."
+        )
+
+    media = note_media[0]
+    if media.index not in {1, 2}:
+        raise PageGenerationError(
+            f"{media.path} uses position {media.index}. Note media must use 1_ for the left column "
+            "or 2_ for the right column."
+        )
+    if media.index == note.index:
+        raise PageGenerationError(
+            f"{note_dir} has note text and media both using {note.index}_. "
+            "Use 1_ for the left column and 2_ for the right column so each position is used once."
+        )
+    return media
 
 
 def ordered_media(
@@ -543,17 +616,15 @@ def load_work(
         vimeo_thumbnail_cache=vimeo_thumbnail_cache,
         fetch_vimeo_thumbnails=fetch_vimeo_thumbnails,
     )
-    note = parse_note_text(work_dir / "note" / "text.md")
-    note_media = ordered_media(work_dir / "note", write_assets=write_assets)
+    note_dir = work_dir / "note"
+    note = load_note_content(note_dir)
+    note_media = ordered_media(note_dir, write_assets=write_assets)
     highlight_media = ordered_media(work_dir / "highlight", write_assets=write_assets)
     bts_text = read_text(work_dir / "bts" / "text.md")
     bts_text_html = render_markdown_lines(bts_text.splitlines())
     bts_media = ordered_media(work_dir / "bts", write_assets=write_assets)
 
-    if len(note_media) != 1:
-        raise PageGenerationError(
-            f"{work_dir / 'note'} must contain exactly one media item"
-        )
+    note_media_item = validate_note_content(note_dir, note, note_media)
     if not bts_text_html:
         raise PageGenerationError(f"{work_dir / 'bts' / 'text.md'} must not be empty")
 
@@ -563,7 +634,7 @@ def load_work(
         trailer_embed_url=trailer_embed_url,
         trailer_poster_url=trailer_poster_url,
         note=note,
-        note_media=note_media[0],
+        note_media=note_media_item,
         highlight_media=highlight_media,
         bts_text_html=bts_text_html,
         bts_media=bts_media,
@@ -719,6 +790,25 @@ def render_trailer_section(work: WorkContent, output_html: Path) -> str:
 
 def render_note_section(work: WorkContent, output_html: Path) -> str:
     media_html = media_tag(work.note_media, output_html, work.title, class_name="work-header-image")
+    media_position = "left" if work.note_media.index == 1 else "right"
+    text_html = f"""        <div class="work-header-text">
+          <h1 class="work-title">{work.note.title_html}</h1>
+          <p class="work-subtext">{work.note.body_html}</p>
+          <div class="work-label"><div class="red-dot"></div> Director's note</div>
+        </div>"""
+    media_block_html = f"""        <div class="work-header-image-wrap work-header-piece--{media_position}">
+          {media_html}
+        </div>"""
+    note_columns = "\n".join(
+        html_block
+        for _, html_block in sorted(
+            (
+                (work.note.index, text_html),
+                (work.note_media.index, media_block_html),
+            ),
+            key=lambda item: item[0],
+        )
+    )
     return f"""    <section class="work-page work-page--note"
              id="note"
              data-section-page="note"
@@ -726,14 +816,7 @@ def render_note_section(work: WorkContent, output_html: Path) -> str:
              data-page-padding
              aria-label="Director's note">
       <div class="work-header">
-        <div class="work-header-text">
-          <h1 class="work-title">{work.note.title_html}</h1>
-          <p class="work-subtext">{work.note.body_html}</p>
-          <div class="work-label"><div class="red-dot"></div> Director's note</div>
-        </div>
-        <div class="work-header-image-wrap">
-          {media_html}
-        </div>
+{note_columns}
       </div>
     </section>"""
 
