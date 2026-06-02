@@ -158,9 +158,12 @@ stage_site_changes() {
     generate_website
     CNAME
     index.html
+    index.backup.html
+    css
     images
     js
     pages
+    vimeo-thumbnails.json
     works
     scripts
     templates
@@ -299,6 +302,10 @@ git push origin "$BRANCH"
 configure_pages_workflow_mode
 dispatch_publish_workflow
 
-log "Live work pages"
-printf "https://raehu.com/works/strange-fruit/\n"
-printf "https://raehu.com/works/champion/\n"
+log "Live pages"
+printf "https://raehu.com/#works\n"
+for work_dir in works/*(/N); do
+  work_slug="${work_dir:t}"
+  [[ "$work_slug" == "grid-test" ]] && continue
+  printf "https://raehu.com/works/%s/\n" "$work_slug"
+done

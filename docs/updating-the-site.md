@@ -56,8 +56,8 @@ Before you start, run `git status` to see the working tree. If files you're abou
 
 1. **Read** the relevant file(s) to confirm current state before editing.
 2. **Edit** with the Edit tool, preserving the architecture rules in `CLAUDE.md` (no deploy-time build step, no package manager, no frameworks, no JS-rendered data files).
-   - For generated project pages, edit the source content under `pages/works/commercials/<slug>/` or `pages/works/films/<slug>/`, then run `python3 scripts/generate_pages.py` so `works/index.html` and `works/<slug>/index.html` are regenerated from the templates.
-   - Before committing generated project pages, run `python3 -m unittest discover -s tests` and `python3 scripts/generate_pages.py --check`.
+   - For generated site pages, edit the source content under `pages/works/commercials/<slug>/` or `pages/works/films/<slug>/`, then run `python3 scripts/generate_pages.py` so `index.html`, `works/index.html`, and `works/<slug>/index.html` are regenerated from the templates.
+   - Before committing generated site pages, run `python3 -m unittest discover -s tests` and `python3 scripts/generate_pages.py --check`.
 3. **Preview, describe, and wait for confirmation (REQUIRED for any user-visible change).** Skip only for non-visible changes: docs, hooks, CI, `.gitignore`, infra.
 
    - **Preview locally:**

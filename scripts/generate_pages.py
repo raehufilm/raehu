@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import difflib
 import html
+import json
 import os
 import re
 import shutil
@@ -26,10 +27,15 @@ from urllib.request import Request, urlopen
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PAGES_WORKS_DIR = REPO_ROOT / "pages" / "works"
 WORKS_OUTPUT_DIR = REPO_ROOT / "works"
+HOME_OUTPUT_HTML = REPO_ROOT / "index.html"
 WORK_PAGE_TEMPLATE = REPO_ROOT / "templates" / "work-page.html"
-WORKS_INDEX_TEMPLATE = REPO_ROOT / "templates" / "works-index.html"
+HOME_TEMPLATE = REPO_ROOT / "templates" / "index.html"
+WORKS_REDIRECT_TEMPLATE = REPO_ROOT / "templates" / "works-redirect.html"
+HERO_ILLUSTRATION = REPO_ROOT / "images" / "illustration-tight.svg"
+VIMEO_THUMBNAIL_CACHE = REPO_ROOT / "vimeo-thumbnails.json"
 
 WORK_CATEGORIES = ("films", "commercials")
+ROOT_SECTION_ORDER = ("about", "works", "contact")
 SECTION_ORDER = ("trailer", "note", "highlight", "bts")
 IGNORED_NAMES = {".DS_Store"}
 IMAGE_EXTENSIONS = {".avif", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
@@ -92,6 +98,11 @@ def read_first_non_empty_line(path: Path) -> str:
     if not lines:
         raise PageGenerationError(f"{path} must contain one non-empty line")
     return lines[0]
+
+
+def read_inline_svg(path: Path) -> str:
+    svg = read_text(path).strip()
+    return re.sub(r"^<\?xml[^>]+\?>\s*", "", svg)
 
 
 def apply_inline_markdown(value: str) -> str:
@@ -201,8 +212,44 @@ def vimeo_embed_url(raw_url: str) -> str:
     return f"https://player.vimeo.com/video/{video_id}?{urlencode(params)}"
 
 
-def vimeo_thumbnail_url(raw_url: str) -> str | None:
-    public_url = vimeo_public_url(raw_url)
+def read_vimeo_thumbnail_cache(path: Path = VIMEO_THUMBNAIL_CACHE) -> dict[str, str]:
+    if not path.exists():
+        return {}
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise PageGenerationError(f"Invalid Vimeo thumbnail cache JSON: {path}") from exc
+
+    if not isinstance(payload, dict):
+        raise PageGenerationError(f"Vimeo thumbnail cache must be a JSON object: {path}")
+
+    cache: dict[str, str] = {}
+    for key, value in payload.items():
+        if not isinstance(key, str) or not isinstance(value, str) or not value.strip():
+            raise PageGenerationError(
+                f"Vimeo thumbnail cache entries must be non-empty strings: {path}"
+            )
+        cache[key] = value
+    return cache
+
+
+def write_vimeo_thumbnail_cache(
+    cache: dict[str, str],
+    path: Path = VIMEO_THUMBNAIL_CACHE,
+) -> None:
+    path.write_text(
+        json.dumps(dict(sorted(cache.items())), indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    try:
+        display_path = path.relative_to(REPO_ROOT)
+    except ValueError:
+        display_path = path
+    print(f"updated {display_path}")
+
+
+def fetch_vimeo_thumbnail_url(public_url: str) -> str | None:
     endpoint = "https://vimeo.com/api/oembed.json?" + urlencode(
         {"url": public_url, "width": "1280"}
     )
@@ -219,6 +266,24 @@ def vimeo_thumbnail_url(raw_url: str) -> str | None:
         return None
 
     return match.group(1).replace("\\/", "/")
+
+
+def vimeo_thumbnail_url(
+    raw_url: str,
+    cache: dict[str, str] | None = None,
+    allow_fetch: bool = True,
+) -> str | None:
+    public_url = vimeo_public_url(raw_url)
+    if cache is not None and public_url in cache:
+        return cache[public_url]
+
+    if not allow_fetch:
+        return None
+
+    thumbnail_url = fetch_vimeo_thumbnail_url(public_url)
+    if thumbnail_url and cache is not None:
+        cache[public_url] = thumbnail_url
+    return thumbnail_url
 
 
 def media_kind(path: Path) -> str:
@@ -352,11 +417,15 @@ def work_public_url_from(output_html: Path, work: WorkContent) -> str:
     return href if href.endswith("/") else f"{href}/"
 
 
-def works_index_url_from(output_html: Path) -> str:
-    href = output_relative_url(output_html, WORKS_OUTPUT_DIR)
+def root_index_url_from(output_html: Path) -> str:
+    href = output_relative_url(output_html, REPO_ROOT)
     if href in {"", "."}:
         return "./"
     return href if href.endswith("/") else f"{href}/"
+
+
+def root_works_url_from(output_html: Path) -> str:
+    return root_index_url_from(output_html) + "#works"
 
 
 def media_tag(
@@ -384,7 +453,12 @@ def valid_started_work(work_dir: Path) -> bool:
     return False
 
 
-def load_work(work_dir: Path, write_assets: bool = False) -> WorkContent:
+def load_work(
+    work_dir: Path,
+    write_assets: bool = False,
+    vimeo_thumbnail_cache: dict[str, str] | None = None,
+    fetch_vimeo_thumbnails: bool = True,
+) -> WorkContent:
     slug = work_dir.name
     trailer_link = read_first_non_empty_line(work_dir / "trailer" / "trailer_link.md")
     note = parse_note_text(work_dir / "note" / "text.md")
@@ -405,7 +479,11 @@ def load_work(work_dir: Path, write_assets: bool = False) -> WorkContent:
         slug=slug,
         title=title_from_slug(slug),
         trailer_embed_url=vimeo_embed_url(trailer_link),
-        trailer_poster_url=vimeo_thumbnail_url(trailer_link),
+        trailer_poster_url=vimeo_thumbnail_url(
+            trailer_link,
+            cache=vimeo_thumbnail_cache,
+            allow_fetch=fetch_vimeo_thumbnails,
+        ),
         note=note,
         note_media=note_media[0],
         highlight_media=highlight_media,
@@ -424,6 +502,18 @@ def render_tracker_links(sections: Iterable[str]) -> str:
             '      <span class="red-dot section-tracker-dot" aria-hidden="true"></span>\n'
             f"      <span>{section}</span>\n"
             "    </a>"
+        )
+    return "\n".join(lines)
+
+
+def render_work_category_links(categories: Iterable[str]) -> str:
+    lines: list[str] = []
+    for category in categories:
+        lines.append(
+            f'        <a href="#{category}" data-work-category-link="{category}">\n'
+            '          <span class="red-dot section-tracker-dot" aria-hidden="true"></span>\n'
+            f"          <span>{category}</span>\n"
+            "        </a>"
         )
     return "\n".join(lines)
 
@@ -505,7 +595,7 @@ def render_note_section(work: WorkContent, output_html: Path) -> str:
 
 def render_highlight_section(work: WorkContent, output_html: Path) -> str:
     media_lines = [
-        "        " + media_tag(item, output_html, f"{work.title} highlight")
+        "        " + render_highlight_tile(item, output_html, work.title)
         for item in work.highlight_media
     ]
     media_html = "\n".join(media_lines)
@@ -522,6 +612,27 @@ def render_highlight_section(work: WorkContent, output_html: Path) -> str:
         </div>
       </div>
     </section>"""
+
+
+def render_highlight_tile(item: MediaItem, output_html: Path, title: str) -> str:
+    media_html = media_tag(
+        item,
+        output_html,
+        f"{title} highlight",
+        class_name="highlight-media media-hover-zoom-target",
+    )
+    return f"""<figure class="highlight-tile media-hover-zoom" data-highlight-tile>
+          {media_html}
+          <button class="highlight-expand-button"
+                  type="button"
+                  data-highlight-expand
+                  aria-label="Expand highlight media">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path class="interactive-chevron interactive-chevron--expand-ne" d="M14 4h6v6"></path>
+              <path class="interactive-chevron interactive-chevron--expand-sw" d="M10 20H4v-6"></path>
+            </svg>
+          </button>
+        </figure>"""
 
 
 def render_bts_section(work: WorkContent, output_html: Path) -> str:
@@ -544,7 +655,7 @@ def render_bts_section(work: WorkContent, output_html: Path) -> str:
                   data-bts-slide-control="prev"
                   aria-label="Previous BTS image">
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M15 18l-6-6 6-6"></path>
+              <path class="interactive-chevron interactive-chevron--left" d="M15 18l-6-6 6-6"></path>
             </svg>
           </button>
           <button class="bts-slide-control bts-slide-control--next"
@@ -552,7 +663,7 @@ def render_bts_section(work: WorkContent, output_html: Path) -> str:
                   data-bts-slide-control="next"
                   aria-label="Next BTS image">
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M9 6l6 6-6 6"></path>
+              <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
             </svg>
           </button>"""
 
@@ -586,8 +697,9 @@ def render_work(work: WorkContent, template: str, output_html: Path) -> str:
         "{{DOCUMENT_TITLE}}": html_escape(work.title),
         "{{WORK_SLUG}}": html_escape(work.slug),
         "{{WORK_CATEGORY}}": html_escape(work.category),
-        "{{ROOT_INDEX_URL}}": repo_relative_url(output_html, "index.html"),
-        "{{WORKS_INDEX_URL}}": works_index_url_from(output_html),
+        "{{ROOT_INDEX_URL}}": root_index_url_from(output_html),
+        "{{WORKS_INDEX_URL}}": root_works_url_from(output_html),
+        "{{SHARED_EFFECTS_CSS_URL}}": repo_relative_url(output_html, "css", "shared-effects.css"),
         "{{PORTFOLIO_GRID_JS_URL}}": repo_relative_url(output_html, "js", "portfolio-grid.js"),
         "{{SECTION_TRACKER_LINKS}}": render_tracker_links(SECTION_ORDER),
         "{{WORK_SECTIONS}}": "\n\n".join(sections),
@@ -607,9 +719,12 @@ def render_works_index_grid_item(work: WorkContent, output_html: Path) -> str:
         poster_src = output_relative_url(output_html, work.note_media.path)
 
     title = html_escape(work.title)
-    return f"""        <a class="works-grid-link" href="{href}" aria-label="{title}">
-          <img src="{poster_src}" alt="{title} trailer preview" loading="lazy" decoding="async">
-          <span class="works-grid-title">{title}</span>
+    return f"""        <a class="works-grid-link media-hover-zoom" href="{href}" aria-label="{title}">
+          <img class="media-hover-zoom-target" src="{poster_src}" alt="{title} trailer preview" loading="lazy" decoding="async">
+          <span class="works-grid-title">
+            <span class="works-grid-title-text">{title}</span>
+            <span class="works-grid-title-chevron interactive-chevron interactive-chevron--right" aria-hidden="true">&gt;</span>
+          </span>
         </a>"""
 
 
@@ -628,7 +743,7 @@ def render_works_index_section(
 
     return f"""    <section class="works-index-page"
              id="{html_escape(category)}"
-             data-section-page="{html_escape(category)}"
+             data-work-category-section="{html_escape(category)}"
              data-section-title="{html_escape(category_label(category))}"
              aria-label="{html_escape(category_label(category))}">
       <div class="works-index-grid-wrap">
@@ -639,7 +754,7 @@ def render_works_index_section(
     </section>"""
 
 
-def render_works_index(works: tuple[WorkContent, ...], template: str, output_html: Path) -> str:
+def render_home(works: tuple[WorkContent, ...], template: str, output_html: Path) -> str:
     works_by_category = {
         category: tuple(work for work in works if work.category == category)
         for category in WORK_CATEGORIES
@@ -650,10 +765,11 @@ def render_works_index(works: tuple[WorkContent, ...], template: str, output_htm
     ]
 
     replacements = {
-        "{{ROOT_INDEX_URL}}": repo_relative_url(output_html, "index.html"),
-        "{{WORKS_INDEX_URL}}": works_index_url_from(output_html),
+        "{{HERO_ILLUSTRATION_SVG}}": read_inline_svg(HERO_ILLUSTRATION),
+        "{{SHARED_EFFECTS_CSS_URL}}": repo_relative_url(output_html, "css", "shared-effects.css"),
         "{{PORTFOLIO_GRID_JS_URL}}": repo_relative_url(output_html, "js", "portfolio-grid.js"),
-        "{{SECTION_TRACKER_LINKS}}": render_tracker_links(WORK_CATEGORIES),
+        "{{ROOT_SECTION_TRACKER_LINKS}}": render_tracker_links(ROOT_SECTION_ORDER),
+        "{{WORK_CATEGORY_TRACKER_LINKS}}": render_work_category_links(WORK_CATEGORIES),
         "{{WORKS_INDEX_SECTIONS}}": "\n\n".join(sections),
     }
 
@@ -661,6 +777,42 @@ def render_works_index(works: tuple[WorkContent, ...], template: str, output_htm
     for placeholder, value in replacements.items():
         rendered = rendered.replace(placeholder, value)
     return rendered
+
+
+def render_works_redirect(template: str, output_html: Path) -> str:
+    replacements = {
+        "{{ROOT_WORKS_URL}}": root_works_url_from(output_html),
+    }
+
+    rendered = template
+    for placeholder, value in replacements.items():
+        rendered = rendered.replace(placeholder, value)
+    return rendered
+
+
+def write_or_check(output_html: Path, rendered: str, check: bool) -> int:
+    if check:
+        current = output_html.read_text(encoding="utf-8") if output_html.exists() else ""
+        if current != rendered:
+            diff = difflib.unified_diff(
+                current.splitlines(),
+                rendered.splitlines(),
+                fromfile=str(output_html),
+                tofile=f"generated:{output_html}",
+                lineterm="",
+            )
+            print(
+                f"Generated page is out of date: {output_html}",
+                file=sys.stderr,
+            )
+            print("\n".join(diff), file=sys.stderr)
+            return 1
+        return 0
+
+    output_html.parent.mkdir(parents=True, exist_ok=True)
+    output_html.write_text(rendered, encoding="utf-8")
+    print(f"generated {output_html.relative_to(REPO_ROOT)}")
+    return 0
 
 
 def discover_work_dirs(pages_works_dir: Path, selected_slug: str | None = None) -> list[Path]:
@@ -698,58 +850,35 @@ def generate(check: bool = False, selected_slug: str | None = None) -> int:
 
     failures = 0
     works: list[WorkContent] = []
+    vimeo_thumbnail_cache = read_vimeo_thumbnail_cache()
+    original_vimeo_thumbnail_cache = dict(vimeo_thumbnail_cache)
     for work_dir in work_dirs:
-        work = load_work(work_dir, write_assets=not check)
+        work = load_work(
+            work_dir,
+            write_assets=not check,
+            vimeo_thumbnail_cache=vimeo_thumbnail_cache,
+            fetch_vimeo_thumbnails=not check,
+        )
         works.append(work)
         output_html = work_output_html(work)
         rendered = render_work(work, work_template, output_html)
-
-        if check:
-            current = output_html.read_text(encoding="utf-8") if output_html.exists() else ""
-            if current != rendered:
-                failures += 1
-                diff = difflib.unified_diff(
-                    current.splitlines(),
-                    rendered.splitlines(),
-                    fromfile=str(output_html),
-                    tofile=f"generated:{output_html}",
-                    lineterm="",
-                )
-                print(
-                    f"Generated page is out of date: {output_html}",
-                    file=sys.stderr,
-                )
-                print("\n".join(diff), file=sys.stderr)
-        else:
-            output_html.parent.mkdir(parents=True, exist_ok=True)
-            output_html.write_text(rendered, encoding="utf-8")
-            print(f"generated {output_html.relative_to(REPO_ROOT)}")
+        failures += write_or_check(output_html, rendered, check)
 
     if not selected_slug:
-        works_index_template = read_text(WORKS_INDEX_TEMPLATE)
-        output_html = WORKS_OUTPUT_DIR / "index.html"
-        rendered = render_works_index(tuple(works), works_index_template, output_html)
+        home_template = read_text(HOME_TEMPLATE)
+        home_rendered = render_home(tuple(works), home_template, HOME_OUTPUT_HTML)
+        failures += write_or_check(HOME_OUTPUT_HTML, home_rendered, check)
 
-        if check:
-            current = output_html.read_text(encoding="utf-8") if output_html.exists() else ""
-            if current != rendered:
-                failures += 1
-                diff = difflib.unified_diff(
-                    current.splitlines(),
-                    rendered.splitlines(),
-                    fromfile=str(output_html),
-                    tofile=f"generated:{output_html}",
-                    lineterm="",
-                )
-                print(
-                    f"Generated page is out of date: {output_html}",
-                    file=sys.stderr,
-                )
-                print("\n".join(diff), file=sys.stderr)
-        else:
-            output_html.parent.mkdir(parents=True, exist_ok=True)
-            output_html.write_text(rendered, encoding="utf-8")
-            print(f"generated {output_html.relative_to(REPO_ROOT)}")
+        works_redirect_template = read_text(WORKS_REDIRECT_TEMPLATE)
+        works_redirect_html = WORKS_OUTPUT_DIR / "index.html"
+        works_redirect_rendered = render_works_redirect(
+            works_redirect_template,
+            works_redirect_html,
+        )
+        failures += write_or_check(works_redirect_html, works_redirect_rendered, check)
+
+    if not check and vimeo_thumbnail_cache != original_vimeo_thumbnail_cache:
+        write_vimeo_thumbnail_cache(vimeo_thumbnail_cache)
 
     return failures
 

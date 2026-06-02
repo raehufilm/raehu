@@ -31,7 +31,8 @@ Live at **https://raehu.com**.
 
 ```
 .
-├── index.html                  # landing page (CSS + JS inline)
+├── index.html                  # generated landing page + works grids
+├── index.backup.html           # archived pre-generator landing page
 ├── CNAME                       # custom domain config
 ├── generate_website            # macOS-clickable generate/test/publish script
 ├── README.md                   # this file
@@ -44,10 +45,13 @@ Live at **https://raehu.com**.
 │   ├── portfolio-grid.md
 │   ├── clip-extraction.md
 │   └── clip-scripts.md
+├── css/                        # shared generated-site CSS effects
+│   └── shared-effects.css      # reusable tile hover interaction variables
 ├── js/                         # shared scripts (no build, no npm)
 │   └── portfolio-grid.js       # irregular grid layout engine
 ├── images/                     # committed image assets
-│   └── illustration.svg        # signature line-art portrait (brand asset)
+│   ├── illustration.svg        # signature line-art portrait (brand asset)
+│   └── illustration-tight.svg  # tight-viewBox version for the generated root hero
 ├── pages/                      # source content for generated project pages
 │   └── works/
 │       ├── commercials/
@@ -55,9 +59,11 @@ Live at **https://raehu.com**.
 ├── scripts/
 │   └── generate_pages.py       # dependency-free page generator
 ├── templates/
-│   └── work-page.html          # shared generated work-page template
+│   ├── index.html              # generated root-page template
+│   ├── work-page.html          # shared generated work-page template
+│   └── works-redirect.html     # /works/ redirect template
 ├── tests/                      # generator tests
-├── works/                      # generated works index plus generated project pages
+├── works/                      # /works/ redirect plus generated project pages
 ├── .github/
 │   └── workflows/
 │       ├── check-author.yml
@@ -68,7 +74,7 @@ Live at **https://raehu.com**.
 └── .gitignore
 ```
 
-The generated works index lives at `works/index.html` and is served at `https://raehu.com/works/`. Generated per-project pages live at `works/<slug>/index.html` and are served at `https://raehu.com/works/<slug>/`. Source content lives under `pages/works/commercials/<slug>/` or `pages/works/films/<slug>/`. See [PAGES.md](PAGES.md) for the folder rules.
+The generated landing page lives at `index.html`; its works section is served at `https://raehu.com/#works`. `works/index.html` redirects old `/works/` traffic back to that root works section. Generated per-project pages live at `works/<slug>/index.html` and are served at `https://raehu.com/works/<slug>/`. Source content lives under `pages/works/commercials/<slug>/` or `pages/works/films/<slug>/`. See [PAGES.md](PAGES.md) for the folder rules.
 
 ---
 

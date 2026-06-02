@@ -100,7 +100,7 @@ The owner does not run dev tools, does not read code, and cannot inspect commit 
 
 ### Hard rules
 
-1. **No deploy-time build step.** Files committed to the deployable site paths are exactly what gets served. No bundler, transpiler, static-site generator, or preprocessor runs on GitHub Pages. The `pages/` workflow is the exception only as a maintenance tool: `scripts/generate_pages.py` may generate static HTML locally/CI, but the generated `works/<slug>/index.html` output must be committed.
+1. **No deploy-time build step.** Files committed to the deployable site paths are exactly what gets served. No bundler, transpiler, static-site generator, or preprocessor runs on GitHub Pages. The `pages/` workflow is the exception only as a maintenance tool: `scripts/generate_pages.py` may generate static HTML locally/CI, but the generated `index.html`, `works/index.html`, and `works/<slug>/index.html` output must be committed.
 2. **No package manager.** No `package.json`, no `node_modules`, no `requirements.txt`, no installable dependencies of any kind. If a feature needs a library, link it from a stable public CDN inline — but prefer writing it yourself in vanilla JS.
 3. **No frameworks.** No React, Vue, Svelte, Alpine, htmx. Just HTML + CSS + browser JS.
 4. **No CSS preprocessors.** No Sass, Less, Tailwind, postcss. Plain CSS, in `<style>` tags or `.css` files.
@@ -110,13 +110,16 @@ The owner does not run dev tools, does not read code, and cannot inspect commit 
 
 ### Conventions
 
-- `index.html` — landing page (CSS + JS inline)
-- `works/index.html` — generated works index page served at `/works/`
+- `index.html` — generated landing page with the root `#works` grids
+- `index.backup.html` — archived pre-generator landing page
+- `works/index.html` — generated redirect from `/works/` to `/#works`
 - `works/<slug>/index.html` — generated per-project detail pages served at `/works/<slug>/`
 - `pages/works/commercials/<slug>/` — editable source-content folders for generated commercial pages
 - `pages/works/films/<slug>/` — editable source-content folders for generated film pages
+- `templates/index.html` — generated root-page HTML template
 - `templates/work-page.html` — shared generated-work-page HTML template
-- `scripts/generate_pages.py` — dependency-free generator/checker for `pages/works` content
+- `templates/works-redirect.html` — generated `/works/` redirect template
+- `scripts/generate_pages.py` — dependency-free generator/checker for the whole generated static site surface
 - `generate_website` — root macOS-clickable generate/test/commit/push/publish wrapper
 - `images/<slug>/` — image assets per project, committed to the repo
 - `CNAME` — custom domain
@@ -136,7 +139,7 @@ For the owner, "update the site" means: tell Claude what to change → Claude ed
 
 **For extracting highlight clips from source video, follow `docs/clip-extraction.md`.** The workflow is: detect shots → generate preview thumbnails → get owner approval → extract approved clips as web-ready MP4s. Never skip the preview step. The two shell scripts `generate-candidates` and `extract-clips` (documented in `docs/clip-scripts.md`, installed at `~/bin/`) automate this workflow — prefer them over manual FFmpeg commands.
 
-**For the developing non-technical `pages/` content-source workflow, follow `PAGES.md`.** That file records the folder schema, generator commands, `text.md` rules, `media/` ordering rules, current template behavior, and publication path. Keep it updated whenever the schema, generator, or template assumptions change. Generated/static website output must still live in the normal deployable paths such as `works/<slug>/index.html`; run `python3 scripts/generate_pages.py` after editing `pages/`, and use `python3 scripts/generate_pages.py --check` before committing generated-page changes. When the owner approves publication, prefer `./generate_website --message "<commit message>" --no-pause` so generation, tests, media policy checks, push, and Pages deployment happen through the same path.
+**For the developing non-technical `pages/` content-source workflow, follow `PAGES.md`.** That file records the folder schema, generator commands, `text.md` rules, `media/` ordering rules, current template behavior, and publication path. Keep it updated whenever the schema, generator, or template assumptions change. Generated/static website output must still live in the normal deployable paths such as `index.html`, `works/index.html`, and `works/<slug>/index.html`; run `python3 scripts/generate_pages.py` after editing `pages/`, and use `python3 scripts/generate_pages.py --check` before committing generated-page changes. When the owner approves publication, prefer `./generate_website --message "<commit message>" --no-pause` so generation, tests, media policy checks, push, and Pages deployment happen through the same path.
 
 **Before any change to look, voice, or copy, consult `docs/portfolio-reference.md`.** It's the design and content reference extracted from the owner's portfolio PDF (palette, typography, canonical bio and quote, voice patterns, full project catalog, sequencing). The PDF itself is not committed (~80 MB binary that lives outside the repo); this markdown is the authoritative substitute.
 

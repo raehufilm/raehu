@@ -138,7 +138,7 @@ The generator never repeats the same span pattern in adjacent rows.
 
 ## Tested layout seeds
 
-These seed + item count combinations have been visually verified with real stills from `website_stills/`. See `works/grid-test/index.html` for the live test page.
+These seed + item count combinations have been visually verified with real stills during local development.
 
 | Items | Seed | Rows | Character |
 |---|---|---|---|
@@ -151,18 +151,14 @@ To reproduce: put 17 `<img>` children in a `.portfolio-grid` container with `dat
 ## File locations
 
 - **Engine:** `js/portfolio-grid.js`
-- **Test page:** `works/grid-test/index.html` (not deployed — local preview only)
-- **Works index:** `works/index.html`
+- **Root works grids:** `index.html#works`
 - **Portfolio pages:** `works/<slug>/index.html`
 - **Image assets:** `images/<slug>/` (WebP, committed to repo)
 - **Source stills:** `website_stills/` (PNGs, not committed — convert to WebP before use)
 
 ## Creating a new portfolio page
 
-1. Create `works/<slug>/index.html`
-2. Add images as `<img>` tags inside a `.portfolio-grid` container
-3. Optionally set `data-seed` to choose a layout variant (try a few values, preview each)
-4. Or set `data-layout` for a fully manual arrangement
-5. Link the repo-relative `js/portfolio-grid.js` path at the bottom of `<body>`
-6. Include the base CSS (inline or linked)
-7. Preview locally, then commit and push
+1. Add source content under `pages/works/films/<slug>/` or `pages/works/commercials/<slug>/`.
+2. Put ordered media inside the section `media/` folders using the `NUMBER_` filename prefix.
+3. Run `python3 scripts/generate_pages.py` so the root works grids and the detail page are regenerated.
+4. Preview locally, then commit and push through the normal generated-site workflow.

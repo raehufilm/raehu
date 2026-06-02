@@ -26,6 +26,64 @@ class GeneratePagesTests(unittest.TestCase):
 
         self.assertEqual(public_url, "https://vimeo.com/1119717934")
 
+    def test_vimeo_thumbnail_url_uses_cached_public_url(self):
+        cache = {
+            "https://vimeo.com/123456789": "https://i.vimeocdn.com/video/example_1280",
+        }
+
+        with mock.patch.object(generate_pages, "fetch_vimeo_thumbnail_url") as fetch:
+            thumbnail_url = generate_pages.vimeo_thumbnail_url(
+                "https://vimeo.com/manage/videos/123456789",
+                cache=cache,
+                allow_fetch=False,
+            )
+
+        self.assertEqual(thumbnail_url, "https://i.vimeocdn.com/video/example_1280")
+        fetch.assert_not_called()
+
+    def test_vimeo_thumbnail_url_updates_cache_after_fetch(self):
+        cache = {}
+
+        with mock.patch.object(
+            generate_pages,
+            "fetch_vimeo_thumbnail_url",
+            return_value="https://i.vimeocdn.com/video/example_1280",
+        ):
+            thumbnail_url = generate_pages.vimeo_thumbnail_url(
+                "https://vimeo.com/123456789",
+                cache=cache,
+            )
+
+        self.assertEqual(thumbnail_url, "https://i.vimeocdn.com/video/example_1280")
+        self.assertEqual(
+            cache,
+            {
+                "https://vimeo.com/123456789": "https://i.vimeocdn.com/video/example_1280",
+            },
+        )
+
+    def test_vimeo_thumbnail_cache_round_trips_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_path = Path(tmp) / "vimeo-thumbnails.json"
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                generate_pages.write_vimeo_thumbnail_cache(
+                    {
+                        "https://vimeo.com/2": "https://i.vimeocdn.com/video/two_1280",
+                        "https://vimeo.com/1": "https://i.vimeocdn.com/video/one_1280",
+                    },
+                    cache_path,
+                )
+            cache = generate_pages.read_vimeo_thumbnail_cache(cache_path)
+
+        self.assertEqual(
+            cache,
+            {
+                "https://vimeo.com/1": "https://i.vimeocdn.com/video/one_1280",
+                "https://vimeo.com/2": "https://i.vimeocdn.com/video/two_1280",
+            },
+        )
+
     def test_render_trailer_uses_thumbnail_when_available(self):
         work = generate_pages.WorkContent(
             slug="sample",
@@ -128,6 +186,43 @@ class GeneratePagesTests(unittest.TestCase):
     def test_default_layout_preserves_current_five_item_highlight_shape(self):
         self.assertEqual(generate_pages.default_grid_layout(5), "7-5, 4-5-3")
 
+    def test_render_highlight_wraps_media_with_expand_controls(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_html = root / "works" / "sample-work" / "index.html"
+            media_path = (
+                root
+                / "pages"
+                / "works"
+                / "films"
+                / "sample-work"
+                / "highlight"
+                / "media"
+                / "1_highlight.webp"
+            )
+            work = generate_pages.WorkContent(
+                slug="sample-work",
+                title="Sample Work",
+                trailer_embed_url="https://player.vimeo.com/video/123",
+                trailer_poster_url=None,
+                note=generate_pages.NoteContent(title_html="Title", body_html="Body"),
+                note_media=generate_pages.MediaItem(1, Path("note.webp"), "image"),
+                highlight_media=(
+                    generate_pages.MediaItem(1, media_path, "image"),
+                ),
+                bts_text_html="Credits",
+                bts_media=(),
+            )
+
+            rendered = generate_pages.render_highlight_section(work, output_html)
+
+        self.assertIn('class="highlight-tile media-hover-zoom" data-highlight-tile', rendered)
+        self.assertIn('class="highlight-media media-hover-zoom-target"', rendered)
+        self.assertIn("interactive-chevron--expand-ne", rendered)
+        self.assertIn("interactive-chevron--expand-sw", rendered)
+        self.assertIn("data-highlight-expand", rendered)
+        self.assertIn("Expand highlight media", rendered)
+
     def test_discover_work_dirs_traverses_commercials_and_films(self):
         with tempfile.TemporaryDirectory() as tmp:
             pages_works = Path(tmp) / "pages" / "works"
@@ -208,6 +303,7 @@ class GeneratePagesTests(unittest.TestCase):
                 "{{WORK_CATEGORY}}"
                 "{{ROOT_INDEX_URL}}"
                 "{{WORKS_INDEX_URL}}"
+                "{{SHARED_EFFECTS_CSS_URL}}"
                 "{{PORTFOLIO_GRID_JS_URL}}"
                 "{{WORK_SECTIONS}}",
                 encoding="utf-8",
@@ -231,15 +327,22 @@ class GeneratePagesTests(unittest.TestCase):
             self.assertFalse(subpages_output_html.exists())
             generated = output_html.read_text(encoding="utf-8")
             self.assertIn("films", generated)
-            self.assertIn("../../index.html", generated)
-            self.assertIn("../", generated)
+            self.assertIn("../../", generated)
+            self.assertIn("../../#works", generated)
+            self.assertIn("../../css/shared-effects.css", generated)
             self.assertIn("../../js/portfolio-grid.js", generated)
 
-    def test_render_works_index_uses_category_sections_and_trailer_posters(self):
+    def test_render_home_uses_category_sections_and_trailer_posters(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             works_output = root / "works"
-            output_html = works_output / "index.html"
+            output_html = root / "index.html"
+            illustration = root / "images" / "illustration.svg"
+            illustration.parent.mkdir()
+            illustration.write_text(
+                '<?xml version="1.0" encoding="UTF-8"?><svg></svg>',
+                encoding="utf-8",
+            )
             film = generate_pages.WorkContent(
                 slug="sample-film",
                 title="Sample Film",
@@ -273,18 +376,20 @@ class GeneratePagesTests(unittest.TestCase):
                 category="commercials",
             )
             template = (
-                "{{SECTION_TRACKER_LINKS}}"
+                "{{ROOT_SECTION_TRACKER_LINKS}}"
+                "{{WORK_CATEGORY_TRACKER_LINKS}}"
                 "{{WORKS_INDEX_SECTIONS}}"
-                "{{ROOT_INDEX_URL}}"
-                "{{WORKS_INDEX_URL}}"
+                "{{SHARED_EFFECTS_CSS_URL}}"
                 "{{PORTFOLIO_GRID_JS_URL}}"
+                "{{HERO_ILLUSTRATION_SVG}}"
             )
 
             with (
                 mock.patch.object(generate_pages, "REPO_ROOT", root),
                 mock.patch.object(generate_pages, "WORKS_OUTPUT_DIR", works_output),
+                mock.patch.object(generate_pages, "HERO_ILLUSTRATION", illustration),
             ):
-                rendered = generate_pages.render_works_index(
+                rendered = generate_pages.render_home(
                     (commercial, film),
                     template,
                     output_html,
@@ -294,13 +399,32 @@ class GeneratePagesTests(unittest.TestCase):
         commercials_index = rendered.index('id="commercials"')
 
         self.assertLess(films_index, commercials_index)
-        self.assertIn('href="sample-film/"', rendered)
-        self.assertIn('href="sample-ad/"', rendered)
+        self.assertIn('data-work-category-link="films"', rendered)
+        self.assertIn('data-work-category-link="commercials"', rendered)
+        self.assertIn('<span>films</span>', rendered)
+        self.assertIn('<span>commercials</span>', rendered)
+        self.assertIn('data-work-category-section="films"', rendered)
+        self.assertIn('data-work-category-section="commercials"', rendered)
+        self.assertIn('href="works/sample-film/"', rendered)
+        self.assertIn('href="works/sample-ad/"', rendered)
+        self.assertIn("works-grid-title-chevron", rendered)
+        self.assertIn("interactive-chevron--right", rendered)
+        self.assertIn("css/shared-effects.css", rendered)
         self.assertIn('src="https://i.vimeocdn.com/video/film_1280"', rendered)
         self.assertIn('src="https://i.vimeocdn.com/video/ad_1280"', rendered)
-        self.assertIn("../index.html", rendered)
-        self.assertIn("./", rendered)
-        self.assertIn("../js/portfolio-grid.js", rendered)
+        self.assertIn("js/portfolio-grid.js", rendered)
+        self.assertIn("<svg></svg>", rendered)
+
+    def test_render_works_redirect_points_to_root_works_anchor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_html = root / "works" / "index.html"
+            template = "{{ROOT_WORKS_URL}}"
+
+            with mock.patch.object(generate_pages, "REPO_ROOT", root):
+                rendered = generate_pages.render_works_redirect(template, output_html)
+
+        self.assertEqual(rendered, "../#works")
 
 
 if __name__ == "__main__":

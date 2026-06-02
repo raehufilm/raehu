@@ -10,11 +10,12 @@ Keep it updated whenever the folder schema, naming rules, supported media types,
 The public website output still lives in the normal static site paths, such as:
 
 ```text
+index.html
 works/index.html
 works/<work-slug>/index.html
 ```
 
-`scripts/generate_pages.py` reads valid work folders under `pages/works/commercials/` and `pages/works/films/` and writes the static HTML output for both the works index and the per-work pages. The owner should not need to understand code; Claude/Codex runs it after content changes and commits the generated HTML. On this Mac, the root `generate_website` script is also available as a double-clickable publish path.
+`scripts/generate_pages.py` reads valid work folders under `pages/works/commercials/` and `pages/works/films/` and writes the static HTML output for the root landing page, the `/works/` redirect, and the per-work pages. The owner should not need to understand code; Claude/Codex runs it after content changes and commits the generated HTML. On this Mac, the root `generate_website` script is also available as a double-clickable publish path.
 
 ## Current Structure
 
@@ -65,8 +66,8 @@ The current `trailer`, `note`, `highlight`, and `bts` sections are the first sec
 
 ## General Rules
 
-- `pages/works/commercials/<work-slug>/` maps to `works/<work-slug>/index.html` and one grid item in `works/index.html`.
-- `pages/works/films/<work-slug>/` maps to `works/<work-slug>/index.html` and one grid item in `works/index.html`.
+- `pages/works/commercials/<work-slug>/` maps to `works/<work-slug>/index.html` and one grid item in `index.html#works`.
+- `pages/works/films/<work-slug>/` maps to `works/<work-slug>/index.html` and one grid item in `index.html#works`.
 - Both categories are traversed for valid started work folders.
 - Work slugs must be unique across `commercials` and `films`, because both categories share the public `/works/<slug>/` URL space.
 - Each child folder under a work represents a page section.
@@ -117,10 +118,12 @@ Generator rules:
 
 - It uses only the Python standard library; do not add package-manager dependencies.
 - `--check` fails if committed HTML differs from generated HTML.
-- The shared HTML wrapper lives at `templates/work-page.html`.
-- The works index wrapper lives at `templates/works-index.html`.
-- The works index output is `works/index.html`.
-- The current generated page output is `works/<work-slug>/index.html`.
+- The root landing-page wrapper lives at `templates/index.html`.
+- The shared work-page wrapper lives at `templates/work-page.html`.
+- The `/works/` redirect wrapper lives at `templates/works-redirect.html`.
+- The root landing-page output is `index.html`.
+- The `/works/` redirect output is `works/index.html`.
+- The generated work-page output is `works/<work-slug>/index.html`.
 - The current work title is derived from the folder slug, such as `strange-fruit` → `Strange Fruit`. A richer work-title metadata rule is still open.
 - Image inputs in `media/` are converted to WebP with ffmpeg.
 - WebP conversion is skipped on rerun when the matching `.webp` file already exists and is newer than the source image.
@@ -181,7 +184,10 @@ The current `trailer` section behavior is:
 - After trimming, the first non-empty line should be treated as the trailer URL.
 - The template/generator should translate normal Vimeo URLs into Vimeo player embed URLs.
 - The rendered page should keep using the Vimeo facade pattern: poster plus play button first, iframe only after click.
-- The generator fetches the trailer poster from Vimeo's oEmbed endpoint when possible. If Vimeo does not return a thumbnail, the template falls back to a black placeholder.
+- The generator stores resolved Vimeo poster URLs in `vimeo-thumbnails.json`, keyed by normalized public Vimeo URL.
+- Normal generation may fetch missing poster URLs from Vimeo's oEmbed endpoint and update the cache.
+- Check mode reads only from the cache so local and GitHub CI runs do not drift when Vimeo is slow or temporarily unreachable.
+- If no cached or fetched thumbnail is available, the trailer template falls back to a black placeholder.
 
 Private or unlisted Vimeo links may include a hash path after the numeric ID, such as `https://vimeo.com/123456789/abcdef1234`; the generator should preserve that hash when creating the embed URL.
 
@@ -222,21 +228,36 @@ The current `highlight` section behavior is:
 - Grid media is ordered by `NUMBER_`.
 - The layout adapts to the number of media items. Five-item grids currently use `7-5, 4-5-3`; seven-item grids currently use `7-5, 4-4-4, 6-6`.
 - Media items can be images or muted looping video clips.
+- Each highlight tile includes a centered expand control, and clicking anywhere on the tile opens it.
+- The expanded media opens in a dimmed overlay and animates from its grid tile to the width of the highlight grid.
+- Clicking anywhere on the expanded overlay collapses it back; centered inward chevrons are shown as the visual cue.
+- Highlight tiles use the shared `media-hover-zoom` effect from `css/shared-effects.css`, the same effect used by the root works grid.
 
 The generated HTML currently references allowed media directly from `pages/works/<category>/<slug>/highlight/media/`. The publish workflow copies only `.webp` and `.mp4` files from those media folders into the Pages artifact.
 
-## Current Works Index Template Rules
+## Current Root Template Rules
 
-The current `works/index.html` behavior is:
+The current generated root `index.html` behavior is:
 
+- It has one persistent left-side section tracker for `about`, `works`, and `contact`.
+- The header is brand-only; `works`, `about`, and `contact` are no longer duplicated in the top-right header.
+- The first `about` viewport uses the same left/right inset model as generated work-page trailers, with the line illustration placed where trailer media would normally sit. It starts at the top of the page underneath the transparent fixed header, without reserving a black header band.
+- The first `about` viewport uses `images/illustration-tight.svg`, a tight-viewBox derivative of the reusable brand illustration. The SVG fits the visual area's height from the top-left corner, so left/top/bottom stay anchored and narrow screens may crop only the right side.
+- The hero wordmark `rae hu 樂瑞` is overlaid separately with breakpoint-specific inset and font-size variables so it stays composed with the artwork on both wide and narrow screens.
+- The opening visual has the `#home` anchor. The section tracker's `about` link targets the actual about copy at `#about`, not the hero visual.
+- The quote `"nobody knows why and how creativity works...` and `And...action!` cue are part of the `about` section.
 - It is generated from all valid work folders under `pages/works/films/` and `pages/works/commercials/`.
-- It has two stacked sections: `films`, then `commercials`.
-- It uses the same fixed left-side section tracker behavior as generated work pages.
+- The `works` section has two stacked category grids: `films`, then `commercials`.
+- `films` and `commercials` appear as slightly indented sub-links underneath `works` in the left tracker while the `works` section is active.
 - Each category section uses the shared irregular `.portfolio-grid` layout engine.
 - Each grid entry links to the generated public work page at `works/<slug>/index.html`.
 - Each grid entry uses the work's Vimeo trailer poster image when Vimeo returns one.
 - If Vimeo does not return a trailer poster image, the generator falls back to the work's note media image.
-- The grids are automatically sized by item count, so adding/removing valid work folders changes the rows/columns without hand-editing `works/index.html`.
+- Grid entry titles include a right chevron after the work title because clicking opens the generated work subpage.
+- Grid tiles use the shared `media-hover-zoom` effect from `css/shared-effects.css`, the same effect used by individual work-page highlight tiles.
+- Interactive chevrons use the shared `interactive-chevron` motion classes from `css/shared-effects.css`; only the chevron mark moves, not the surrounding text or button.
+- The grids are automatically sized by item count, so adding/removing valid work folders changes the rows/columns without hand-editing `index.html`.
+- The old `works/index.html` path is now a generated redirect to `index.html#works`.
 
 ## Deployment And Media Quality
 
