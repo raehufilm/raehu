@@ -172,9 +172,6 @@ stage_site_changes() {
     .githooks
     .gitignore
     README.md
-    CLAUDE.md
-    NOTES.md
-    PAGES.md
     docs
   )
 
@@ -306,6 +303,5 @@ log "Live pages"
 printf "https://raehu.com/#works\n"
 for work_dir in works/*(/N); do
   work_slug="${work_dir:t}"
-  [[ "$work_slug" == "grid-test" ]] && continue
   printf "https://raehu.com/works/%s/\n" "$work_slug"
 done

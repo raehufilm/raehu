@@ -1,7 +1,7 @@
 #!/bin/sh
 # Block commits whose author identity isn't raehufilm.
 # Mirrors the rule enforced server-side by .github/workflows/check-author.yml.
-# See CLAUDE.md for the rationale.
+# See README.md for the rationale.
 
 EXPECTED_EMAIL="283902148+raehufilm@users.noreply.github.com"
 EXPECTED_NAME="raehufilm"
@@ -25,7 +25,7 @@ fi
 
 if [ "$FAIL" -eq 1 ]; then
     echo "" >&2
-    echo "  Commit blocked. See CLAUDE.md for details on the author rule." >&2
+    echo "  Commit blocked. See README.md for details on the author rule." >&2
     exit 1
 fi
 

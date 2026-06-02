@@ -1,93 +1,228 @@
 # raehu.com
 
-The portfolio site for filmmaker Rae Hu (樂瑞) — director, Shanghai.
+Portfolio site for filmmaker Rae Hu (樂瑞).
 
-Live at **https://raehu.com**.
+Live site: **https://raehu.com**
 
----
+## For Rae: How to Add or Update Work Pages
 
-## Where to find things
+You only need to edit folders and simple text files under `pages/works/`.
 
-### For the owner
+The website has two work categories:
 
-- **[docs/updating-the-site.md](docs/updating-the-site.md)** — how to update the site, how long changes take to appear, what to do if you don't see a change.
-- **[NOTES.md](NOTES.md)** — the current state of the site: what's done, what's still placeholder, what's next.
-- **`generate_website`** — double-clickable macOS script for generating, testing, pushing, and publishing the site.
-
-### For Claude (the assistant)
-
-- **[CLAUDE.md](CLAUDE.md)** — rules and hard constraints (author identity, architecture, performance, conventions, doc maintenance).
-- **[docs/updating-the-site.md](docs/updating-the-site.md)** — the operational workflow when handling owner-requested changes.
-- **[docs/portfolio-reference.md](docs/portfolio-reference.md)** — design vocabulary, voice, and project catalog extracted from the 2026 portfolio PDF; canonical reference for design requests.
-- **[docs/portfolio-grid.md](docs/portfolio-grid.md)** — how the irregular portfolio grid layout system works; algorithm, usage, tested presets.
-- **[docs/clip-extraction.md](docs/clip-extraction.md)** — FFmpeg workflow for generating preview thumbnails and highlight clips from source video.
-- **[docs/clip-scripts.md](docs/clip-scripts.md)** — `generate-candidates` and `extract-clips` scripts that automate the clip extraction workflow; usage, examples, and installation.
-- **[PAGES.md](PAGES.md)** — content-folder schema and generation rules for project pages under `pages/works/`.
-- **[NOTES.md](NOTES.md)** — running state and open work.
-
----
-
-## File layout
-
-```
-.
-├── index.html                  # generated landing page + works grids
-├── index.backup.html           # archived pre-generator landing page
-├── CNAME                       # custom domain config
-├── generate_website            # macOS-clickable generate/test/publish script
-├── README.md                   # this file
-├── CLAUDE.md                   # rules for Claude
-├── NOTES.md                    # running state
-├── PAGES.md                    # generated project-page content rules
-├── docs/                       # operational guides + reference
-│   ├── updating-the-site.md
-│   ├── portfolio-reference.md
-│   ├── portfolio-grid.md
-│   ├── clip-extraction.md
-│   └── clip-scripts.md
-├── css/                        # shared generated-site CSS effects
-│   └── shared-effects.css      # reusable tile hover interaction variables
-├── js/                         # shared scripts (no build, no npm)
-│   └── portfolio-grid.js       # irregular grid layout engine
-├── images/                     # committed image assets
-│   ├── illustration.svg        # signature line-art portrait (brand asset)
-│   └── illustration-tight.svg  # tight-viewBox version for the generated root hero
-├── pages/                      # source content for generated project pages
-│   └── works/
-│       ├── commercials/
-│       └── films/
-├── scripts/
-│   └── generate_pages.py       # dependency-free page generator
-├── templates/
-│   ├── index.html              # generated root-page template
-│   ├── work-page.html          # shared generated work-page template
-│   └── works-redirect.html     # /works/ redirect template
-├── tests/                      # generator tests
-├── works/                      # /works/ redirect plus generated project pages
-├── .github/
-│   └── workflows/
-│       ├── check-author.yml
-│       ├── check-generated-pages.yml
-│       └── publish-website.yml
-├── .githooks/
-│   └── pre-commit              # local: blocks wrong-author commits
-└── .gitignore
+```text
+pages/works/films/
+pages/works/commercials/
 ```
 
-The generated landing page lives at `index.html`; its works section is served at `https://raehu.com/#works`. `works/index.html` redirects old `/works/` traffic back to that root works section. Generated per-project pages live at `works/<slug>/index.html` and are served at `https://raehu.com/works/<slug>/`. Source content lives under `pages/works/commercials/<slug>/` or `pages/works/films/<slug>/`. See [PAGES.md](PAGES.md) for the folder rules.
+Each work gets its own folder. The folder name becomes the page address, so keep it short, lowercase, and use hyphens instead of spaces.
+Do not use the same folder name twice, even if one is a film and one is a commercial.
 
----
+Example:
 
-## Site at a glance
+```text
+pages/works/films/strange-fruit/
+```
 
-- **Hosting:** GitHub Pages, published by the custom `Publish website` GitHub Actions workflow
-- **Domain:** raehu.com (Namecheap; DNS = 4 A records on `@` + 1 CNAME on `www`)
-- **Videos:** [Vimeo](https://vimeo.com/raehu) for trailers/longform; optimized MP4 clips are allowed only under generated work-page media
-- **HTTPS:** enforced via GitHub Pages
-- **Build:** none — pure static HTML/CSS/JS, served as-is
+becomes:
 
----
+```text
+https://raehu.com/works/strange-fruit/
+```
 
-## Architecture in one line
+### Folder Example
 
-Pure static HTML + CSS + JS. **No build step, no package manager, no frameworks.** See [CLAUDE.md](CLAUDE.md) for the full set of constraints and the reasoning.
+Use this shape for each work:
+
+```text
+pages/works/films/my-film/
+  trailer/
+    trailer_link.md
+  note/
+    text.md
+    media/
+      1_note-image.webp
+  highlight/
+    media/
+      1_opening.webp
+      2_close-up.webp
+      3_scene.mp4
+  bts/
+    text.md
+    media/
+      1_rehearsal.webp
+      2_location.webp
+      3_crew.webp
+```
+
+For a commercial, use the same shape under `pages/works/commercials/`:
+
+```text
+pages/works/commercials/my-commercial/
+```
+
+A new work needs all four sections: `trailer`, `note`, `highlight`, and `bts`. Empty draft folders are ignored until they have the required files.
+
+### Trailer
+
+Put one normal Vimeo link in `trailer/trailer_link.md`.
+
+Example:
+
+```text
+https://vimeo.com/1119717934
+```
+
+It is okay if there are blank spaces or blank lines around the link. The website generator will clean that up.
+
+### Note
+
+Put the page title and note text in `note/text.md`.
+
+Example:
+
+```text
+# Strange Fruit
+
+A short director's note or project description goes here.
+```
+
+The `#` line becomes the title. The text below it becomes the body.
+
+The note section needs exactly one media file:
+
+```text
+note/media/
+  1_note-image.webp
+```
+
+### Highlight
+
+Put highlight images or short clips in `highlight/media/`.
+
+Example:
+
+```text
+highlight/media/
+  1_opening.webp
+  2_detail.webp
+  3_motion.mp4
+  4_wide-shot.webp
+```
+
+The website automatically builds the irregular image grid from however many items are in this folder.
+
+### BTS
+
+Put behind-the-scenes text in `bts/text.md`.
+
+Example:
+
+```text
+A film by *Cindy Tran* & *Xiao Han*
+
+Written by Cindy Tran
+Directed by Xiao Han
+Produced by Cindy Tran
+```
+
+You can use simple Markdown formatting:
+
+```text
+*italic text*
+**bold text**
+```
+
+Put BTS slideshow media in `bts/media/`.
+
+### Media Naming
+
+Media order is controlled by the number at the start of the filename.
+
+```text
+1_first-image.webp
+2_second-image.webp
+3_third-image.mp4
+```
+
+To rearrange the order, rename the numbers.
+
+Use:
+
+```text
+.webp
+.mp4
+```
+
+If you drop in `.jpg`, `.jpeg`, or `.png` files locally, the generator can create `.webp` copies. The original raw files stay local and are not pushed to the website.
+
+### Running the Website Generator
+
+To publish the site from this Mac:
+
+1. Double-click `generate_website` in the repo folder.
+2. Wait for the Terminal window to finish.
+3. When it finishes successfully, the site is published to https://raehu.com.
+
+To test locally without publishing:
+
+```sh
+./generate_website --dry-run
+```
+
+The generator updates:
+
+```text
+https://raehu.com/
+https://raehu.com/#works
+https://raehu.com/works/<work-folder-name>/
+```
+
+Do not edit generated HTML files directly. Edit the folders under `pages/works/`, then run `generate_website`.
+
+## For Agents: Rules to Maintain
+
+This is the single root-level source of truth for repo rules. Do not recreate separate root docs like `CLAUDE.md`, `NOTES.md`, or `PAGES.md` unless the owner asks for them.
+
+Hard requirements:
+
+- Use only the GitHub/Git identity `raehufilm <283902148+raehufilm@users.noreply.github.com>` for this repo.
+- Preserve user-created local files and uncommitted work. Check `git status` before editing or committing.
+- Keep the site static: no npm, no package manager, no framework, no deploy-time build.
+- `scripts/generate_pages.py` must stay Python-standard-library only.
+- `ffmpeg` is the local image conversion tool for raw image media.
+- Generated HTML is committed output. Source content lives in `pages/works/films/` and `pages/works/commercials/`.
+- Work slugs must be unique across `films` and `commercials`, because both publish to `works/<slug>/`.
+- Do not edit generated `index.html`, `works/index.html`, or `works/<slug>/index.html` directly. Edit source folders or templates, then regenerate.
+
+Generated-site mechanism:
+
+- `templates/index.html` generates the root page.
+- `templates/work-page.html` generates individual work pages.
+- `templates/works-redirect.html` generates the `/works/` redirect.
+- `index.html` serves the landing page and `#works` section.
+- `works/index.html` redirects old `/works/` traffic to `/#works`.
+- `works/<slug>/index.html` serves each generated work page.
+- `vimeo-thumbnails.json` is the committed Vimeo poster cache. Check mode must not depend on live Vimeo availability.
+
+Media rules:
+
+- Committed work media under `pages/works/**/media/` must be `.webp` or `.mp4`.
+- Raw `.jpg`, `.jpeg`, `.png`, and similar source drops are ignored by Git.
+- Media order is numeric by `NUMBER_` prefix.
+- Duplicate media numbers in one `media/` folder are invalid.
+- `note/media/` must contain exactly one media item.
+- Total publishable work media must stay under 800 MB.
+
+Validation and publishing:
+
+```sh
+python3 -m unittest discover -s tests
+python3 scripts/generate_pages.py --check
+```
+
+Use `./generate_website --message "<commit message>" --no-pause` for normal publishing. It generates pages, runs tests, checks generated HTML, enforces media policy, commits, pushes, switches GitHub Pages to workflow publishing if needed, dispatches `.github/workflows/publish-website.yml`, and waits for deployment.
+
+Before pushing user-visible changes, preview locally and get explicit owner confirmation. Docs, hooks, CI, and internal maintenance changes do not need a visual preview.
+
+Useful technical references live under `docs/`.
