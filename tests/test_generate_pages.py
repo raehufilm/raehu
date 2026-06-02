@@ -97,11 +97,43 @@ class GeneratePagesTests(unittest.TestCase):
             bts_media=(),
         )
 
-        html = generate_pages.render_trailer_section(work)
+        html = generate_pages.render_trailer_section(work, Path("index.html"))
 
         self.assertIn('class="trailer-poster"', html)
         self.assertIn('src="https://i.vimeocdn.com/video/example_1280"', html)
         self.assertNotIn("trailer-poster--placeholder", html)
+
+    def test_render_trailer_accepts_local_image_media(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_html = root / "generated-website" / "works" / "sample" / "index.html"
+            media = (
+                root
+                / "editable-content"
+                / "works"
+                / "films"
+                / "sample"
+                / "trailer"
+                / "1_trailer.webp"
+            )
+            work = generate_pages.WorkContent(
+                slug="sample",
+                title="Sample",
+                trailer_embed_url=None,
+                trailer_poster_url=None,
+                note=generate_pages.NoteContent(title_html="Title", body_html="Body"),
+                note_media=generate_pages.MediaItem(1, Path("note.webp"), "image"),
+                highlight_media=(),
+                bts_text_html="Credits",
+                bts_media=(),
+                trailer_media=generate_pages.MediaItem(1, media, "image"),
+            )
+
+            html = generate_pages.render_trailer_section(work, output_html)
+
+        self.assertIn('class="trailer-wrap trailer-wrap--media"', html)
+        self.assertIn("trailer/1_trailer.webp", html)
+        self.assertNotIn("data-vimeo-embed", html)
 
     def test_ordered_media_sorts_by_numeric_prefix(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -354,6 +386,62 @@ class GeneratePagesTests(unittest.TestCase):
             self.assertIn("../../#works", generated)
             self.assertIn("../../css/shared-effects.css", generated)
             self.assertIn("../../js/portfolio-grid.js", generated)
+
+    def test_load_work_rejects_multiple_trailer_sources_with_actionable_message(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "editable-content" / "works" / "films" / "sample-work"
+
+            (source / "trailer").mkdir(parents=True)
+            (source / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/123456789",
+                encoding="utf-8",
+            )
+            (source / "trailer" / "1_trailer.webp").write_text(
+                "webp",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(generate_pages.PageGenerationError) as context:
+                generate_pages.load_work(source)
+
+        message = str(context.exception)
+        self.assertIn("multiple trailer sources", message)
+        self.assertIn("Keep exactly one source", message)
+        self.assertIn("Remove the extra source", message)
+
+    def test_works_index_grid_uses_local_video_trailer_preview(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_html = root / "generated-website" / "index.html"
+            media = (
+                root
+                / "editable-content"
+                / "works"
+                / "films"
+                / "sample-work"
+                / "trailer"
+                / "1_trailer.mp4"
+            )
+            work = generate_pages.WorkContent(
+                slug="sample-work",
+                title="Sample Work",
+                trailer_embed_url=None,
+                trailer_poster_url=None,
+                note=generate_pages.NoteContent(title_html="Title", body_html="Body"),
+                note_media=generate_pages.MediaItem(1, Path("note.webp"), "image"),
+                highlight_media=(),
+                bts_text_html="Credits",
+                bts_media=(),
+                category="films",
+                trailer_media=generate_pages.MediaItem(1, media, "video"),
+            )
+
+            rendered = generate_pages.render_works_index_grid_item(work, output_html)
+
+        self.assertIn("<video", rendered)
+        self.assertIn("trailer/1_trailer.mp4", rendered)
+        self.assertIn("muted playsinline autoplay loop", rendered)
 
     def test_render_home_uses_category_sections_and_trailer_posters(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -46,18 +46,20 @@ Use this shape for each work:
 editable-content/works/films/my-film/
   trailer/
     trailer_link.md
+    # or 1_trailer.jpg
+    # or 1_trailer.mp4
   note/
     text.md
-    1_note-image.webp
+    1_note-image.jpg
   highlight/
-    1_opening.webp
-    2_close-up.webp
+    1_opening.jpg
+    2_close-up.png
     3_scene.mp4
   bts/
     text.md
-    1_rehearsal.webp
-    2_location.webp
-    3_crew.webp
+    1_rehearsal.jpg
+    2_location.png
+    3_crew.jpg
 ```
 
 For a commercial, use the same shape under `editable-content/works/commercials/`:
@@ -70,15 +72,31 @@ A new work needs all four sections: `trailer`, `note`, `highlight`, and `bts`. E
 
 ### Trailer
 
-Put one normal Vimeo link in `trailer/trailer_link.md`.
+Choose exactly one trailer source.
 
-Example:
+Option 1: put one normal Vimeo link in `trailer/trailer_link.md`.
 
 ```text
 https://vimeo.com/1119717934
 ```
 
 It is okay if there are blank spaces or blank lines around the link. The website generator will clean that up.
+
+Option 2: put one image in `trailer/`.
+
+```text
+trailer/
+  1_trailer.jpg
+```
+
+Option 3: put one MP4 video in `trailer/`.
+
+```text
+trailer/
+  1_trailer.mp4
+```
+
+Do not mix these options. If the generator finds more than one trailer source, it will stop and tell you which extra source to remove.
 
 ### Note
 
@@ -99,7 +117,7 @@ The note section needs exactly one media file:
 ```text
 note/
   text.md
-  1_note-image.webp
+  1_note-image.jpg
 ```
 
 ### Highlight
@@ -110,10 +128,10 @@ Example:
 
 ```text
 highlight/
-  1_opening.webp
-  2_detail.webp
+  1_opening.jpg
+  2_detail.png
   3_motion.mp4
-  4_wide-shot.webp
+  4_wide-shot.jpg
 ```
 
 The website automatically builds the irregular image grid from however many items are in this folder.
@@ -146,21 +164,22 @@ Put BTS slideshow media in `bts/` beside `text.md`.
 Media order is controlled by the number at the start of the filename.
 
 ```text
-1_first-image.webp
-2_second-image.webp
+1_first-image.jpg
+2_second-image.png
 3_third-image.mp4
 ```
 
 To rearrange the order, rename the numbers.
 
-Use:
+Use normal image files or MP4 video files:
 
 ```text
-.webp
+.jpg
+.png
 .mp4
 ```
 
-If you drop in `.jpg`, `.jpeg`, or `.png` files locally, the generator can create `.webp` copies. The original raw files stay local and are not pushed to the website.
+The generator automatically creates web-ready image copies when needed. The original raw image files stay local and are not pushed to the website.
 
 ### Running the Website Generator
 
@@ -234,6 +253,7 @@ Media rules:
 - Raw `.jpg`, `.jpeg`, `.png`, and similar source drops are ignored by Git.
 - Media order is numeric by `NUMBER_` prefix.
 - Duplicate media numbers in one section folder are invalid.
+- `trailer/` must contain exactly one source: either a non-empty `trailer_link.md`, one numbered image, or one numbered `.mp4`.
 - `note/` must contain exactly one media item, alongside `text.md`.
 - Total publishable work media must stay under 800 MB.
 

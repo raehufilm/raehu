@@ -74,7 +74,7 @@ class NoteContent:
 class WorkContent:
     slug: str
     title: str
-    trailer_embed_url: str
+    trailer_embed_url: str | None
     trailer_poster_url: str | None
     note: NoteContent
     note_media: MediaItem
@@ -82,6 +82,7 @@ class WorkContent:
     bts_text_html: str
     bts_media: tuple[MediaItem, ...]
     category: str = ""
+    trailer_media: MediaItem | None = None
 
 
 def html_escape(value: str) -> str:
@@ -108,6 +109,13 @@ def read_first_non_empty_line(path: Path) -> str:
     if not lines:
         raise PageGenerationError(f"{path} must contain one non-empty line")
     return lines[0]
+
+
+def read_optional_first_non_empty_line(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    lines = non_empty_lines(read_text(path))
+    return lines[0] if lines else None
 
 
 def read_inline_svg(path: Path) -> str:
@@ -377,7 +385,11 @@ def media_index(path: Path) -> int:
     return int(match.group(1))
 
 
-def ordered_media(section_dir: Path, write_assets: bool = False) -> tuple[MediaItem, ...]:
+def ordered_media(
+    section_dir: Path,
+    write_assets: bool = False,
+    require_media: bool = True,
+) -> tuple[MediaItem, ...]:
     if not section_dir.is_dir():
         raise PageGenerationError(f"Missing required section folder: {section_dir}")
 
@@ -409,7 +421,7 @@ def ordered_media(section_dir: Path, write_assets: bool = False) -> tuple[MediaI
             )
         )
 
-    if not media:
+    if require_media and not media:
         raise PageGenerationError(f"No media found in: {section_dir}")
 
     return tuple(sorted(media, key=lambda item: item.index))
@@ -469,6 +481,55 @@ def valid_started_work(work_dir: Path) -> bool:
     return False
 
 
+def load_trailer_source(
+    trailer_dir: Path,
+    write_assets: bool = False,
+    vimeo_thumbnail_cache: dict[str, str] | None = None,
+    fetch_vimeo_thumbnails: bool = True,
+) -> tuple[str | None, str | None, MediaItem | None]:
+    if not trailer_dir.is_dir():
+        raise PageGenerationError(f"Missing required trailer folder: {trailer_dir}")
+
+    trailer_link_path = trailer_dir / "trailer_link.md"
+    trailer_link = read_optional_first_non_empty_line(trailer_link_path)
+    trailer_media = ordered_media(
+        trailer_dir,
+        write_assets=write_assets,
+        require_media=False,
+    )
+
+    sources = []
+    if trailer_link:
+        sources.append(str(trailer_link_path))
+    sources.extend(str(item.path) for item in trailer_media)
+
+    if len(sources) != 1:
+        if not sources:
+            raise PageGenerationError(
+                f"{trailer_dir} must contain exactly one trailer source. "
+                "Add either trailer_link.md with one Vimeo URL, or one numbered "
+                "media file such as 1_trailer.webp or 1_trailer.mp4."
+            )
+        raise PageGenerationError(
+            f"{trailer_dir} has multiple trailer sources: {', '.join(sources)}. "
+            "Keep exactly one source: either trailer_link.md with one Vimeo URL, "
+            "or one numbered .webp/.mp4 trailer media file. Remove the extra source(s)."
+        )
+
+    if trailer_link:
+        return (
+            vimeo_embed_url(trailer_link),
+            vimeo_thumbnail_url(
+                trailer_link,
+                cache=vimeo_thumbnail_cache,
+                allow_fetch=fetch_vimeo_thumbnails,
+            ),
+            None,
+        )
+
+    return None, None, trailer_media[0]
+
+
 def load_work(
     work_dir: Path,
     write_assets: bool = False,
@@ -476,7 +537,12 @@ def load_work(
     fetch_vimeo_thumbnails: bool = True,
 ) -> WorkContent:
     slug = work_dir.name
-    trailer_link = read_first_non_empty_line(work_dir / "trailer" / "trailer_link.md")
+    trailer_embed_url, trailer_poster_url, trailer_media = load_trailer_source(
+        work_dir / "trailer",
+        write_assets=write_assets,
+        vimeo_thumbnail_cache=vimeo_thumbnail_cache,
+        fetch_vimeo_thumbnails=fetch_vimeo_thumbnails,
+    )
     note = parse_note_text(work_dir / "note" / "text.md")
     note_media = ordered_media(work_dir / "note", write_assets=write_assets)
     highlight_media = ordered_media(work_dir / "highlight", write_assets=write_assets)
@@ -494,18 +560,15 @@ def load_work(
     return WorkContent(
         slug=slug,
         title=title_from_slug(slug),
-        trailer_embed_url=vimeo_embed_url(trailer_link),
-        trailer_poster_url=vimeo_thumbnail_url(
-            trailer_link,
-            cache=vimeo_thumbnail_cache,
-            allow_fetch=fetch_vimeo_thumbnails,
-        ),
+        trailer_embed_url=trailer_embed_url,
+        trailer_poster_url=trailer_poster_url,
         note=note,
         note_media=note_media[0],
         highlight_media=highlight_media,
         bts_text_html=bts_text_html,
         bts_media=bts_media,
         category=work_dir.parent.name,
+        trailer_media=trailer_media,
     )
 
 
@@ -604,7 +667,30 @@ def highlight_grid_layout(count: int, layout_key: str) -> str:
     return ", ".join("-".join(str(span) for span in row) for row in rows)
 
 
-def render_trailer_section(work: WorkContent) -> str:
+def render_trailer_media(item: MediaItem, output_html: Path, title: str) -> str:
+    src = output_relative_url(output_html, item.path)
+    if item.kind == "image":
+        return f'<img class="trailer-poster" src="{src}" alt="{html_escape(title)} trailer">'
+    return (
+        f'<video class="trailer-poster trailer-video" src="{src}" '
+        "controls playsinline preload=\"metadata\"></video>"
+    )
+
+
+def render_trailer_section(work: WorkContent, output_html: Path) -> str:
+    if work.trailer_media:
+        media_html = render_trailer_media(work.trailer_media, output_html, work.title)
+        return f"""    <section class="work-page work-page--trailer"
+             id="trailer"
+             data-section-page="trailer"
+             data-section-title="Trailer"
+             data-page-padding
+             aria-label="Trailer">
+      <div class="trailer-wrap trailer-wrap--media">
+        {media_html}
+      </div>
+    </section>"""
+
     if work.trailer_poster_url:
         poster_html = (
             f'<img class="trailer-poster" '
@@ -622,7 +708,7 @@ def render_trailer_section(work: WorkContent) -> str:
              aria-label="Trailer">
       <div class="trailer-wrap"
            id="trailer-player"
-           data-vimeo-embed="{html_escape(work.trailer_embed_url)}">
+           data-vimeo-embed="{html_escape(work.trailer_embed_url or '')}">
         {poster_html}
         <button class="trailer-play" aria-label="Play trailer">
           <svg viewBox="0 0 68 48" width="68" height="48"><path d="M66.5 7.7c-.8-2.9-2.5-5.4-5.4-6.2C55.8.1 34 0 34 0S12.2.1 6.9 1.5c-2.9.8-4.6 3.3-5.4 6.2C.1 13 0 24 0 24s.1 11 1.5 16.3c.8 2.9 2.5 5.4 5.4 6.2C12.2 47.9 34 48 34 48s21.8-.1 27.1-1.5c2.9-.8 4.6-3.3 5.4-6.2C67.9 35 68 24 68 24s-.1-11-1.5-16.3z" fill="rgba(255,255,255,0.85)"/><path d="M45 24L27 14v20z" fill="#0a0a0a"/></svg>
@@ -749,7 +835,7 @@ def render_bts_section(work: WorkContent, output_html: Path) -> str:
 
 def render_work(work: WorkContent, template: str, output_html: Path) -> str:
     sections = [
-        render_trailer_section(work),
+        render_trailer_section(work, output_html),
         render_note_section(work, output_html),
         render_highlight_section(work, output_html),
         render_bts_section(work, output_html),
@@ -783,14 +869,35 @@ def render_work(work: WorkContent, template: str, output_html: Path) -> str:
 
 def render_works_index_grid_item(work: WorkContent, output_html: Path) -> str:
     href = work_public_url_from(output_html, work)
-    if work.trailer_poster_url:
-        poster_src = html_escape(work.trailer_poster_url)
+    title = html_escape(work.title)
+
+    if work.trailer_media:
+        src = output_relative_url(output_html, work.trailer_media.path)
+        if work.trailer_media.kind == "video":
+            preview_html = (
+                f'<video class="media-hover-zoom-target" src="{src}" '
+                'muted playsinline autoplay loop preload="metadata" '
+                f'aria-label="{title} trailer preview"></video>'
+            )
+        else:
+            preview_html = (
+                f'<img class="media-hover-zoom-target" src="{src}" '
+                f'alt="{title} trailer preview" loading="lazy" decoding="async">'
+            )
+    elif work.trailer_poster_url:
+        preview_html = (
+            f'<img class="media-hover-zoom-target" src="{html_escape(work.trailer_poster_url)}" '
+            f'alt="{title} trailer preview" loading="lazy" decoding="async">'
+        )
     else:
         poster_src = output_relative_url(output_html, work.note_media.path)
+        preview_html = (
+            f'<img class="media-hover-zoom-target" src="{poster_src}" '
+            f'alt="{title} trailer preview" loading="lazy" decoding="async">'
+        )
 
-    title = html_escape(work.title)
     return f"""        <a class="works-grid-link media-hover-zoom" href="{href}" aria-label="{title}">
-          <img class="media-hover-zoom-target" src="{poster_src}" alt="{title} trailer preview" loading="lazy" decoding="async">
+          {preview_html}
           <span class="works-grid-title">
             <span class="works-grid-title-text">{title}</span>
             <span class="works-grid-title-chevron interactive-chevron interactive-chevron--right" aria-hidden="true">&gt;</span>
