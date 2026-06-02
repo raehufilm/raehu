@@ -337,7 +337,7 @@ class GeneratePagesTests(unittest.TestCase):
             root = Path(tmp)
             works_output = root / "works"
             output_html = root / "index.html"
-            illustration = root / "images" / "illustration.svg"
+            illustration = root / "images" / "illustration-tight.svg"
             illustration.parent.mkdir()
             illustration.write_text(
                 '<?xml version="1.0" encoding="UTF-8"?><svg></svg>',
