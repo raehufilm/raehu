@@ -48,19 +48,16 @@ editable-content/works/films/my-film/
     trailer_link.md
   note/
     text.md
-    media/
-      1_note-image.webp
+    1_note-image.webp
   highlight/
-    media/
-      1_opening.webp
-      2_close-up.webp
-      3_scene.mp4
+    1_opening.webp
+    2_close-up.webp
+    3_scene.mp4
   bts/
     text.md
-    media/
-      1_rehearsal.webp
-      2_location.webp
-      3_crew.webp
+    1_rehearsal.webp
+    2_location.webp
+    3_crew.webp
 ```
 
 For a commercial, use the same shape under `editable-content/works/commercials/`:
@@ -100,18 +97,19 @@ The `#` line becomes the title. The text below it becomes the body.
 The note section needs exactly one media file:
 
 ```text
-note/media/
+note/
+  text.md
   1_note-image.webp
 ```
 
 ### Highlight
 
-Put highlight images or short clips in `highlight/media/`.
+Put highlight images or short clips in `highlight/`.
 
 Example:
 
 ```text
-highlight/media/
+highlight/
   1_opening.webp
   2_detail.webp
   3_motion.mp4
@@ -141,7 +139,7 @@ You can use simple Markdown formatting:
 **bold text**
 ```
 
-Put BTS slideshow media in `bts/media/`.
+Put BTS slideshow media in `bts/` beside `text.md`.
 
 ### Media Naming
 
@@ -232,11 +230,11 @@ Generated-site mechanism:
 
 Media rules:
 
-- Committed work media under `editable-content/works/**/media/` must be `.webp` or `.mp4`.
+- Committed work media under `editable-content/works/` must be `.webp` or `.mp4`.
 - Raw `.jpg`, `.jpeg`, `.png`, and similar source drops are ignored by Git.
 - Media order is numeric by `NUMBER_` prefix.
-- Duplicate media numbers in one `media/` folder are invalid.
-- `note/media/` must contain exactly one media item.
+- Duplicate media numbers in one section folder are invalid.
+- `note/` must contain exactly one media item, alongside `text.md`.
 - Total publishable work media must stay under 800 MB.
 
 Validation and publishing:

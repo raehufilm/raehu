@@ -109,6 +109,7 @@ class GeneratePagesTests(unittest.TestCase):
             (media_dir / "10_late.webp").write_text("", encoding="utf-8")
             (media_dir / "2_middle.mp4").write_text("", encoding="utf-8")
             (media_dir / "1_first.webp").write_text("", encoding="utf-8")
+            (media_dir / "text.md").write_text("Section copy", encoding="utf-8")
             (media_dir / ".DS_Store").write_text("", encoding="utf-8")
 
             media = generate_pages.ordered_media(media_dir)
@@ -210,7 +211,6 @@ class GeneratePagesTests(unittest.TestCase):
                 / "films"
                 / "sample-work"
                 / "highlight"
-                / "media"
                 / "1_highlight.webp"
             )
             work = generate_pages.WorkContent(
@@ -292,23 +292,23 @@ class GeneratePagesTests(unittest.TestCase):
                 "https://vimeo.com/123456789",
                 encoding="utf-8",
             )
-            (source / "note" / "media").mkdir(parents=True)
+            (source / "note").mkdir(parents=True)
             (source / "note" / "text.md").write_text(
                 "# Sample Work\n\nA sample note.",
                 encoding="utf-8",
             )
-            (source / "note" / "media" / "1_note.webp").write_text(
+            (source / "note" / "1_note.webp").write_text(
                 "webp",
                 encoding="utf-8",
             )
-            (source / "highlight" / "media").mkdir(parents=True)
-            (source / "highlight" / "media" / "1_highlight.webp").write_text(
+            (source / "highlight").mkdir(parents=True)
+            (source / "highlight" / "1_highlight.webp").write_text(
                 "webp",
                 encoding="utf-8",
             )
-            (source / "bts" / "media").mkdir(parents=True)
+            (source / "bts").mkdir(parents=True)
             (source / "bts" / "text.md").write_text("Credits", encoding="utf-8")
-            (source / "bts" / "media" / "1_bts.webp").write_text(
+            (source / "bts" / "1_bts.webp").write_text(
                 "webp",
                 encoding="utf-8",
             )
@@ -375,7 +375,7 @@ class GeneratePagesTests(unittest.TestCase):
                 note=generate_pages.NoteContent(title_html="Film", body_html="Body"),
                 note_media=generate_pages.MediaItem(
                     1,
-                    root / "editable-content" / "works" / "films" / "sample-film" / "note" / "media" / "1_note.webp",
+                    root / "editable-content" / "works" / "films" / "sample-film" / "note" / "1_note.webp",
                     "image",
                 ),
                 highlight_media=(),
@@ -391,7 +391,7 @@ class GeneratePagesTests(unittest.TestCase):
                 note=generate_pages.NoteContent(title_html="Ad", body_html="Body"),
                 note_media=generate_pages.MediaItem(
                     1,
-                    root / "editable-content" / "works" / "commercials" / "sample-ad" / "note" / "media" / "1_note.webp",
+                    root / "editable-content" / "works" / "commercials" / "sample-ad" / "note" / "1_note.webp",
                     "image",
                 ),
                 highlight_media=(),

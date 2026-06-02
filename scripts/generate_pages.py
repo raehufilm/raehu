@@ -305,6 +305,10 @@ def media_kind(path: Path) -> str:
     raise PageGenerationError(f"Unsupported media type: {path}")
 
 
+def is_media_path(path: Path) -> bool:
+    return path.suffix.lower() in IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
+
+
 def converted_image_path(path: Path) -> Path:
     return path.with_suffix(WEB_IMAGE_EXTENSION)
 
@@ -373,17 +377,19 @@ def media_index(path: Path) -> int:
     return int(match.group(1))
 
 
-def ordered_media(media_dir: Path, write_assets: bool = False) -> tuple[MediaItem, ...]:
-    if not media_dir.is_dir():
-        raise PageGenerationError(f"Missing required media folder: {media_dir}")
+def ordered_media(section_dir: Path, write_assets: bool = False) -> tuple[MediaItem, ...]:
+    if not section_dir.is_dir():
+        raise PageGenerationError(f"Missing required section folder: {section_dir}")
 
     media: list[MediaItem] = []
     seen_indexes: dict[int, Path] = {}
     seen_paths: set[Path] = set()
-    for path in media_dir.iterdir():
+    for path in section_dir.iterdir():
         if path.name in IGNORED_NAMES or path.name.startswith("."):
             continue
         if not path.is_file():
+            continue
+        if not is_media_path(path):
             continue
         index = media_index(path)
         canonical_path = canonical_media_path(path, write_assets=write_assets)
@@ -404,7 +410,7 @@ def ordered_media(media_dir: Path, write_assets: bool = False) -> tuple[MediaIte
         )
 
     if not media:
-        raise PageGenerationError(f"No media found in: {media_dir}")
+        raise PageGenerationError(f"No media found in: {section_dir}")
 
     return tuple(sorted(media, key=lambda item: item.index))
 
@@ -472,15 +478,15 @@ def load_work(
     slug = work_dir.name
     trailer_link = read_first_non_empty_line(work_dir / "trailer" / "trailer_link.md")
     note = parse_note_text(work_dir / "note" / "text.md")
-    note_media = ordered_media(work_dir / "note" / "media", write_assets=write_assets)
-    highlight_media = ordered_media(work_dir / "highlight" / "media", write_assets=write_assets)
+    note_media = ordered_media(work_dir / "note", write_assets=write_assets)
+    highlight_media = ordered_media(work_dir / "highlight", write_assets=write_assets)
     bts_text = read_text(work_dir / "bts" / "text.md")
     bts_text_html = render_markdown_lines(bts_text.splitlines())
-    bts_media = ordered_media(work_dir / "bts" / "media", write_assets=write_assets)
+    bts_media = ordered_media(work_dir / "bts", write_assets=write_assets)
 
     if len(note_media) != 1:
         raise PageGenerationError(
-            f"{work_dir / 'note' / 'media'} must contain exactly one media item"
+            f"{work_dir / 'note'} must contain exactly one media item"
         )
     if not bts_text_html:
         raise PageGenerationError(f"{work_dir / 'bts' / 'text.md'} must not be empty")

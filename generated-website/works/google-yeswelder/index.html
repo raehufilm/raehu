@@ -42,8 +42,7 @@
       z-index: 30;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 2rem;
+      justify-content: flex-start;
       padding: 0 2rem;
       background: #0a0a0a;
     }
@@ -57,20 +56,6 @@
       text-decoration: none;
       text-transform: lowercase;
       white-space: nowrap;
-    }
-
-    .site-header-nav {
-      display: flex;
-      align-items: center;
-      gap: 1.6rem;
-    }
-
-    .site-header-nav a {
-      font-family: 'EB Garamond', serif;
-      font-size: 2rem;
-      line-height: 1;
-      color: #f4f1ec;
-      text-decoration: none;
     }
 
     /* --- Page structure --- */
@@ -259,18 +244,7 @@
     }
 
     @media (max-width: 640px) {
-      .site-header {
-        padding: 0 1rem;
-        gap: 1rem;
-      }
-
-      .site-header-nav {
-        gap: 0.9rem;
-      }
-
-      .site-header-nav a {
-        font-size: 1.4rem;
-      }
+      .site-header { padding: 0 1rem; }
     }
 
     .work-header-image-wrap {
@@ -537,11 +511,6 @@
 
   <header class="site-header">
     <a class="site-header-brand" href="https://raehu.com/">rae hu 樂瑞</a>
-    <nav class="site-header-nav" aria-label="Site navigation">
-      <a href="../../#works">works</a>
-      <a href="../../#about">about</a>
-      <a href="../../#contact">contact</a>
-    </nav>
   </header>
 
   <nav class="section-tracker" aria-label="Project sections">
@@ -593,7 +562,7 @@
           <div class="work-label"><div class="red-dot"></div> Director's note</div>
         </div>
         <div class="work-header-image-wrap">
-          <img class="work-header-image" src="../../../editable-content/works/commercials/google-yeswelder/note/media/1_note.webp" alt="Google Yeswelder">
+          <img class="work-header-image" src="../../../editable-content/works/commercials/google-yeswelder/note/1_note.webp" alt="Google Yeswelder">
         </div>
       </div>
     </section>
@@ -607,7 +576,7 @@
       <div class="grid-wrapper">
         <div class="portfolio-grid" data-layout="4-8, 5-7, 7-5, 3-4-5, 7-5">
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/media/1_highlight.webp" alt="Google Yeswelder highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/1_highlight.webp" alt="Google Yeswelder highlight">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -619,7 +588,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/media/2_highlight.webp" alt="Google Yeswelder highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/2_highlight.webp" alt="Google Yeswelder highlight">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -631,7 +600,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/media/3_highlight.webp" alt="Google Yeswelder highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/3_highlight.webp" alt="Google Yeswelder highlight">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -643,7 +612,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/media/4_highlight.webp" alt="Google Yeswelder highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/4_highlight.webp" alt="Google Yeswelder highlight">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -655,7 +624,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/media/5_highlight.webp" alt="Google Yeswelder highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/5_highlight.webp" alt="Google Yeswelder highlight">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -667,7 +636,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/media/6_highlight.webp" alt="Google Yeswelder highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/6_highlight.webp" alt="Google Yeswelder highlight">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -679,7 +648,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/media/7_highlight.webp" alt="Google Yeswelder highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/7_highlight.webp" alt="Google Yeswelder highlight">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -691,7 +660,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/media/8_highlight.webp" alt="Google Yeswelder highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/8_highlight.webp" alt="Google Yeswelder highlight">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -703,7 +672,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/media/9_highlight.webp" alt="Google Yeswelder highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/9_highlight.webp" alt="Google Yeswelder highlight">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -715,7 +684,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/media/10_highlight.webp" alt="Google Yeswelder highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/10_highlight.webp" alt="Google Yeswelder highlight">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -727,7 +696,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/media/11_highlight.webp" alt="Google Yeswelder highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/commercials/google-yeswelder/highlight/11_highlight.webp" alt="Google Yeswelder highlight">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -750,16 +719,16 @@
              aria-label="Behind the scenes">
       <div class="bts-layout">
         <div class="bts-slideshow" aria-label="Behind the scenes slideshow">
-          <img class="bts-slide is-active" src="../../../editable-content/works/commercials/google-yeswelder/bts/media/1_bts.webp" alt="Google Yeswelder behind the scenes">
-          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/media/2_bts.webp" alt="Google Yeswelder behind the scenes">
-          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/media/3_bts.webp" alt="Google Yeswelder behind the scenes">
-          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/media/4_bts.webp" alt="Google Yeswelder behind the scenes">
-          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/media/5_bts.webp" alt="Google Yeswelder behind the scenes">
-          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/media/6_bts.webp" alt="Google Yeswelder behind the scenes">
-          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/media/7_bts.webp" alt="Google Yeswelder behind the scenes">
-          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/media/8_bts.webp" alt="Google Yeswelder behind the scenes">
-          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/media/9_bts.webp" alt="Google Yeswelder behind the scenes">
-          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/media/10_bts.webp" alt="Google Yeswelder behind the scenes">
+          <img class="bts-slide is-active" src="../../../editable-content/works/commercials/google-yeswelder/bts/1_bts.webp" alt="Google Yeswelder behind the scenes">
+          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/2_bts.webp" alt="Google Yeswelder behind the scenes">
+          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/3_bts.webp" alt="Google Yeswelder behind the scenes">
+          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/4_bts.webp" alt="Google Yeswelder behind the scenes">
+          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/5_bts.webp" alt="Google Yeswelder behind the scenes">
+          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/6_bts.webp" alt="Google Yeswelder behind the scenes">
+          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/7_bts.webp" alt="Google Yeswelder behind the scenes">
+          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/8_bts.webp" alt="Google Yeswelder behind the scenes">
+          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/9_bts.webp" alt="Google Yeswelder behind the scenes">
+          <img class="bts-slide" src="../../../editable-content/works/commercials/google-yeswelder/bts/10_bts.webp" alt="Google Yeswelder behind the scenes">
           <button class="bts-slide-control bts-slide-control--prev"
                   type="button"
                   data-bts-slide-control="prev"
@@ -791,18 +760,6 @@
 
   <script src="../../js/portfolio-grid.js"></script>
   <script>
-    // Local file previews need explicit index.html paths for root anchor links.
-    (function () {
-      if (window.location.protocol !== 'file:') return;
-
-      document.querySelectorAll('.site-header-nav a[href^="../../#"]').forEach(function (link) {
-        link.setAttribute(
-          'href',
-          link.getAttribute('href').replace('../../#', '../../index.html#')
-        );
-      });
-    })();
-
     // Trailer facade: swap poster for iframe on click
     (function () {
       var wrap = document.getElementById('trailer-player');

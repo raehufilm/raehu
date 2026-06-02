@@ -42,8 +42,7 @@
       z-index: 30;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 2rem;
+      justify-content: flex-start;
       padding: 0 2rem;
       background: #0a0a0a;
     }
@@ -57,20 +56,6 @@
       text-decoration: none;
       text-transform: lowercase;
       white-space: nowrap;
-    }
-
-    .site-header-nav {
-      display: flex;
-      align-items: center;
-      gap: 1.6rem;
-    }
-
-    .site-header-nav a {
-      font-family: 'EB Garamond', serif;
-      font-size: 2rem;
-      line-height: 1;
-      color: #f4f1ec;
-      text-decoration: none;
     }
 
     /* --- Page structure --- */
@@ -259,18 +244,7 @@
     }
 
     @media (max-width: 640px) {
-      .site-header {
-        padding: 0 1rem;
-        gap: 1rem;
-      }
-
-      .site-header-nav {
-        gap: 0.9rem;
-      }
-
-      .site-header-nav a {
-        font-size: 1.4rem;
-      }
+      .site-header { padding: 0 1rem; }
     }
 
     .work-header-image-wrap {
@@ -537,11 +511,6 @@
 
   <header class="site-header">
     <a class="site-header-brand" href="https://raehu.com/">rae hu 樂瑞</a>
-    <nav class="site-header-nav" aria-label="Site navigation">
-      <a href="{{ROOT_INDEX_URL}}#works">works</a>
-      <a href="{{ROOT_INDEX_URL}}#about">about</a>
-      <a href="{{ROOT_INDEX_URL}}#contact">contact</a>
-    </nav>
   </header>
 
   <nav class="section-tracker" aria-label="Project sections">
@@ -558,18 +527,6 @@
 
   <script src="{{PORTFOLIO_GRID_JS_URL}}"></script>
   <script>
-    // Local file previews need explicit index.html paths for root anchor links.
-    (function () {
-      if (window.location.protocol !== 'file:') return;
-
-      document.querySelectorAll('.site-header-nav a[href^="{{ROOT_INDEX_URL}}#"]').forEach(function (link) {
-        link.setAttribute(
-          'href',
-          link.getAttribute('href').replace('{{ROOT_INDEX_URL}}#', '{{ROOT_INDEX_URL}}index.html#')
-        );
-      });
-    })();
-
     // Trailer facade: swap poster for iframe on click
     (function () {
       var wrap = document.getElementById('trailer-player');

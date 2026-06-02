@@ -118,14 +118,13 @@ for path in paths:
 
     suffix = path.suffix.lower()
     parts = path.parts
-    in_work_media = (
+    in_editable_work = (
         len(parts) >= 5
         and parts[0] == "editable-content"
         and parts[1] == "works"
-        and "media" in parts
     )
 
-    if in_work_media:
+    if in_editable_work and suffix in MEDIA_EXTENSIONS:
         if suffix not in ALLOWED_WORK_MEDIA:
             bad.append(str(path))
         else:

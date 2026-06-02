@@ -42,8 +42,7 @@
       z-index: 30;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 2rem;
+      justify-content: flex-start;
       padding: 0 2rem;
       background: #0a0a0a;
     }
@@ -57,20 +56,6 @@
       text-decoration: none;
       text-transform: lowercase;
       white-space: nowrap;
-    }
-
-    .site-header-nav {
-      display: flex;
-      align-items: center;
-      gap: 1.6rem;
-    }
-
-    .site-header-nav a {
-      font-family: 'EB Garamond', serif;
-      font-size: 2rem;
-      line-height: 1;
-      color: #f4f1ec;
-      text-decoration: none;
     }
 
     /* --- Page structure --- */
@@ -259,18 +244,7 @@
     }
 
     @media (max-width: 640px) {
-      .site-header {
-        padding: 0 1rem;
-        gap: 1rem;
-      }
-
-      .site-header-nav {
-        gap: 0.9rem;
-      }
-
-      .site-header-nav a {
-        font-size: 1.4rem;
-      }
+      .site-header { padding: 0 1rem; }
     }
 
     .work-header-image-wrap {
@@ -537,11 +511,6 @@
 
   <header class="site-header">
     <a class="site-header-brand" href="https://raehu.com/">rae hu 樂瑞</a>
-    <nav class="site-header-nav" aria-label="Site navigation">
-      <a href="../../#works">works</a>
-      <a href="../../#about">about</a>
-      <a href="../../#contact">contact</a>
-    </nav>
   </header>
 
   <nav class="section-tracker" aria-label="Project sections">
@@ -593,7 +562,7 @@
           <div class="work-label"><div class="red-dot"></div> Director's note</div>
         </div>
         <div class="work-header-image-wrap">
-          <img class="work-header-image" src="../../../editable-content/works/films/strange-fruit/note/media/1_hero.webp" alt="Strange Fruit">
+          <img class="work-header-image" src="../../../editable-content/works/films/strange-fruit/note/1_hero.webp" alt="Strange Fruit">
         </div>
       </div>
     </section>
@@ -607,7 +576,7 @@
       <div class="grid-wrapper">
         <div class="portfolio-grid" data-layout="4-5-3, 8-4">
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/films/strange-fruit/highlight/media/1_still-01.webp" alt="Strange Fruit highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/films/strange-fruit/highlight/1_still-01.webp" alt="Strange Fruit highlight">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -619,7 +588,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/films/strange-fruit/highlight/media/2_still-02.webp" alt="Strange Fruit highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/films/strange-fruit/highlight/2_still-02.webp" alt="Strange Fruit highlight">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -631,7 +600,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <video class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/films/strange-fruit/highlight/media/3_shot39_7m09s.mp4" muted playsinline autoplay loop></video>
+          <video class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/films/strange-fruit/highlight/3_shot39_7m09s.mp4" muted playsinline autoplay loop></video>
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -643,7 +612,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/films/strange-fruit/highlight/media/4_still-04.webp" alt="Strange Fruit highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/films/strange-fruit/highlight/4_still-04.webp" alt="Strange Fruit highlight">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -655,7 +624,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/films/strange-fruit/highlight/media/5_still-05.webp" alt="Strange Fruit highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/works/films/strange-fruit/highlight/5_still-05.webp" alt="Strange Fruit highlight">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -678,11 +647,11 @@
              aria-label="Behind the scenes">
       <div class="bts-layout">
         <div class="bts-slideshow" aria-label="Behind the scenes slideshow">
-          <img class="bts-slide is-active" src="../../../editable-content/works/films/strange-fruit/bts/media/1_bts.webp" alt="Strange Fruit behind the scenes">
-          <img class="bts-slide" src="../../../editable-content/works/films/strange-fruit/bts/media/2_bts.webp" alt="Strange Fruit behind the scenes">
-          <img class="bts-slide" src="../../../editable-content/works/films/strange-fruit/bts/media/3_bts.webp" alt="Strange Fruit behind the scenes">
-          <img class="bts-slide" src="../../../editable-content/works/films/strange-fruit/bts/media/4_bts.webp" alt="Strange Fruit behind the scenes">
-          <img class="bts-slide" src="../../../editable-content/works/films/strange-fruit/bts/media/5_bts.webp" alt="Strange Fruit behind the scenes">
+          <img class="bts-slide is-active" src="../../../editable-content/works/films/strange-fruit/bts/1_bts.webp" alt="Strange Fruit behind the scenes">
+          <img class="bts-slide" src="../../../editable-content/works/films/strange-fruit/bts/2_bts.webp" alt="Strange Fruit behind the scenes">
+          <img class="bts-slide" src="../../../editable-content/works/films/strange-fruit/bts/3_bts.webp" alt="Strange Fruit behind the scenes">
+          <img class="bts-slide" src="../../../editable-content/works/films/strange-fruit/bts/4_bts.webp" alt="Strange Fruit behind the scenes">
+          <img class="bts-slide" src="../../../editable-content/works/films/strange-fruit/bts/5_bts.webp" alt="Strange Fruit behind the scenes">
           <button class="bts-slide-control bts-slide-control--prev"
                   type="button"
                   data-bts-slide-control="prev"
@@ -714,18 +683,6 @@
 
   <script src="../../js/portfolio-grid.js"></script>
   <script>
-    // Local file previews need explicit index.html paths for root anchor links.
-    (function () {
-      if (window.location.protocol !== 'file:') return;
-
-      document.querySelectorAll('.site-header-nav a[href^="../../#"]').forEach(function (link) {
-        link.setAttribute(
-          'href',
-          link.getAttribute('href').replace('../../#', '../../index.html#')
-        );
-      });
-    })();
-
     // Trailer facade: swap poster for iframe on click
     (function () {
       var wrap = document.getElementById('trailer-player');
