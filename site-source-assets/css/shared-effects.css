@@ -1,0 +1,121 @@
+:root {
+  --media-tile-hover-scale: 1.025;
+  --media-tile-hover-opacity: 0.82;
+  --media-tile-hover-duration: 700ms;
+  --media-tile-hover-easing: ease;
+  --interactive-chevron-distance: 0.22rem;
+  --interactive-chevron-duration: 1.85s;
+  --interactive-chevron-easing: ease-in-out;
+}
+
+.media-hover-zoom {
+  overflow: hidden;
+}
+
+.media-hover-zoom-target {
+  transition:
+    transform var(--media-tile-hover-duration) var(--media-tile-hover-easing),
+    opacity var(--media-tile-hover-duration) var(--media-tile-hover-easing);
+}
+
+.media-hover-zoom:hover .media-hover-zoom-target,
+.media-hover-zoom:focus-visible .media-hover-zoom-target,
+.media-hover-zoom:focus-within .media-hover-zoom-target {
+  transform: scale(var(--media-tile-hover-scale));
+  opacity: var(--media-tile-hover-opacity);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .media-hover-zoom-target {
+    transition: none;
+  }
+}
+
+.interactive-chevron {
+  animation-duration: var(--interactive-chevron-duration);
+  animation-iteration-count: infinite;
+  animation-timing-function: var(--interactive-chevron-easing);
+  transform-box: fill-box;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.interactive-chevron--right {
+  animation-name: interactiveChevronRight;
+}
+
+.interactive-chevron--left {
+  animation-name: interactiveChevronLeft;
+}
+
+.interactive-chevron--expand-ne {
+  animation-name: interactiveChevronExpandNE;
+}
+
+.interactive-chevron--expand-sw {
+  animation-name: interactiveChevronExpandSW;
+}
+
+.interactive-chevron--collapse-ne {
+  animation-name: interactiveChevronCollapseNE;
+}
+
+.interactive-chevron--collapse-sw {
+  animation-name: interactiveChevronCollapseSW;
+}
+
+@keyframes interactiveChevronRight {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(var(--interactive-chevron-distance)); }
+}
+
+@keyframes interactiveChevronLeft {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(calc(var(--interactive-chevron-distance) * -1)); }
+}
+
+@keyframes interactiveChevronExpandNE {
+  0%, 100% { transform: translate(0, 0); }
+  50% {
+    transform: translate(
+      var(--interactive-chevron-distance),
+      calc(var(--interactive-chevron-distance) * -1)
+    );
+  }
+}
+
+@keyframes interactiveChevronExpandSW {
+  0%, 100% { transform: translate(0, 0); }
+  50% {
+    transform: translate(
+      calc(var(--interactive-chevron-distance) * -1),
+      var(--interactive-chevron-distance)
+    );
+  }
+}
+
+@keyframes interactiveChevronCollapseNE {
+  0%, 100% { transform: translate(0, 0); }
+  50% {
+    transform: translate(
+      calc(var(--interactive-chevron-distance) * -1),
+      var(--interactive-chevron-distance)
+    );
+  }
+}
+
+@keyframes interactiveChevronCollapseSW {
+  0%, 100% { transform: translate(0, 0); }
+  50% {
+    transform: translate(
+      var(--interactive-chevron-distance),
+      calc(var(--interactive-chevron-distance) * -1)
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interactive-chevron {
+    animation: none;
+  }
+}

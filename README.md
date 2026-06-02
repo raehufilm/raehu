@@ -6,14 +6,22 @@ Live site: **https://raehu.com**
 
 ## For Rae: How to Add or Update Work Pages
 
-You only need to edit folders and simple text files under `pages/works/`.
+You only need this folder:
+
+```text
+editable-content/
+```
+
+Create and edit work pages only inside:
 
 The website has two work categories:
 
 ```text
-pages/works/films/
-pages/works/commercials/
+editable-content/works/films/
+editable-content/works/commercials/
 ```
+
+Do not create work folders in `generated-website/`, `generator-templates/`, or `site-source-assets/`.
 
 Each work gets its own folder. The folder name becomes the page address, so keep it short, lowercase, and use hyphens instead of spaces.
 Do not use the same folder name twice, even if one is a film and one is a commercial.
@@ -21,7 +29,7 @@ Do not use the same folder name twice, even if one is a film and one is a commer
 Example:
 
 ```text
-pages/works/films/strange-fruit/
+editable-content/works/films/strange-fruit/
 ```
 
 becomes:
@@ -35,7 +43,7 @@ https://raehu.com/works/strange-fruit/
 Use this shape for each work:
 
 ```text
-pages/works/films/my-film/
+editable-content/works/films/my-film/
   trailer/
     trailer_link.md
   note/
@@ -55,10 +63,10 @@ pages/works/films/my-film/
       3_crew.webp
 ```
 
-For a commercial, use the same shape under `pages/works/commercials/`:
+For a commercial, use the same shape under `editable-content/works/commercials/`:
 
 ```text
-pages/works/commercials/my-commercial/
+editable-content/works/commercials/my-commercial/
 ```
 
 A new work needs all four sections: `trailer`, `note`, `highlight`, and `bts`. Empty draft folders are ignored until they have the required files.
@@ -170,6 +178,12 @@ To test locally without publishing:
 ./generate_website --dry-run
 ```
 
+To preview the generated site on this Mac, open:
+
+```text
+generated-website/index.html
+```
+
 The generator updates:
 
 ```text
@@ -178,7 +192,16 @@ https://raehu.com/#works
 https://raehu.com/works/<work-folder-name>/
 ```
 
-Do not edit generated HTML files directly. Edit the folders under `pages/works/`, then run `generate_website`.
+Do not edit generated HTML files directly. Edit the folders under `editable-content/works/`, then run `generate_website`.
+
+### What the Other Folders Mean
+
+```text
+editable-content/       You edit this.
+generated-website/      Generated output. Do not edit by hand.
+generator-templates/    Layout templates. Agents edit this when changing page structure.
+site-source-assets/     CSS, JavaScript, and site artwork. Agents edit this.
+```
 
 ## For Agents: Rules to Maintain
 
@@ -191,23 +214,24 @@ Hard requirements:
 - Keep the site static: no npm, no package manager, no framework, no deploy-time build.
 - `scripts/generate_pages.py` must stay Python-standard-library only.
 - `ffmpeg` is the local image conversion tool for raw image media.
-- Generated HTML is committed output. Source content lives in `pages/works/films/` and `pages/works/commercials/`.
+- Generated HTML is committed output. Source content lives in `editable-content/works/films/` and `editable-content/works/commercials/`.
 - Work slugs must be unique across `films` and `commercials`, because both publish to `works/<slug>/`.
-- Do not edit generated `index.html`, `works/index.html`, or `works/<slug>/index.html` directly. Edit source folders or templates, then regenerate.
+- Do not edit generated `generated-website/index.html`, `generated-website/works/index.html`, or `generated-website/works/<slug>/index.html` directly. Edit source folders, templates, source assets, or generator code, then regenerate.
 
 Generated-site mechanism:
 
-- `templates/index.html` generates the root page.
-- `templates/work-page.html` generates individual work pages.
-- `templates/works-redirect.html` generates the `/works/` redirect.
-- `index.html` serves the landing page and `#works` section.
-- `works/index.html` redirects old `/works/` traffic to `/#works`.
-- `works/<slug>/index.html` serves each generated work page.
+- `generator-templates/index.html` generates the root page.
+- `generator-templates/work-page.html` generates individual work pages.
+- `generator-templates/works-redirect.html` generates the `/works/` redirect.
+- `site-source-assets/` contains source CSS, JS, and site artwork copied into generated output.
+- `generated-website/index.html` serves the landing page and `#works` section.
+- `generated-website/works/index.html` redirects old `/works/` traffic to `/#works`.
+- `generated-website/works/<slug>/index.html` serves each generated work page.
 - `vimeo-thumbnails.json` is the committed Vimeo poster cache. Check mode must not depend on live Vimeo availability.
 
 Media rules:
 
-- Committed work media under `pages/works/**/media/` must be `.webp` or `.mp4`.
+- Committed work media under `editable-content/works/**/media/` must be `.webp` or `.mp4`.
 - Raw `.jpg`, `.jpeg`, `.png`, and similar source drops are ignored by Git.
 - Media order is numeric by `NUMBER_` prefix.
 - Duplicate media numbers in one `media/` folder are invalid.

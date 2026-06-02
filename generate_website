@@ -120,7 +120,7 @@ for path in paths:
     parts = path.parts
     in_work_media = (
         len(parts) >= 5
-        and parts[0] == "pages"
+        and parts[0] == "editable-content"
         and parts[1] == "works"
         and "media" in parts
     )
@@ -156,17 +156,12 @@ PY
 stage_site_changes() {
   local stage_paths=(
     generate_website
-    CNAME
-    index.html
-    index.backup.html
-    css
-    images
-    js
-    pages
+    editable-content
+    generated-website
+    generator-templates
+    site-source-assets
     vimeo-thumbnails.json
-    works
     scripts
-    templates
     tests
     .github/workflows
     .githooks
@@ -301,7 +296,7 @@ dispatch_publish_workflow
 
 log "Live pages"
 printf "https://raehu.com/#works\n"
-for work_dir in works/*(/N); do
+for work_dir in generated-website/works/*(/N); do
   work_slug="${work_dir:t}"
   printf "https://raehu.com/works/%s/\n" "$work_slug"
 done

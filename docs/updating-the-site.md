@@ -56,12 +56,13 @@ Before you start, run `git status` to see the working tree. If files you're abou
 
 1. **Read** the relevant file(s) to confirm current state before editing.
 2. **Edit** with the appropriate edit tool, preserving the architecture rules in `README.md` (no deploy-time build step, no package manager, no frameworks, no JS-rendered data files).
-   - For generated site pages, edit the source content under `pages/works/commercials/<slug>/` or `pages/works/films/<slug>/`, then run `python3 scripts/generate_pages.py` so `index.html`, `works/index.html`, and `works/<slug>/index.html` are regenerated from the templates.
+   - For generated site pages, edit the source content under `editable-content/works/commercials/<slug>/` or `editable-content/works/films/<slug>/`, then run `python3 scripts/generate_pages.py` so `generated-website/index.html`, `generated-website/works/index.html`, and `generated-website/works/<slug>/index.html` are regenerated from the templates.
    - Before committing generated site pages, run `python3 -m unittest discover -s tests` and `python3 scripts/generate_pages.py --check`.
 3. **Preview, describe, and wait for confirmation (REQUIRED for any user-visible change).** Skip only for non-visible changes: docs, hooks, CI, `.gitignore`, infra.
 
    - **Preview locally:**
-     - `open <file>` from the repo root for instant `file://` preview in the owner's default browser.
+     - `open generated-website/index.html` from the repo root for the generated homepage.
+     - `open generated-website/works/<slug>/index.html` from the repo root for a generated work page.
      - `python3 -m http.server` from the repo root if the change needs real HTTP (cross-page links from non-root paths, fetch, etc.).
    - **Show the owner the change** clearly:
      - The `file://` URL (always include, even after `open`).
@@ -107,8 +108,8 @@ Before you start, run `git status` to see the working tree. If files you're abou
 ### Never
 
 - Install anything to the repo (`npm install`, `pip install`, etc.) — violates the architecture rules in `README.md`.
-- Edit a generated `works/<slug>/index.html` directly when that work is managed by `pages/works/commercials/<slug>/` or `pages/works/films/<slug>/`; edit the source folder and rerun `scripts/generate_pages.py`.
-- Commit raw video files. Link trailers and longform videos to Vimeo (https://vimeo.com/raehu). Approved short MP4 clips are allowed only as ordered work-page media under `pages/works/**/media/`.
+- Edit a generated `generated-website/works/<slug>/index.html` directly when that work is managed by `editable-content/works/commercials/<slug>/` or `editable-content/works/films/<slug>/`; edit the source folder and rerun `scripts/generate_pages.py`.
+- Commit raw video files. Link trailers and longform videos to Vimeo (https://vimeo.com/raehu). Approved short MP4 clips are allowed only as ordered work-page media under `editable-content/works/**/media/`.
 - Bypass the pre-commit hook with `--no-verify`.
 - Force-push to `main`. Branch protection blocks it and that's intentional.
 - Use absolute paths or other machine-specific values in committed files.

@@ -1,6 +1,6 @@
 # Portfolio grid system
 
-A reusable irregular-grid layout engine for displaying landscape stills and video clips across portfolio pages. Lives at `js/portfolio-grid.js` — a single vanilla JS file with no dependencies.
+A reusable irregular-grid layout engine for displaying landscape stills and video clips across portfolio pages. Source lives at `site-source-assets/js/portfolio-grid.js` — a single vanilla JS file with no dependencies.
 
 ## How it works
 
@@ -150,15 +150,15 @@ To reproduce: put 17 `<img>` children in a `.portfolio-grid` container with `dat
 
 ## File locations
 
-- **Engine:** `js/portfolio-grid.js`
-- **Root works grids:** `index.html#works`
-- **Portfolio pages:** `works/<slug>/index.html`
-- **Image assets:** `images/<slug>/` (WebP, committed to repo)
+- **Engine source:** `site-source-assets/js/portfolio-grid.js`
+- **Root works grids:** `generated-website/index.html#works`
+- **Portfolio pages:** `generated-website/works/<slug>/index.html`
+- **Work media:** `editable-content/works/**/media/` (WebP/MP4, committed to repo)
 - **Source stills:** `website_stills/` (PNGs, not committed — convert to WebP before use)
 
 ## Creating a new portfolio page
 
-1. Add source content under `pages/works/films/<slug>/` or `pages/works/commercials/<slug>/`.
+1. Add source content under `editable-content/works/films/<slug>/` or `editable-content/works/commercials/<slug>/`.
 2. Put ordered media inside the section `media/` folders using the `NUMBER_` filename prefix.
 3. Run `python3 scripts/generate_pages.py` so the root works grids and the detail page are regenerated.
 4. Preview locally, then commit and push through the normal generated-site workflow.

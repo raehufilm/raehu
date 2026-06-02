@@ -67,7 +67,7 @@ jobs:
               parts = path.parts
               in_work_media = (
                   len(parts) >= 5
-                  and parts[0] == "pages"
+                  and parts[0] == "editable-content"
                   and parts[1] == "works"
                   and "media" in parts
               )
@@ -107,26 +107,20 @@ jobs:
 
           root = Path(".")
           site = Path("_site")
+          generated = root / "generated-website"
           allowed_media = {".webp", ".mp4"}
 
           if site.exists():
               shutil.rmtree(site)
-          site.mkdir()
+          if not generated.is_dir():
+              raise SystemExit("Missing generated-website output folder")
+
+          shutil.copytree(generated, site)
           (site / ".nojekyll").write_text("", encoding="utf-8")
 
-          for name in ("index.html", "CNAME"):
-              source = root / name
-              if source.exists():
-                  shutil.copy2(source, site / name)
-
-          for dirname in ("images", "js", "works"):
-              source = root / dirname
-              if source.exists():
-                  shutil.copytree(source, site / dirname)
-
-          pages_root = root / "pages" / "works"
-          if pages_root.exists():
-              for source in pages_root.rglob("*"):
+          editable_works = root / "editable-content" / "works"
+          if editable_works.exists():
+              for source in editable_works.rglob("*"):
                   if not source.is_file():
                       continue
                   if "media" not in source.parts:

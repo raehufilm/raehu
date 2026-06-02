@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate static work pages from the editable pages/works source tree.
+"""Generate static work pages from the editable-content/works source tree.
 
 This script intentionally uses only the Python standard library so it can run
 locally and in GitHub Actions without package installation.
@@ -25,18 +25,22 @@ from urllib.request import Request, urlopen
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PAGES_WORKS_DIR = REPO_ROOT / "pages" / "works"
-WORKS_OUTPUT_DIR = REPO_ROOT / "works"
-HOME_OUTPUT_HTML = REPO_ROOT / "index.html"
-WORK_PAGE_TEMPLATE = REPO_ROOT / "templates" / "work-page.html"
-HOME_TEMPLATE = REPO_ROOT / "templates" / "index.html"
-WORKS_REDIRECT_TEMPLATE = REPO_ROOT / "templates" / "works-redirect.html"
-HERO_ILLUSTRATION = REPO_ROOT / "images" / "illustration-tight.svg"
+EDITABLE_WORKS_DIR = REPO_ROOT / "editable-content" / "works"
+GENERATED_WEBSITE_DIR = REPO_ROOT / "generated-website"
+WORKS_OUTPUT_DIR = GENERATED_WEBSITE_DIR / "works"
+HOME_OUTPUT_HTML = GENERATED_WEBSITE_DIR / "index.html"
+GENERATOR_TEMPLATES_DIR = REPO_ROOT / "generator-templates"
+WORK_PAGE_TEMPLATE = GENERATOR_TEMPLATES_DIR / "work-page.html"
+HOME_TEMPLATE = GENERATOR_TEMPLATES_DIR / "index.html"
+WORKS_REDIRECT_TEMPLATE = GENERATOR_TEMPLATES_DIR / "works-redirect.html"
+SITE_SOURCE_ASSETS_DIR = REPO_ROOT / "site-source-assets"
+HERO_ILLUSTRATION = SITE_SOURCE_ASSETS_DIR / "images" / "illustration-tight.svg"
 VIMEO_THUMBNAIL_CACHE = REPO_ROOT / "vimeo-thumbnails.json"
 
 WORK_CATEGORIES = ("films", "commercials")
 ROOT_SECTION_ORDER = ("about", "works", "contact")
 SECTION_ORDER = ("trailer", "note", "highlight", "bts")
+STATIC_ASSET_DIRS = ("css", "images", "js")
 IGNORED_NAMES = {".DS_Store"}
 IMAGE_EXTENSIONS = {".avif", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
 VIDEO_EXTENSIONS = {".mp4"}
@@ -106,7 +110,7 @@ def read_inline_svg(path: Path) -> str:
 
 
 def apply_inline_markdown(value: str) -> str:
-    """Apply the small Markdown subset currently supported by pages/ text files."""
+    """Apply the small Markdown subset supported by editable-content text files."""
     escaped = html_escape(value)
 
     def link_repl(match: re.Match[str]) -> str:
@@ -404,8 +408,8 @@ def output_relative_url(output_html: Path, target: Path) -> str:
     return "/".join(quote(part) for part in Path(relative_path).parts)
 
 
-def repo_relative_url(output_html: Path, *parts: str) -> str:
-    return output_relative_url(output_html, REPO_ROOT.joinpath(*parts))
+def generated_site_relative_url(output_html: Path, *parts: str) -> str:
+    return output_relative_url(output_html, GENERATED_WEBSITE_DIR.joinpath(*parts))
 
 
 def work_output_html(work: WorkContent) -> Path:
@@ -418,7 +422,7 @@ def work_public_url_from(output_html: Path, work: WorkContent) -> str:
 
 
 def root_index_url_from(output_html: Path) -> str:
-    href = output_relative_url(output_html, REPO_ROOT)
+    href = output_relative_url(output_html, GENERATED_WEBSITE_DIR)
     if href in {"", "."}:
         return "./"
     return href if href.endswith("/") else f"{href}/"
@@ -699,8 +703,16 @@ def render_work(work: WorkContent, template: str, output_html: Path) -> str:
         "{{WORK_CATEGORY}}": html_escape(work.category),
         "{{ROOT_INDEX_URL}}": root_index_url_from(output_html),
         "{{WORKS_INDEX_URL}}": root_works_url_from(output_html),
-        "{{SHARED_EFFECTS_CSS_URL}}": repo_relative_url(output_html, "css", "shared-effects.css"),
-        "{{PORTFOLIO_GRID_JS_URL}}": repo_relative_url(output_html, "js", "portfolio-grid.js"),
+        "{{SHARED_EFFECTS_CSS_URL}}": generated_site_relative_url(
+            output_html,
+            "css",
+            "shared-effects.css",
+        ),
+        "{{PORTFOLIO_GRID_JS_URL}}": generated_site_relative_url(
+            output_html,
+            "js",
+            "portfolio-grid.js",
+        ),
         "{{SECTION_TRACKER_LINKS}}": render_tracker_links(SECTION_ORDER),
         "{{WORK_SECTIONS}}": "\n\n".join(sections),
     }
@@ -766,8 +778,16 @@ def render_home(works: tuple[WorkContent, ...], template: str, output_html: Path
 
     replacements = {
         "{{HERO_ILLUSTRATION_SVG}}": read_inline_svg(HERO_ILLUSTRATION),
-        "{{SHARED_EFFECTS_CSS_URL}}": repo_relative_url(output_html, "css", "shared-effects.css"),
-        "{{PORTFOLIO_GRID_JS_URL}}": repo_relative_url(output_html, "js", "portfolio-grid.js"),
+        "{{SHARED_EFFECTS_CSS_URL}}": generated_site_relative_url(
+            output_html,
+            "css",
+            "shared-effects.css",
+        ),
+        "{{PORTFOLIO_GRID_JS_URL}}": generated_site_relative_url(
+            output_html,
+            "js",
+            "portfolio-grid.js",
+        ),
         "{{ROOT_SECTION_TRACKER_LINKS}}": render_tracker_links(ROOT_SECTION_ORDER),
         "{{WORK_CATEGORY_TRACKER_LINKS}}": render_work_category_links(WORK_CATEGORIES),
         "{{WORKS_INDEX_SECTIONS}}": "\n\n".join(sections),
@@ -815,14 +835,58 @@ def write_or_check(output_html: Path, rendered: str, check: bool) -> int:
     return 0
 
 
-def discover_work_dirs(pages_works_dir: Path, selected_slug: str | None = None) -> list[Path]:
-    if not pages_works_dir.is_dir():
-        raise PageGenerationError(f"Missing pages works folder: {pages_works_dir}")
+def visible_files(root: Path) -> list[Path]:
+    if not root.exists():
+        return []
+    return sorted(
+        path
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.name not in IGNORED_NAMES
+        and not path.name.startswith(".")
+    )
+
+
+def sync_static_assets(check: bool) -> int:
+    failures = 0
+    for dirname in STATIC_ASSET_DIRS:
+        source_dir = SITE_SOURCE_ASSETS_DIR / dirname
+        output_dir = GENERATED_WEBSITE_DIR / dirname
+
+        if check:
+            source_files = {
+                path.relative_to(source_dir): path.read_bytes()
+                for path in visible_files(source_dir)
+            }
+            output_files = {
+                path.relative_to(output_dir): path.read_bytes()
+                for path in visible_files(output_dir)
+            }
+            if source_files != output_files:
+                print(
+                    f"Generated static assets are out of date: {output_dir}",
+                    file=sys.stderr,
+                )
+                failures += 1
+            continue
+
+        if output_dir.exists():
+            shutil.rmtree(output_dir)
+        if source_dir.exists():
+            shutil.copytree(source_dir, output_dir)
+            print(f"synced {output_dir.relative_to(REPO_ROOT)}")
+
+    return failures
+
+
+def discover_work_dirs(editable_works_dir: Path, selected_slug: str | None = None) -> list[Path]:
+    if not editable_works_dir.is_dir():
+        raise PageGenerationError(f"Missing editable works folder: {editable_works_dir}")
 
     work_dirs = []
     seen_slugs: dict[str, Path] = {}
     for category in WORK_CATEGORIES:
-        category_dir = pages_works_dir / category
+        category_dir = editable_works_dir / category
         if not category_dir.is_dir():
             continue
         for work_dir in sorted(path for path in category_dir.iterdir() if path.is_dir()):
@@ -844,11 +908,11 @@ def discover_work_dirs(pages_works_dir: Path, selected_slug: str | None = None) 
 
 def generate(check: bool = False, selected_slug: str | None = None) -> int:
     work_template = read_text(WORK_PAGE_TEMPLATE)
-    work_dirs = discover_work_dirs(PAGES_WORKS_DIR, selected_slug)
+    work_dirs = discover_work_dirs(EDITABLE_WORKS_DIR, selected_slug)
     if selected_slug and not work_dirs:
         raise PageGenerationError(f"No valid started work found for slug: {selected_slug}")
 
-    failures = 0
+    failures = sync_static_assets(check)
     works: list[WorkContent] = []
     vimeo_thumbnail_cache = read_vimeo_thumbnail_cache()
     original_vimeo_thumbnail_cache = dict(vimeo_thumbnail_cache)

@@ -7,11 +7,14 @@ Thumbs.db
 __pycache__/
 *.py[cod]
 
-# pages/ media source folders commit only web-ready media.
+# editable-content/ media source folders commit only web-ready media.
 # Raw image drops can stay local; the generator converts them to WebP.
-pages/works/**/media/*
-!pages/works/**/media/*.webp
-!pages/works/**/media/*.mp4
+editable-content/works/**/media/*
+!editable-content/works/**/media/*.webp
+!editable-content/works/**/media/*.mp4
+
+# Preserved local-only files that should not be published or committed.
+local-ignored-files/
 
 video_clip_seed/
 .claude/

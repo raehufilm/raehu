@@ -189,10 +189,10 @@ class GeneratePagesTests(unittest.TestCase):
     def test_render_highlight_wraps_media_with_expand_controls(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            output_html = root / "works" / "sample-work" / "index.html"
+            output_html = root / "generated-website" / "works" / "sample-work" / "index.html"
             media_path = (
                 root
-                / "pages"
+                / "editable-content"
                 / "works"
                 / "films"
                 / "sample-work"
@@ -225,9 +225,9 @@ class GeneratePagesTests(unittest.TestCase):
 
     def test_discover_work_dirs_traverses_commercials_and_films(self):
         with tempfile.TemporaryDirectory() as tmp:
-            pages_works = Path(tmp) / "pages" / "works"
-            commercial = pages_works / "commercials" / "sample-ad"
-            film = pages_works / "films" / "sample-film"
+            editable_works = Path(tmp) / "editable-content" / "works"
+            commercial = editable_works / "commercials" / "sample-ad"
+            film = editable_works / "films" / "sample-film"
             (commercial / "trailer").mkdir(parents=True)
             (film / "trailer").mkdir(parents=True)
             (commercial / "trailer" / "trailer_link.md").write_text(
@@ -239,18 +239,18 @@ class GeneratePagesTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            work_dirs = generate_pages.discover_work_dirs(pages_works)
+            work_dirs = generate_pages.discover_work_dirs(editable_works)
 
         self.assertEqual(
-            [path.relative_to(pages_works).as_posix() for path in work_dirs],
+            [path.relative_to(editable_works).as_posix() for path in work_dirs],
             ["films/sample-film", "commercials/sample-ad"],
         )
 
     def test_discover_work_dirs_rejects_duplicate_slugs_across_categories(self):
         with tempfile.TemporaryDirectory() as tmp:
-            pages_works = Path(tmp) / "pages" / "works"
-            commercial = pages_works / "commercials" / "same-slug"
-            film = pages_works / "films" / "same-slug"
+            editable_works = Path(tmp) / "editable-content" / "works"
+            commercial = editable_works / "commercials" / "same-slug"
+            film = editable_works / "films" / "same-slug"
             (commercial / "trailer").mkdir(parents=True)
             (film / "trailer").mkdir(parents=True)
             (commercial / "trailer" / "trailer_link.md").write_text(
@@ -263,14 +263,16 @@ class GeneratePagesTests(unittest.TestCase):
             )
 
             with self.assertRaises(generate_pages.PageGenerationError):
-                generate_pages.discover_work_dirs(pages_works)
+                generate_pages.discover_work_dirs(editable_works)
 
     def test_generate_writes_category_source_to_public_work_page(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            source = root / "pages" / "works" / "films" / "sample-work"
-            output = root / "works"
-            template = root / "templates" / "work-page.html"
+            source = root / "editable-content" / "works" / "films" / "sample-work"
+            generated_site = root / "generated-website"
+            output = generated_site / "works"
+            template = root / "generator-templates" / "work-page.html"
+            source_assets = root / "site-source-assets"
 
             (source / "trailer").mkdir(parents=True)
             (source / "trailer" / "trailer_link.md").write_text(
@@ -308,19 +310,27 @@ class GeneratePagesTests(unittest.TestCase):
                 "{{WORK_SECTIONS}}",
                 encoding="utf-8",
             )
+            (source_assets / "css").mkdir(parents=True)
+            (source_assets / "js").mkdir(parents=True)
+            (source_assets / "css" / "shared-effects.css").write_text("", encoding="utf-8")
+            (source_assets / "js" / "portfolio-grid.js").write_text("", encoding="utf-8")
 
             with (
                 contextlib.redirect_stdout(io.StringIO()),
                 mock.patch.object(generate_pages, "REPO_ROOT", root),
-                mock.patch.object(generate_pages, "PAGES_WORKS_DIR", source.parent.parent),
+                mock.patch.object(generate_pages, "EDITABLE_WORKS_DIR", source.parent.parent),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
                 mock.patch.object(generate_pages, "WORKS_OUTPUT_DIR", output),
                 mock.patch.object(generate_pages, "WORK_PAGE_TEMPLATE", template),
+                mock.patch.object(generate_pages, "SITE_SOURCE_ASSETS_DIR", source_assets),
                 mock.patch.object(generate_pages, "vimeo_thumbnail_url", return_value=None),
             ):
                 failures = generate_pages.generate(selected_slug="sample-work")
 
             output_html = output / "sample-work" / "index.html"
-            subpages_output_html = root / "works" / "subpages" / "sample-work" / "index.html"
+            subpages_output_html = (
+                generated_site / "works" / "subpages" / "sample-work" / "index.html"
+            )
 
             self.assertEqual(failures, 0)
             self.assertTrue(output_html.exists())
@@ -335,10 +345,11 @@ class GeneratePagesTests(unittest.TestCase):
     def test_render_home_uses_category_sections_and_trailer_posters(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            works_output = root / "works"
-            output_html = root / "index.html"
-            illustration = root / "images" / "illustration-tight.svg"
-            illustration.parent.mkdir()
+            generated_site = root / "generated-website"
+            works_output = generated_site / "works"
+            output_html = generated_site / "index.html"
+            illustration = root / "site-source-assets" / "images" / "illustration-tight.svg"
+            illustration.parent.mkdir(parents=True)
             illustration.write_text(
                 '<?xml version="1.0" encoding="UTF-8"?><svg></svg>',
                 encoding="utf-8",
@@ -351,7 +362,7 @@ class GeneratePagesTests(unittest.TestCase):
                 note=generate_pages.NoteContent(title_html="Film", body_html="Body"),
                 note_media=generate_pages.MediaItem(
                     1,
-                    root / "pages" / "works" / "films" / "sample-film" / "note" / "media" / "1_note.webp",
+                    root / "editable-content" / "works" / "films" / "sample-film" / "note" / "media" / "1_note.webp",
                     "image",
                 ),
                 highlight_media=(),
@@ -367,7 +378,7 @@ class GeneratePagesTests(unittest.TestCase):
                 note=generate_pages.NoteContent(title_html="Ad", body_html="Body"),
                 note_media=generate_pages.MediaItem(
                     1,
-                    root / "pages" / "works" / "commercials" / "sample-ad" / "note" / "media" / "1_note.webp",
+                    root / "editable-content" / "works" / "commercials" / "sample-ad" / "note" / "media" / "1_note.webp",
                     "image",
                 ),
                 highlight_media=(),
@@ -386,6 +397,7 @@ class GeneratePagesTests(unittest.TestCase):
 
             with (
                 mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
                 mock.patch.object(generate_pages, "WORKS_OUTPUT_DIR", works_output),
                 mock.patch.object(generate_pages, "HERO_ILLUSTRATION", illustration),
             ):
@@ -418,10 +430,14 @@ class GeneratePagesTests(unittest.TestCase):
     def test_render_works_redirect_points_to_root_works_anchor(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            output_html = root / "works" / "index.html"
+            generated_site = root / "generated-website"
+            output_html = generated_site / "works" / "index.html"
             template = "{{ROOT_WORKS_URL}}"
 
-            with mock.patch.object(generate_pages, "REPO_ROOT", root):
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+            ):
                 rendered = generate_pages.render_works_redirect(template, output_html)
 
         self.assertEqual(rendered, "../#works")
