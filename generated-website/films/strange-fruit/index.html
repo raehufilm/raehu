@@ -599,6 +599,172 @@
       white-space: nowrap;
       transition: color var(--theme-transition-duration) var(--theme-transition-easing);
     }
+
+    @media (max-width: 700px) {
+      :root {
+        --mobile-section-tracker-height: 3rem;
+        --tracker-left: 0;
+        --tracker-content-space: 0rem;
+        --work-page-padding: 1rem;
+      }
+
+      .work-pages {
+        padding-top: calc(var(--site-header-height) + var(--mobile-section-tracker-height));
+        padding-left: 0;
+      }
+
+      .work-page {
+        scroll-margin-top: calc(var(--site-header-height) + var(--mobile-section-tracker-height));
+      }
+
+      .section-tracker {
+        top: var(--site-header-height);
+        left: 0;
+        right: 0;
+        height: var(--mobile-section-tracker-height);
+        padding: 0 1rem;
+        flex-direction: row;
+        align-items: center;
+        gap: 1rem;
+        overflow-x: auto;
+        overflow-y: hidden;
+        background: var(--header-bg);
+        transform: none;
+        transition:
+          background-color var(--theme-transition-duration) var(--theme-transition-easing),
+          color var(--theme-transition-duration) var(--theme-transition-easing);
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+
+      .section-tracker::-webkit-scrollbar {
+        display: none;
+      }
+
+      .section-tracker a {
+        display: inline-flex;
+        align-items: center;
+        flex: 0 0 auto;
+        white-space: nowrap;
+      }
+
+      .section-tracker-dot {
+        margin-right: 0.4em;
+      }
+
+      .trailer-wrap {
+        height: calc(
+          100svh - var(--site-header-height) - var(--mobile-section-tracker-height) - var(--page-padding)
+        );
+        min-height: 28rem;
+      }
+
+      .primary-section-layout--has-links .trailer-wrap {
+        height: calc(
+          100svh - var(--site-header-height) - var(--mobile-section-tracker-height) - var(--page-padding) - 4rem
+        );
+        min-height: 24rem;
+      }
+
+      .primary-section-links {
+        align-items: flex-start;
+        text-align: left;
+        font-size: 0.92rem;
+        line-height: 1.25;
+      }
+
+      .work-header {
+        grid-template-columns: 1fr;
+      }
+
+      .work-header-text {
+        padding: 1.75rem var(--page-padding) 3rem;
+        justify-content: flex-start;
+      }
+
+      .work-title {
+        font-size: clamp(1.9rem, 11vw, 2.7rem);
+        line-height: 1.05;
+        margin-bottom: 1.4rem;
+      }
+
+      .work-subtext {
+        max-width: 19rem;
+        font-size: 1.1rem;
+        line-height: 1.5;
+        margin-bottom: 2rem;
+      }
+
+      .work-header-image-wrap,
+      .work-header-image-wrap.work-header-piece--left,
+      .work-header-image-wrap.work-header-piece--right {
+        padding: 0 var(--page-padding) 3rem;
+        justify-content: center;
+      }
+
+      .work-header-image {
+        width: 100%;
+        height: auto;
+        max-height: 62svh;
+      }
+
+      .grid-wrapper {
+        padding: var(--page-padding);
+      }
+
+      .highlight-expand-button,
+      .highlight-collapse-button {
+        width: 3rem;
+        height: 3rem;
+      }
+
+      .highlight-expand-button svg,
+      .highlight-collapse-button svg {
+        width: 1.8rem;
+        height: 1.8rem;
+      }
+
+      .bts-layout {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        min-height: auto;
+        padding: var(--page-padding-top, var(--page-padding)) var(--page-padding) var(--page-padding);
+      }
+
+      .bts-slideshow {
+        min-height: auto;
+        aspect-ratio: 4 / 5;
+      }
+
+      .bts-slide-control {
+        opacity: 1;
+      }
+
+      .bts-copy {
+        align-items: flex-end;
+        min-width: 0;
+      }
+
+      .bts-text {
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+    }
+
+    @media (max-width: 430px) {
+      .work-title {
+        font-size: clamp(1.8rem, 10vw, 2.35rem);
+      }
+
+      .work-subtext {
+        max-width: 16rem;
+      }
+
+      .trailer-wrap {
+        min-height: 24rem;
+      }
+    }
   </style>
 </head>
 <body>

@@ -68,6 +68,12 @@
     [4, 8]
   ];
 
+  var MOBILE_SPANS_2 = [
+    [3, 3],
+    [4, 2],
+    [2, 4]
+  ];
+
   var SPANS_3 = [
     [3, 5, 4],
     [4, 5, 3],
@@ -122,6 +128,38 @@
       } while (spansMatch(spans, lastSpans) && attempts < 20);
 
       rows.push(spans);
+      lastSpans = spans;
+    }
+
+    return rows;
+  }
+
+  function generateMobileLayout(n, seed) {
+    if (n <= 0) return [];
+    if (n === 1) return [[6]];
+
+    var rng = makeRng(seed);
+    var rows = [];
+    var remaining = n;
+    var lastSpans = null;
+
+    while (remaining > 0) {
+      if (remaining === 1) {
+        rows.push([6]);
+        remaining -= 1;
+        lastSpans = [6];
+        continue;
+      }
+
+      var spans;
+      var attempts = 0;
+      do {
+        spans = pick(MOBILE_SPANS_2, rng);
+        attempts++;
+      } while (spansMatch(spans, lastSpans) && attempts < 20);
+
+      rows.push(spans);
+      remaining -= 2;
       lastSpans = spans;
     }
 
@@ -183,6 +221,8 @@
   // --- Main layout function ---
 
   function layoutGrid(container) {
+    var containerWidth = container.offsetWidth;
+    var isMobile = containerWidth > 0 && containerWidth < 560;
     var minAR = parseFloat(container.getAttribute('data-min-ar')) || DEFAULT_MIN_AR;
     var totalCols = parseInt(container.getAttribute('data-cols'), 10) || DEFAULT_COLS;
     var children = Array.prototype.slice.call(container.children);
@@ -192,7 +232,12 @@
 
     // Determine layout: manual override or auto-generate
     var rows;
-    var layoutStr = container.getAttribute('data-layout');
+    var layoutStr = isMobile ? null : container.getAttribute('data-layout');
+
+    if (isMobile) {
+      totalCols = 6;
+      minAR = parseFloat(container.getAttribute('data-mobile-min-ar')) || 0.92;
+    }
 
     if (layoutStr) {
       rows = parseLayout(layoutStr);
@@ -208,11 +253,8 @@
 
     if (!rows) {
       var seed = parseInt(container.getAttribute('data-seed'), 10) || 0;
-      rows = generateLayout(n, totalCols, seed);
+      rows = isMobile ? generateMobileLayout(n, seed) : generateLayout(n, totalCols, seed);
     }
-
-    // Measure container width for height calculations
-    var containerWidth = container.offsetWidth;
 
     // Set up CSS Grid
     container.style.display = 'grid';
