@@ -51,6 +51,10 @@
  *
  *      This guarantees every cell is at least min_aspect_ratio wide-to-tall.
  *      Images fill cells via object-fit:cover, cropping symmetrically.
+ *
+ *   On narrow screens, the grid switches to two-item justified rows whose
+ *   column spans and row height are derived from each media item's own aspect
+ *   ratio. This keeps portfolio frames closer to their source composition.
  */
 
 (function () {
@@ -58,6 +62,7 @@
 
   var DEFAULT_MIN_AR = 1.35;
   var DEFAULT_COLS = 12;
+  var DEFAULT_MEDIA_AR = 16 / 9;
 
   // --- Span presets (irregular, all sum to 12) ---
 
@@ -66,12 +71,6 @@
     [5, 7],
     [8, 4],
     [4, 8]
-  ];
-
-  var MOBILE_SPANS_2 = [
-    [3, 3],
-    [4, 2],
-    [2, 4]
   ];
 
   var SPANS_3 = [
@@ -134,36 +133,98 @@
     return rows;
   }
 
-  function generateMobileLayout(n, seed) {
+  function generateMobileLayout(children, totalCols) {
+    var n = children.length;
     if (n <= 0) return [];
-    if (n === 1) return [[6]];
+    if (n === 1) return [[totalCols]];
 
-    var rng = makeRng(seed);
     var rows = [];
     var remaining = n;
-    var lastSpans = null;
+    var itemIndex = 0;
 
     while (remaining > 0) {
       if (remaining === 1) {
-        rows.push([6]);
+        rows.push([totalCols]);
         remaining -= 1;
-        lastSpans = [6];
+        itemIndex += 1;
         continue;
       }
 
-      var spans;
-      var attempts = 0;
-      do {
-        spans = pick(MOBILE_SPANS_2, rng);
-        attempts++;
-      } while (spansMatch(spans, lastSpans) && attempts < 20);
-
-      rows.push(spans);
+      rows.push(spansForAspectRatios(
+        children.slice(itemIndex, itemIndex + 2).map(childAspectRatio),
+        totalCols
+      ));
       remaining -= 2;
-      lastSpans = spans;
+      itemIndex += 2;
     }
 
     return rows;
+  }
+
+  function spansForAspectRatios(ratios, totalCols) {
+    if (ratios.length === 1) return [totalCols];
+
+    var sum = ratios.reduce(function (total, ratio) {
+      return total + Math.max(0.2, ratio);
+    }, 0);
+    var spans = ratios.map(function (ratio) {
+      return Math.round((Math.max(0.2, ratio) / sum) * totalCols);
+    });
+
+    spans = spans.map(function (span) {
+      return Math.max(2, Math.min(totalCols - 2, span));
+    });
+
+    var delta = totalCols - spans.reduce(function (total, span) {
+      return total + span;
+    }, 0);
+
+    while (delta !== 0) {
+      var adjustableIndex = -1;
+      var bestRemainder = delta > 0 ? -Infinity : Infinity;
+
+      for (var i = 0; i < ratios.length; i++) {
+        var idealSpan = (Math.max(0.2, ratios[i]) / sum) * totalCols;
+        var remainder = idealSpan - spans[i];
+        var canGrow = delta > 0 && spans[i] < totalCols - 2;
+        var canShrink = delta < 0 && spans[i] > 2;
+
+        if (canGrow && remainder > bestRemainder) {
+          bestRemainder = remainder;
+          adjustableIndex = i;
+        }
+
+        if (canShrink && remainder < bestRemainder) {
+          bestRemainder = remainder;
+          adjustableIndex = i;
+        }
+      }
+
+      if (adjustableIndex === -1) break;
+
+      spans[adjustableIndex] += delta > 0 ? 1 : -1;
+      delta += delta > 0 ? -1 : 1;
+    }
+
+    return spans;
+  }
+
+  function childAspectRatio(child) {
+    var media = child.matches && child.matches('img, video')
+      ? child
+      : child.querySelector && child.querySelector('img, video');
+
+    if (!media) return DEFAULT_MEDIA_AR;
+
+    if (media.tagName === 'IMG' && media.naturalWidth && media.naturalHeight) {
+      return media.naturalWidth / media.naturalHeight;
+    }
+
+    if (media.tagName === 'VIDEO' && media.videoWidth && media.videoHeight) {
+      return media.videoWidth / media.videoHeight;
+    }
+
+    return DEFAULT_MEDIA_AR;
   }
 
   function partitionIntoRows(n, rng) {
@@ -236,7 +297,6 @@
 
     if (isMobile) {
       totalCols = 6;
-      minAR = parseFloat(container.getAttribute('data-mobile-min-ar')) || 0.92;
     }
 
     if (layoutStr) {
@@ -253,7 +313,7 @@
 
     if (!rows) {
       var seed = parseInt(container.getAttribute('data-seed'), 10) || 0;
-      rows = isMobile ? generateMobileLayout(n, seed) : generateLayout(n, totalCols, seed);
+      rows = isMobile ? generateMobileLayout(children, totalCols) : generateLayout(n, totalCols, seed);
     }
 
     // Set up CSS Grid
@@ -268,11 +328,22 @@
       var rowSum = row.reduce(function (a, b) { return a + b; }, 0);
       var minSpan = Math.min.apply(null, row);
 
-      // Narrowest cell width in pixels
-      var minCellWidth = (minSpan / rowSum) * containerWidth;
+      var rowHeight;
 
-      // Row height: keep narrowest cell at min aspect ratio
-      var rowHeight = Math.round(minCellWidth / minAR);
+      if (isMobile) {
+        var rowChildren = children.slice(itemIndex, itemIndex + row.length);
+        var rowAspectSum = rowChildren.reduce(function (sum, child) {
+          return sum + childAspectRatio(child);
+        }, 0);
+        rowHeight = Math.round(containerWidth / Math.max(1, rowAspectSum || DEFAULT_MEDIA_AR));
+      } else {
+        // Narrowest cell width in pixels
+        var minCellWidth = (minSpan / rowSum) * containerWidth;
+
+        // Row height: keep narrowest cell at min aspect ratio
+        rowHeight = Math.round(minCellWidth / minAR);
+      }
+
       rowHeights.push(rowHeight + 'px');
 
       // Place each item in this row
@@ -294,12 +365,16 @@
   // --- Initialization and resize handling ---
 
   var grids = [];
+  var watchedMedia = new WeakSet();
 
   function initAll() {
     grids = Array.prototype.slice.call(
       document.querySelectorAll('.portfolio-grid')
     );
-    grids.forEach(layoutGrid);
+    grids.forEach(function (grid) {
+      watchGridMedia(grid);
+      layoutGrid(grid);
+    });
   }
 
   function onResize() {
@@ -312,6 +387,25 @@
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(onResize, 100);
   });
+
+  function watchGridMedia(grid) {
+    Array.prototype.slice.call(grid.querySelectorAll('img, video')).forEach(function (media) {
+      if (watchedMedia.has(media)) return;
+      watchedMedia.add(media);
+
+      if (media.tagName === 'IMG') {
+        media.addEventListener('load', function () {
+          layoutGrid(grid);
+        }, { once: true });
+      }
+
+      if (media.tagName === 'VIDEO') {
+        media.addEventListener('loadedmetadata', function () {
+          layoutGrid(grid);
+        }, { once: true });
+      }
+    });
+  }
 
   // Run on DOM ready
   if (document.readyState === 'loading') {
