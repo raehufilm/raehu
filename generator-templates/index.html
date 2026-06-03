@@ -591,8 +591,8 @@
     .clients-marquee-group {
       display: flex;
       align-items: center;
-      gap: clamp(0.85rem, 1.8vw, 1.5rem);
-      padding-right: clamp(0.85rem, 1.8vw, 1.5rem);
+      gap: clamp(1rem, 2.1vw, 1.8rem);
+      padding-right: clamp(1rem, 2.1vw, 1.8rem);
       flex-shrink: 0;
     }
 
@@ -602,7 +602,7 @@
       justify-content: center;
       width: auto;
       height: 4.6rem;
-      padding: 0.35rem 1rem;
+      padding: 0;
       flex-shrink: 0;
     }
 
@@ -624,9 +624,6 @@
 
     .client-logo img[src$="axa.svg"],
     .client-logo img[src$="lego.svg"],
-    .client-logo img[src$="taobao.svg"],
-    .client-logo img[src$="uniqlo.svg"],
-    .client-logo img[src$="xiaohongshu.svg"],
     .client-logo img[src$="yili.svg"] {
       opacity: 0.66;
       filter: grayscale(1) saturate(0) contrast(1.08);
@@ -634,9 +631,6 @@
 
     :root[data-theme="light"] .client-logo img[src$="axa.svg"],
     :root[data-theme="light"] .client-logo img[src$="lego.svg"],
-    :root[data-theme="light"] .client-logo img[src$="taobao.svg"],
-    :root[data-theme="light"] .client-logo img[src$="uniqlo.svg"],
-    :root[data-theme="light"] .client-logo img[src$="xiaohongshu.svg"],
     :root[data-theme="light"] .client-logo img[src$="yili.svg"] {
       opacity: 0.58;
       filter: grayscale(1) saturate(0) contrast(1.08);
@@ -836,7 +830,7 @@
       .client-logo {
         width: auto;
         height: 3.9rem;
-        padding: 0.3rem 0.75rem;
+        padding: 0;
       }
 
       .client-logo img {
