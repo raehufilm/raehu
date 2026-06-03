@@ -4,7 +4,7 @@ Portfolio site for filmmaker Rae Hu (樂瑞).
 
 Live site: **https://raehu.com**
 
-## For Rae: How to Add or Update Work Pages
+## For Rae: How to Update Site Content
 
 You only need this folder:
 
@@ -12,13 +12,68 @@ You only need this folder:
 editable-content/
 ```
 
+### About Page
+
+Edit the about page text here:
+
+```text
+editable-content/about/text.md
+```
+
+Edit the quote underneath the about text here:
+
+```text
+editable-content/about/quote.md
+```
+
+Put the about image next to those files. It must start with a number and underscore:
+
+```text
+editable-content/about/1_image.jpg
+```
+
+The generator will convert the image to WebP for the website.
+
+The about text file uses this shape:
+
+```text
+# about
+
+Main paragraph text goes here.
+
+Email: raehufilm@gmail.com
+Vimeo: vimeo.com/raehu
+Instagram: instagram.com/raehufilm
+Location: Shanghai · Mexico City
+```
+
+Optional translated about text goes next to it:
+
+```text
+editable-content/about/text_chinese.md
+editable-content/about/text_spanish.md
+```
+
+Use the same shape as `text.md`. If a translated file is missing, that language option will show the English text.
+
+The quote file uses this shape:
+
+```text
+> quote line one
+> quote line two
+```
+
+The divider labels like `Camera, rolling!`, `And... action!`, and `...AND CUT!` are built into the website. Do not put them in these markdown files.
+
+### Work Pages
+
 Create and edit work pages only inside:
 
 The website has two work categories:
 
 ```text
-editable-content/works/films/
-editable-content/works/commercials/
+editable-content/work/films/
+editable-content/work/commercials/
 ```
 
 Do not create work folders in `generated-website/`, `generator-templates/`, or `site-source-assets/`.
@@ -29,23 +84,24 @@ Do not use the same folder name twice, even if one is a film and one is a commer
 Example:
 
 ```text
-editable-content/works/films/strange-fruit/
+editable-content/work/films/strange-fruit/
 ```
 
 becomes:
 
 ```text
-https://raehu.com/works/strange-fruit/
+https://raehu.com/films/strange-fruit/
 ```
 
 ### Folder Example
 
-Use this shape for each work:
+Films use this shape:
 
 ```text
-editable-content/works/films/my-film/
+editable-content/work/films/my-film/
   trailer/
     trailer_link.md
+    additional_links.md
     # or 1_trailer.jpg
     # or 1_trailer.mp4
   note/
@@ -62,19 +118,39 @@ editable-content/works/films/my-film/
     3_crew.jpg
 ```
 
-For a commercial, use the same shape under `editable-content/works/commercials/`:
+Commercials use `film/` instead of `trailer/`:
 
 ```text
-editable-content/works/commercials/my-commercial/
+editable-content/work/commercials/my-commercial/
+  film/
+    film_link.md
+    additional_links.md
+    # or 1_film.jpg
+    # or 1_film.mp4
+  note/
+    1_text.md
+    2_note-image.jpg
+  highlight/
+    1_opening.jpg
+    2_close-up.png
+    3_scene.mp4
+  bts/
+    text.md
+    1_rehearsal.jpg
+    2_location.png
+    3_crew.jpg
 ```
 
-A new work needs all four sections: `trailer`, `note`, `highlight`, and `bts`. Empty draft folders are ignored until they have the required files.
+A new film needs `trailer`, `note`, `highlight`, and `bts`.
+A new commercial needs `film`, `note`, `highlight`, and `bts`.
+Empty draft folders are ignored until they have the required files.
 
-### Trailer
+### Trailer Or Film
 
-Choose exactly one trailer source.
+Choose exactly one source for the first section.
 
-Option 1: put one normal Vimeo link in `trailer/trailer_link.md`.
+For a film, put one normal Vimeo link in `trailer/trailer_link.md`.
+For a commercial, put one normal Vimeo link in `film/film_link.md`.
 
 ```text
 https://vimeo.com/1119717934
@@ -82,21 +158,35 @@ https://vimeo.com/1119717934
 
 It is okay if there are blank spaces or blank lines around the link. The website generator will clean that up.
 
-Option 2: put one image in `trailer/`.
+Or put one image in the first section folder.
 
 ```text
 trailer/
   1_trailer.jpg
+
+film/
+  1_film.jpg
 ```
 
-Option 3: put one MP4 video in `trailer/`.
+Or put one MP4 video in the first section folder.
 
 ```text
 trailer/
   1_trailer.mp4
+
+film/
+  1_film.mp4
 ```
 
-Do not mix these options. If the generator finds more than one trailer source, it will stop and tell you which extra source to remove.
+Do not mix these options. If the generator finds more than one first-section source, it will stop and tell you which extra source to remove.
+
+Optional: add links below the first video/image by creating `additional_links.md` in the same folder.
+Put one Markdown link on each line.
+
+```text
+[view full film](https://vimeo.com/1119717934)
+[second link](https://example.com)
+```
 
 ### Note
 
@@ -216,11 +306,12 @@ The generator updates:
 
 ```text
 https://raehu.com/
-https://raehu.com/#works
-https://raehu.com/works/<work-folder-name>/
+https://raehu.com/#work
+https://raehu.com/films/<work-folder-name>/
+https://raehu.com/commercials/<work-folder-name>/
 ```
 
-Do not edit generated HTML files directly. Edit the folders under `editable-content/works/`, then run `generate_website`.
+Do not edit generated HTML files directly. Edit the folders under `editable-content/work/`, then run `generate_website`.
 
 ### What the Other Folders Mean
 
@@ -242,29 +333,32 @@ Hard requirements:
 - Keep the site static: no npm, no package manager, no framework, no deploy-time build.
 - `scripts/generate_pages.py` must stay Python-standard-library only.
 - `ffmpeg` is the local image conversion tool for raw image media.
-- Generated HTML is committed output. Source content lives in `editable-content/works/films/` and `editable-content/works/commercials/`.
-- Work slugs must be unique across `films` and `commercials`, because both publish to `works/<slug>/`.
-- Do not edit generated `generated-website/index.html`, `generated-website/works/index.html`, or `generated-website/works/<slug>/index.html` directly. Edit source folders, templates, source assets, or generator code, then regenerate.
+- Generated HTML is committed output. Source content lives in `editable-content/about/` and `editable-content/work/`.
+- Optional translated Markdown files use the normal filename plus `_chinese` or `_spanish` before `.md`, for example `text.md`, `text_chinese.md`, and `text_spanish.md`. Missing translated files must fall back to English content.
+- About media is discovered from `editable-content/about/` by the same `NUMBER_` prefix convention as work media. Do not add special-case filenames like `image.jpg`.
+- Work slugs must stay unique across `films` and `commercials` so generated links and tooling remain unambiguous.
+- Do not edit generated `generated-website/index.html`, `generated-website/films/<slug>/index.html`, or `generated-website/commercials/<slug>/index.html` directly. Edit source folders, templates, source assets, or generator code, then regenerate.
 - Highlight grids use deterministic slug-based layouts. Keep media ordered by the `NUMBER_` filename prefix, and vary only the generated grid pattern so users can rearrange media by renaming files.
 
 Generated-site mechanism:
 
 - `generator-templates/index.html` generates the root page.
 - `generator-templates/work-page.html` generates individual work pages.
-- `generator-templates/works-redirect.html` generates the `/works/` redirect.
 - `site-source-assets/` contains source CSS, JS, and site artwork copied into generated output.
-- `generated-website/index.html` serves the landing page and `#works` section.
-- `generated-website/works/index.html` redirects old `/works/` traffic to `/#works`.
-- `generated-website/works/<slug>/index.html` serves each generated work page.
+- Shared header styling lives in `site-source-assets/css/site-header.css`, and shared header action markup is produced by `render_site_header_actions()` in `scripts/generate_pages.py`. Do not duplicate that header CSS or action markup in templates.
+- `generated-website/index.html` serves the landing page, about section, and `#work` section.
+- `generated-website/films/<slug>/index.html` and `generated-website/commercials/<slug>/index.html` serve generated work pages.
 - `vimeo-thumbnails.json` is the committed Vimeo poster cache. Check mode must not depend on live Vimeo availability.
 
 Media rules:
 
-- Committed work media under `editable-content/works/` must be `.webp` or `.mp4`.
+- Committed media under `editable-content/about/` and `editable-content/work/` must be `.webp` or `.mp4`.
 - Raw `.jpg`, `.jpeg`, `.png`, and similar source drops are ignored by Git.
 - Media order is numeric by `NUMBER_` prefix.
 - Duplicate media numbers in one section folder are invalid.
-- `trailer/` must contain exactly one source: either a non-empty `trailer_link.md`, one numbered image, or one numbered `.mp4`.
+- Films use `trailer/` as the first section and it must contain exactly one source: either a non-empty `trailer_link.md`, one numbered image, or one numbered `.mp4`.
+- Commercials use `film/` as the first section and it must contain exactly one source: either a non-empty `film_link.md`, one numbered image, or one numbered `.mp4`.
+- The first section may also contain optional `additional_links.md`. It does not count as the first-section source and must contain one Markdown link per non-empty line.
 - `note/` must contain exactly one numbered Markdown file and exactly one numbered media item. Together they must use positions `1_` and `2_` exactly once so the user can swap left/right layout by renaming files.
 - Total publishable work media must stay under 800 MB.
 

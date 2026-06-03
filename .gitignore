@@ -7,21 +7,34 @@ Thumbs.db
 __pycache__/
 *.py[cod]
 
-# editable-content/ work sections commit only web-ready media.
+# editable-content/ media sections commit only web-ready media.
 # Raw image/video drops can stay local; the generator converts images to WebP.
-editable-content/works/**/*.avif
-editable-content/works/**/*.bmp
-editable-content/works/**/*.gif
-editable-content/works/**/*.heic
-editable-content/works/**/*.jpeg
-editable-content/works/**/*.jpg
-editable-content/works/**/*.m4v
-editable-content/works/**/*.mkv
-editable-content/works/**/*.mov
-editable-content/works/**/*.png
-editable-content/works/**/*.tif
-editable-content/works/**/*.tiff
-editable-content/works/**/*.webm
+editable-content/about/**/*.avif
+editable-content/about/**/*.bmp
+editable-content/about/**/*.gif
+editable-content/about/**/*.heic
+editable-content/about/**/*.jpeg
+editable-content/about/**/*.jpg
+editable-content/about/**/*.m4v
+editable-content/about/**/*.mkv
+editable-content/about/**/*.mov
+editable-content/about/**/*.png
+editable-content/about/**/*.tif
+editable-content/about/**/*.tiff
+editable-content/about/**/*.webm
+editable-content/work/**/*.avif
+editable-content/work/**/*.bmp
+editable-content/work/**/*.gif
+editable-content/work/**/*.heic
+editable-content/work/**/*.jpeg
+editable-content/work/**/*.jpg
+editable-content/work/**/*.m4v
+editable-content/work/**/*.mkv
+editable-content/work/**/*.mov
+editable-content/work/**/*.png
+editable-content/work/**/*.tif
+editable-content/work/**/*.tiff
+editable-content/work/**/*.webm
 
 # Preserved local-only files that should not be published or committed.
 local-ignored-files/

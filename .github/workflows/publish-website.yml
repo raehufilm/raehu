@@ -39,7 +39,7 @@ jobs:
           import sys
 
           LIMIT_BYTES = 800 * 1024 * 1024
-          ALLOWED_WORK_MEDIA = {".webp", ".mp4"}
+          ALLOWED_EDITABLE_MEDIA = {".webp", ".mp4"}
           MEDIA_EXTENSIONS = {
               ".avif", ".bmp", ".gif", ".heic", ".jpeg", ".jpg", ".m4v", ".mkv",
               ".mov", ".mp4", ".png", ".tif", ".tiff", ".webm", ".webp",
@@ -65,22 +65,21 @@ jobs:
 
               suffix = path.suffix.lower()
               parts = path.parts
-              in_editable_work = (
-                  len(parts) >= 5
+              in_editable_content = (
+                  len(parts) >= 2
                   and parts[0] == "editable-content"
-                  and parts[1] == "works"
               )
 
-              if in_editable_work and suffix in MEDIA_EXTENSIONS:
-                  if suffix not in ALLOWED_WORK_MEDIA:
+              if in_editable_content and suffix in MEDIA_EXTENSIONS:
+                  if suffix not in ALLOWED_EDITABLE_MEDIA:
                       bad.append(str(path))
                   else:
                       publishable_media_bytes += path.stat().st_size
-              elif suffix in MEDIA_EXTENSIONS and suffix not in ALLOWED_WORK_MEDIA:
+              elif suffix in MEDIA_EXTENSIONS and suffix not in ALLOWED_EDITABLE_MEDIA:
                   bad.append(str(path))
 
           print(
-              "Publishable work media size: "
+              "Publishable editable media size: "
               f"{publishable_media_bytes / (1024 * 1024):.2f} MB / 800.00 MB"
           )
 
@@ -92,7 +91,7 @@ jobs:
 
           if publishable_media_bytes > LIMIT_BYTES:
               print(
-                  "Publishable work media exceeds the 800 MB repository budget.",
+                  "Publishable editable media exceeds the 800 MB repository budget.",
                   file=sys.stderr,
               )
               sys.exit(1)
@@ -117,9 +116,9 @@ jobs:
           shutil.copytree(generated, site)
           (site / ".nojekyll").write_text("", encoding="utf-8")
 
-          editable_works = root / "editable-content" / "works"
-          if editable_works.exists():
-              for source in editable_works.rglob("*"):
+          editable_content = root / "editable-content"
+          if editable_content.exists():
+              for source in editable_content.rglob("*"):
                   if not source.is_file():
                       continue
                   if source.suffix.lower() not in allowed_media:

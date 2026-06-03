@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate static work pages from the editable-content/works source tree.
+"""Generate static pages from the editable-content source tree.
 
 This script intentionally uses only the Python standard library so it can run
 locally and in GitHub Actions without package installation.
@@ -19,28 +19,40 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-EDITABLE_WORKS_DIR = REPO_ROOT / "editable-content" / "works"
+EDITABLE_CONTENT_DIR = REPO_ROOT / "editable-content"
+EDITABLE_ABOUT_DIR = EDITABLE_CONTENT_DIR / "about"
+EDITABLE_ABOUT_TEXT = EDITABLE_ABOUT_DIR / "text.md"
+EDITABLE_ABOUT_QUOTE = EDITABLE_ABOUT_DIR / "quote.md"
+EDITABLE_WORK_DIR = EDITABLE_CONTENT_DIR / "work"
 GENERATED_WEBSITE_DIR = REPO_ROOT / "generated-website"
-WORKS_OUTPUT_DIR = GENERATED_WEBSITE_DIR / "works"
 HOME_OUTPUT_HTML = GENERATED_WEBSITE_DIR / "index.html"
 GENERATOR_TEMPLATES_DIR = REPO_ROOT / "generator-templates"
 WORK_PAGE_TEMPLATE = GENERATOR_TEMPLATES_DIR / "work-page.html"
 HOME_TEMPLATE = GENERATOR_TEMPLATES_DIR / "index.html"
-WORKS_REDIRECT_TEMPLATE = GENERATOR_TEMPLATES_DIR / "works-redirect.html"
 SITE_SOURCE_ASSETS_DIR = REPO_ROOT / "site-source-assets"
 HERO_ILLUSTRATION = SITE_SOURCE_ASSETS_DIR / "images" / "illustration-tight.svg"
+FAVICON = SITE_SOURCE_ASSETS_DIR / "images" / "favicon.svg"
 VIMEO_THUMBNAIL_CACHE = REPO_ROOT / "vimeo-thumbnails.json"
 
 WORK_CATEGORIES = ("films", "commercials")
-ROOT_SECTION_ORDER = ("about", "works", "contact")
-SECTION_ORDER = ("trailer", "note", "highlight", "bts")
+ROOT_WORK_SECTION = "work"
+ROOT_SECTION_ORDER = ("about", ROOT_WORK_SECTION)
+PRIMARY_SECTION_BY_CATEGORY = {
+    "films": "trailer",
+    "commercials": "film",
+}
+PRIMARY_LINK_FILE_BY_SECTION = {
+    "trailer": "trailer_link.md",
+    "film": "film_link.md",
+}
+COMMON_WORK_SECTION_ORDER = ("note", "highlight", "bts")
 STATIC_ASSET_DIRS = ("css", "images", "js")
 IGNORED_NAMES = {".DS_Store"}
 IMAGE_EXTENSIONS = {".avif", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
@@ -50,6 +62,32 @@ GRID_SPANS_BY_ROW_SIZE = {
     1: ((12,),),
     2: ((7, 5), (5, 7), (8, 4), (4, 8)),
     3: ((3, 5, 4), (4, 5, 3), (5, 4, 3), (3, 4, 5), (4, 3, 5), (5, 3, 4)),
+}
+CHINESE_NAV_LABELS = {
+    "about": "关于",
+    "work": "作品",
+    "films": "电影",
+    "commercials": "广告",
+    "film": "影片",
+    "trailer": "预告片",
+    "note": "手记",
+    "highlight": "精选",
+    "bts": "幕后",
+}
+SPANISH_NAV_LABELS = {
+    "about": "sobre",
+    "work": "obra",
+    "films": "películas",
+    "commercials": "anuncios",
+    "film": "cine",
+    "trailer": "trailer",
+    "note": "apuntes",
+    "highlight": "destacados",
+    "bts": "bts",
+}
+TRANSLATED_LANGUAGE_SUFFIXES = {
+    "cn": "chinese",
+    "es": "spanish",
 }
 
 
@@ -65,10 +103,20 @@ class MediaItem:
 
 
 @dataclass(frozen=True)
+class PrimaryLink:
+    label: str
+    href: str
+
+
+@dataclass(frozen=True)
 class NoteContent:
     title_html: str
     body_html: str
     index: int = 1
+    title_html_chinese: str | None = None
+    body_html_chinese: str | None = None
+    title_html_spanish: str | None = None
+    body_html_spanish: str | None = None
 
 
 @dataclass(frozen=True)
@@ -84,6 +132,24 @@ class WorkContent:
     bts_media: tuple[MediaItem, ...]
     category: str = ""
     trailer_media: MediaItem | None = None
+    primary_links: tuple[PrimaryLink, ...] = ()
+    bts_text_html_chinese: str | None = None
+    bts_text_html_spanish: str | None = None
+
+
+@dataclass(frozen=True)
+class AboutContent:
+    title_html: str
+    body_html: str
+    contact_html: str
+    title_html_chinese: str
+    body_html_chinese: str
+    contact_html_chinese: str
+    title_html_spanish: str
+    body_html_spanish: str
+    contact_html_spanish: str
+    image_html: str
+    quote_html: str
 
 
 def html_escape(value: str) -> str:
@@ -119,6 +185,54 @@ def read_optional_first_non_empty_line(path: Path) -> str | None:
     return lines[0] if lines else None
 
 
+def alternate_language_path(path: Path, language: str) -> Path:
+    return path.with_name(f"{path.stem}_{language}{path.suffix}")
+
+
+def is_alternate_language_path(path: Path) -> bool:
+    return any(
+        path.stem.endswith(f"_{suffix}")
+        for suffix in TRANSLATED_LANGUAGE_SUFFIXES.values()
+    )
+
+
+def primary_section_for_category(category: str) -> str:
+    return PRIMARY_SECTION_BY_CATEGORY.get(category, "trailer")
+
+
+def primary_link_file_for_section(section_name: str) -> str:
+    return PRIMARY_LINK_FILE_BY_SECTION.get(section_name, f"{section_name}_link.md")
+
+
+def work_section_order(work: WorkContent) -> tuple[str, ...]:
+    return (primary_section_for_category(work.category), *COMMON_WORK_SECTION_ORDER)
+
+
+def load_primary_links(path: Path) -> tuple[PrimaryLink, ...]:
+    if not path.exists():
+        return ()
+
+    links: list[PrimaryLink] = []
+    for line_number, raw_line in enumerate(read_text(path).splitlines(), start=1):
+        line = raw_line.strip()
+        if not line:
+            continue
+        match = re.fullmatch(r"\[([^\]\n]+)\]\(([^)\n]+)\)", line)
+        if not match:
+            raise PageGenerationError(
+                f"{path} line {line_number} must use Markdown link format like "
+                "[view full film](https://vimeo.com/123456789)."
+            )
+        label = match.group(1).strip()
+        href = match.group(2).strip()
+        if not label or not href:
+            raise PageGenerationError(
+                f"{path} line {line_number} must include both link text and a URL."
+            )
+        links.append(PrimaryLink(label=label, href=href))
+    return tuple(links)
+
+
 def read_inline_svg(path: Path) -> str:
     svg = read_text(path).strip()
     return re.sub(r"^<\?xml[^>]+\?>\s*", "", svg)
@@ -152,6 +266,55 @@ def render_markdown_lines(lines: Iterable[str]) -> str:
     return "<br>".join(apply_inline_markdown(line.strip()) for line in trimmed)
 
 
+def render_markdown_paragraphs(lines: Iterable[str]) -> str:
+    paragraphs: list[list[str]] = []
+    current: list[str] = []
+    for line in lines:
+        if line.strip():
+            current.append(line)
+            continue
+        if current:
+            paragraphs.append(current)
+            current = []
+    if current:
+        paragraphs.append(current)
+    return "\n".join(f"            <p>{render_markdown_lines(paragraph)}</p>" for paragraph in paragraphs)
+
+
+def contact_icon_svg(kind: str) -> str:
+    if kind == "email":
+        return """<svg class="about-contact-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M4.75 6.75h14.5v10.5H4.75z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                  <path d="m5.25 7.25 6.75 5.4 6.75-5.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>"""
+    if kind == "vimeo":
+        return """<svg class="about-contact-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M4.25 8.25c1.25-1.05 2.25-1.57 3-1.57 1.15 0 1.9 0.72 2.25 2.16l1.25 5.18c0.22 0.86 0.53 1.29 0.94 1.29 0.48 0 1.12-0.58 1.93-1.74 0.8-1.16 1.23-2.08 1.29-2.78 0.07-0.78-0.23-1.17-0.88-1.17-0.4 0-0.87 0.1-1.41 0.31 0.95-2.83 2.59-4.2 4.92-4.1 1.72 0.06 2.5 1.16 2.34 3.31-0.16 2.03-1.64 4.72-4.45 8.08-1.96 2.34-3.64 3.51-5.03 3.51-1.29 0-2.2-1.18-2.72-3.55L6.43 11.8c-0.22-0.94-0.55-1.41-0.98-1.41-0.26 0-0.78 0.31-1.56 0.93L3 9.98l1.25-1.73Z" fill="currentColor"/>
+                </svg>"""
+    if kind == "instagram":
+        return """<svg class="about-contact-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <rect x="5" y="5" width="14" height="14" rx="4" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                  <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                  <circle cx="16.25" cy="7.75" r="0.95" fill="currentColor"/>
+                </svg>"""
+    if kind == "location":
+        return """<svg class="about-contact-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M12 20.25s6-5.63 6-10.25a6 6 0 0 0-12 0c0 4.62 6 10.25 6 10.25Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                  <circle cx="12" cy="10" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                </svg>"""
+    raise PageGenerationError(f"Unsupported about contact kind: {kind}")
+
+
+def contact_href(kind: str, value: str) -> str | None:
+    if kind == "email":
+        return f"mailto:{value}"
+    if kind == "vimeo":
+        return value if value.startswith(("http://", "https://")) else f"https://{value}"
+    if kind == "instagram":
+        return value if value.startswith(("http://", "https://")) else f"https://{value}"
+    return None
+
+
 def parse_note_text(path: Path, index: int = 1) -> NoteContent:
     lines = read_text(path).splitlines()
 
@@ -175,6 +338,173 @@ def parse_note_text(path: Path, index: int = 1) -> NoteContent:
         title_html=render_markdown_lines([title]),
         body_html=body_html,
         index=index,
+    )
+
+
+def render_about_contact_line(kind: str, value: str) -> str:
+    value_html = html_escape(value)
+    icon = contact_icon_svg(kind)
+    href = contact_href(kind, value)
+    if href:
+        target = ' target="_blank" rel="noreferrer"' if kind in {"vimeo", "instagram"} else ""
+        return f"""              <div class="about-contact-item" role="listitem">
+                <a href="{html_escape(href)}"{target} class="about-contact-link">
+                  {icon}
+                  <span>{value_html}</span>
+                </a>
+              </div>"""
+
+    return f"""              <div class="about-contact-item" role="listitem">
+                <span class="about-location">
+                  {icon}
+                  <span>{value_html}</span>
+                </span>
+              </div>"""
+
+
+def parse_about_text(path: Path) -> tuple[str, str, str]:
+    lines = read_text(path).splitlines()
+    title = None
+    body_start_index = None
+
+    for line_index, line in enumerate(lines):
+        stripped = line.strip()
+        if title is None and stripped.startswith("# "):
+            title = stripped[2:].strip()
+            body_start_index = line_index + 1
+            break
+
+    if not title:
+        raise PageGenerationError(f"{path} must include an about title starting with '# '")
+    if body_start_index is None:
+        raise PageGenerationError(f"{path} must include body paragraphs after the about title")
+
+    body_lines: list[str] = []
+    contact_rows: list[tuple[str, str]] = []
+    contact_labels = {
+        "Email": "email",
+        "Vimeo": "vimeo",
+        "Instagram": "instagram",
+        "Location": "location",
+    }
+
+    for line in lines[body_start_index:]:
+        stripped = line.strip()
+        matched_contact = False
+        for label, kind in contact_labels.items():
+            prefix = f"{label}:"
+            if stripped.startswith(prefix):
+                value = stripped[len(prefix) :].strip()
+                if not value:
+                    raise PageGenerationError(f"{path} has an empty {label} contact line")
+                contact_rows.append((kind, value))
+                matched_contact = True
+                break
+        if not matched_contact:
+            body_lines.append(line)
+
+    body_html = render_markdown_paragraphs(body_lines)
+    if not body_html:
+        raise PageGenerationError(f"{path} must include body paragraphs after the about title")
+    if not contact_rows:
+        raise PageGenerationError(f"{path} must include Email, Vimeo, Instagram, or Location lines")
+
+    contact_html = "\n".join(render_about_contact_line(kind, value) for kind, value in contact_rows)
+    return (
+        render_markdown_lines([title]),
+        body_html,
+        contact_html,
+    )
+
+
+def parse_about_quote(path: Path) -> str:
+    quote_lines: list[str] = []
+    for line in read_text(path).splitlines():
+        stripped = line.strip()
+        if stripped.startswith(">"):
+            quote_lines.append(stripped[1:].strip())
+        elif stripped:
+            raise PageGenerationError(
+                f"{path} should only include quote lines starting with '>'. "
+                "Section divider text is built into the website template."
+            )
+
+    quote_html = render_markdown_lines(quote_lines)
+    if not quote_html:
+        raise PageGenerationError(f"{path} must include quote lines starting with '>'")
+
+    return f'"{quote_html}"'
+
+
+def render_about_image(item: MediaItem | None, output_html: Path) -> str:
+    if item is None:
+        return ""
+
+    src = output_relative_url(output_html, item.path)
+    return f"""        <figure class="about-image-wrap fade-up">
+          <img class="about-image" src="{html_escape(src)}" alt="Rae Hu">
+        </figure>"""
+
+
+def load_about_image(
+    about_dir: Path = EDITABLE_ABOUT_DIR,
+    write_assets: bool = False,
+) -> MediaItem | None:
+    media = ordered_media(about_dir, write_assets=write_assets, require_media=False)
+    if not media:
+        return None
+    if len(media) > 1:
+        raise PageGenerationError(
+            f"{about_dir} has multiple about media files. Keep exactly one numbered image, "
+            "for example 1_image.jpg."
+        )
+
+    item = media[0]
+    if item.kind != "image":
+        raise PageGenerationError(f"{item.path} is not supported for the about page. Use an image.")
+    return item
+
+
+def load_about_content(
+    text_path: Path = EDITABLE_ABOUT_TEXT,
+    quote_path: Path = EDITABLE_ABOUT_QUOTE,
+    about_dir: Path = EDITABLE_ABOUT_DIR,
+    output_html: Path = HOME_OUTPUT_HTML,
+    write_assets: bool = False,
+) -> AboutContent:
+    title_html, body_html, contact_html = parse_about_text(text_path)
+    chinese_text_path = alternate_language_path(text_path, "chinese")
+    if chinese_text_path.exists():
+        title_html_chinese, body_html_chinese, contact_html_chinese = parse_about_text(
+            chinese_text_path
+        )
+    else:
+        title_html_chinese = title_html
+        body_html_chinese = body_html
+        contact_html_chinese = contact_html
+    spanish_text_path = alternate_language_path(text_path, "spanish")
+    if spanish_text_path.exists():
+        title_html_spanish, body_html_spanish, contact_html_spanish = parse_about_text(
+            spanish_text_path
+        )
+    else:
+        title_html_spanish = title_html
+        body_html_spanish = body_html
+        contact_html_spanish = contact_html
+    quote_html = parse_about_quote(quote_path)
+    image = load_about_image(about_dir, write_assets=write_assets)
+    return AboutContent(
+        title_html=title_html,
+        body_html=body_html,
+        contact_html=contact_html,
+        title_html_chinese=title_html_chinese,
+        body_html_chinese=body_html_chinese,
+        contact_html_chinese=contact_html_chinese,
+        title_html_spanish=title_html_spanish,
+        body_html_spanish=body_html_spanish,
+        contact_html_spanish=contact_html_spanish,
+        image_html=render_about_image(image, output_html),
+        quote_html=quote_html,
     )
 
 
@@ -402,7 +732,25 @@ def note_text_files(note_dir: Path) -> tuple[Path, ...]:
             and path.suffix.lower() == ".md"
             and path.name not in IGNORED_NAMES
             and not path.name.startswith(".")
+            and not is_alternate_language_path(path)
         )
+    )
+
+
+def load_localized_note_content(path: Path, index: int) -> NoteContent:
+    note = parse_note_text(path, index=index)
+    chinese_path = alternate_language_path(path, "chinese")
+    chinese_note = parse_note_text(chinese_path, index=index) if chinese_path.exists() else note
+    spanish_path = alternate_language_path(path, "spanish")
+    spanish_note = parse_note_text(spanish_path, index=index) if spanish_path.exists() else note
+    return NoteContent(
+        title_html=note.title_html,
+        body_html=note.body_html,
+        index=index,
+        title_html_chinese=chinese_note.title_html,
+        body_html_chinese=chinese_note.body_html,
+        title_html_spanish=spanish_note.title_html,
+        body_html_spanish=spanish_note.body_html,
     )
 
 
@@ -426,7 +774,7 @@ def load_note_content(note_dir: Path) -> NoteContent:
             f"{path} uses position {index}. Note text must use 1_ for the left column "
             "or 2_ for the right column."
         )
-    return parse_note_text(path, index=index)
+    return load_localized_note_content(path, index=index)
 
 
 def validate_note_content(
@@ -510,7 +858,7 @@ def generated_site_relative_url(output_html: Path, *parts: str) -> str:
 
 
 def work_output_html(work: WorkContent) -> Path:
-    return WORKS_OUTPUT_DIR / work.slug / "index.html"
+    return GENERATED_WEBSITE_DIR / work.category / work.slug / "index.html"
 
 
 def work_public_url_from(output_html: Path, work: WorkContent) -> str:
@@ -525,8 +873,8 @@ def root_index_url_from(output_html: Path) -> str:
     return href if href.endswith("/") else f"{href}/"
 
 
-def root_works_url_from(output_html: Path) -> str:
-    return root_index_url_from(output_html) + "#works"
+def root_category_url_from(output_html: Path, category: str) -> str:
+    return root_index_url_from(output_html) + f"#{category}"
 
 
 def media_tag(
@@ -544,7 +892,10 @@ def media_tag(
 
     if item.kind == "image":
         return f'<img{class_attr} src="{src}" alt="{html_escape(alt)}">'
-    return f'<video{class_attr} src="{src}" muted playsinline autoplay loop></video>'
+    return (
+        f'<video{class_attr} src="{src}" muted playsinline autoplay loop '
+        f'aria-label="{html_escape(alt)}"></video>'
+    )
 
 
 def valid_started_work(work_dir: Path) -> bool:
@@ -554,53 +905,79 @@ def valid_started_work(work_dir: Path) -> bool:
     return False
 
 
-def load_trailer_source(
-    trailer_dir: Path,
+def load_primary_media_source(
+    source_dir: Path,
+    section_name: str,
+    link_file_name: str,
     write_assets: bool = False,
     vimeo_thumbnail_cache: dict[str, str] | None = None,
     fetch_vimeo_thumbnails: bool = True,
 ) -> tuple[str | None, str | None, MediaItem | None]:
-    if not trailer_dir.is_dir():
-        raise PageGenerationError(f"Missing required trailer folder: {trailer_dir}")
+    if not source_dir.is_dir():
+        raise PageGenerationError(f"Missing required {section_name} folder: {source_dir}")
 
-    trailer_link_path = trailer_dir / "trailer_link.md"
-    trailer_link = read_optional_first_non_empty_line(trailer_link_path)
-    trailer_media = ordered_media(
-        trailer_dir,
+    link_path = source_dir / link_file_name
+    source_link = read_optional_first_non_empty_line(link_path)
+    source_media = ordered_media(
+        source_dir,
         write_assets=write_assets,
         require_media=False,
     )
 
     sources = []
-    if trailer_link:
-        sources.append(str(trailer_link_path))
-    sources.extend(str(item.path) for item in trailer_media)
+    if source_link:
+        sources.append(str(link_path))
+    sources.extend(str(item.path) for item in source_media)
 
     if len(sources) != 1:
         if not sources:
             raise PageGenerationError(
-                f"{trailer_dir} must contain exactly one trailer source. "
-                "Add either trailer_link.md with one Vimeo URL, or one numbered "
-                "media file such as 1_trailer.webp or 1_trailer.mp4."
+                f"{source_dir} must contain exactly one {section_name} source. "
+                f"Add either {link_file_name} with one Vimeo URL, or one numbered "
+                f"media file such as 1_{section_name}.webp or 1_{section_name}.mp4."
             )
         raise PageGenerationError(
-            f"{trailer_dir} has multiple trailer sources: {', '.join(sources)}. "
-            "Keep exactly one source: either trailer_link.md with one Vimeo URL, "
-            "or one numbered .webp/.mp4 trailer media file. Remove the extra source(s)."
+            f"{source_dir} has multiple {section_name} sources: {', '.join(sources)}. "
+            f"Keep exactly one source: either {link_file_name} with one Vimeo URL, "
+            f"or one numbered .webp/.mp4 {section_name} media file. Remove the extra source(s)."
         )
 
-    if trailer_link:
+    if source_link:
         return (
-            vimeo_embed_url(trailer_link),
+            vimeo_embed_url(source_link),
             vimeo_thumbnail_url(
-                trailer_link,
+                source_link,
                 cache=vimeo_thumbnail_cache,
                 allow_fetch=fetch_vimeo_thumbnails,
             ),
             None,
         )
 
-    return None, None, trailer_media[0]
+    return None, None, source_media[0]
+
+
+def render_required_markdown_lines(path: Path) -> str:
+    rendered = render_markdown_lines(read_text(path).splitlines())
+    if not rendered:
+        raise PageGenerationError(f"{path} must not be empty")
+    return rendered
+
+
+def load_localized_markdown_lines(path: Path) -> tuple[str, str, str]:
+    english_html = render_required_markdown_lines(path)
+    chinese_path = alternate_language_path(path, "chinese")
+    chinese_html = (
+        render_required_markdown_lines(chinese_path)
+        if chinese_path.exists()
+        else english_html
+    )
+    spanish_path = alternate_language_path(path, "spanish")
+    spanish_html = (
+        render_required_markdown_lines(spanish_path)
+        if spanish_path.exists()
+        else english_html
+    )
+    return english_html, chinese_html, spanish_html
 
 
 def load_work(
@@ -610,23 +987,28 @@ def load_work(
     fetch_vimeo_thumbnails: bool = True,
 ) -> WorkContent:
     slug = work_dir.name
-    trailer_embed_url, trailer_poster_url, trailer_media = load_trailer_source(
-        work_dir / "trailer",
+    category = work_dir.parent.name
+    primary_section = primary_section_for_category(category)
+    primary_dir = work_dir / primary_section
+    trailer_embed_url, trailer_poster_url, trailer_media = load_primary_media_source(
+        primary_dir,
+        primary_section,
+        primary_link_file_for_section(primary_section),
         write_assets=write_assets,
         vimeo_thumbnail_cache=vimeo_thumbnail_cache,
         fetch_vimeo_thumbnails=fetch_vimeo_thumbnails,
     )
+    primary_links = load_primary_links(primary_dir / "additional_links.md")
     note_dir = work_dir / "note"
     note = load_note_content(note_dir)
     note_media = ordered_media(note_dir, write_assets=write_assets)
     highlight_media = ordered_media(work_dir / "highlight", write_assets=write_assets)
-    bts_text = read_text(work_dir / "bts" / "text.md")
-    bts_text_html = render_markdown_lines(bts_text.splitlines())
+    bts_text_html, bts_text_html_chinese, bts_text_html_spanish = load_localized_markdown_lines(
+        work_dir / "bts" / "text.md"
+    )
     bts_media = ordered_media(work_dir / "bts", write_assets=write_assets)
 
     note_media_item = validate_note_content(note_dir, note, note_media)
-    if not bts_text_html:
-        raise PageGenerationError(f"{work_dir / 'bts' / 'text.md'} must not be empty")
 
     return WorkContent(
         slug=slug,
@@ -638,8 +1020,11 @@ def load_work(
         highlight_media=highlight_media,
         bts_text_html=bts_text_html,
         bts_media=bts_media,
-        category=work_dir.parent.name,
+        bts_text_html_chinese=bts_text_html_chinese,
+        bts_text_html_spanish=bts_text_html_spanish,
+        category=category,
         trailer_media=trailer_media,
+        primary_links=primary_links,
     )
 
 
@@ -650,10 +1035,20 @@ def render_tracker_links(sections: Iterable[str]) -> str:
         lines.append(
             f'    <a href="#{section}" data-section-link="{section}"{current}>\n'
             '      <span class="red-dot section-tracker-dot" aria-hidden="true"></span>\n'
-            f"      <span>{section}</span>\n"
+            f"      {render_nav_label(section)}\n"
             "    </a>"
         )
     return "\n".join(lines)
+
+
+def render_nav_label(label: str) -> str:
+    chinese_label = CHINESE_NAV_LABELS.get(label, label)
+    spanish_label = SPANISH_NAV_LABELS.get(label, label)
+    return (
+        f'<span data-language-content="en">{html_escape(label)}</span>'
+        f'<span data-language-content="cn">{html_escape(chinese_label)}</span>'
+        f'<span data-language-content="es">{html_escape(spanish_label)}</span>'
+    )
 
 
 def render_work_category_links(categories: Iterable[str]) -> str:
@@ -662,7 +1057,7 @@ def render_work_category_links(categories: Iterable[str]) -> str:
         lines.append(
             f'        <a href="#{category}" data-work-category-link="{category}">\n'
             '          <span class="red-dot section-tracker-dot" aria-hidden="true"></span>\n'
-            f"          <span>{category}</span>\n"
+            f"          {render_nav_label(category)}\n"
             "        </a>"
         )
     return "\n".join(lines)
@@ -738,27 +1133,79 @@ def highlight_grid_layout(count: int, layout_key: str) -> str:
     return ", ".join("-".join(str(span) for span in row) for row in rows)
 
 
-def render_trailer_media(item: MediaItem, output_html: Path, title: str) -> str:
+def render_trailer_media(
+    item: MediaItem,
+    output_html: Path,
+    title: str,
+    section_name: str,
+) -> str:
     src = output_relative_url(output_html, item.path)
     if item.kind == "image":
-        return f'<img class="trailer-poster" src="{src}" alt="{html_escape(title)} trailer">'
+        return (
+            f'<img class="trailer-poster" src="{src}" '
+            f'alt="{html_escape(title)} {html_escape(section_name)}">'
+        )
     return (
         f'<video class="trailer-poster trailer-video" src="{src}" '
         "controls playsinline preload=\"metadata\"></video>"
     )
 
 
+def render_primary_links(links: tuple[PrimaryLink, ...]) -> str:
+    if not links:
+        return ""
+
+    link_lines = [
+        "        "
+        + (
+            f'<a class="primary-section-link" href="{html_escape(link.href)}" '
+            f'target="_blank" rel="noreferrer">'
+            f'<span class="primary-section-link-text">{html_escape(link.label)}</span>'
+            '<svg class="primary-section-link-chevron" viewBox="0 0 24 24" '
+            'aria-hidden="true" focusable="false">'
+            '<path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>'
+            "</svg>"
+            "</a>"
+        )
+        for link in links
+    ]
+    return (
+        '      <nav class="primary-section-links" aria-label="Project links">\n'
+        + "\n".join(link_lines)
+        + "\n      </nav>"
+    )
+
+
 def render_trailer_section(work: WorkContent, output_html: Path) -> str:
+    section_name = primary_section_for_category(work.category)
+    section_title = section_name.title()
+    section_class = f"work-page--{section_name}"
+    escaped_section = html_escape(section_name)
+    escaped_title = html_escape(section_title)
+    links_html = render_primary_links(work.primary_links)
+    layout_class = "primary-section-layout"
+    if work.primary_links:
+        layout_class += " primary-section-layout--has-links"
+    escaped_layout_class = html_escape(layout_class)
+
     if work.trailer_media:
-        media_html = render_trailer_media(work.trailer_media, output_html, work.title)
-        return f"""    <section class="work-page work-page--trailer"
-             id="trailer"
-             data-section-page="trailer"
-             data-section-title="Trailer"
+        media_html = render_trailer_media(
+            work.trailer_media,
+            output_html,
+            work.title,
+            section_name,
+        )
+        return f"""    <section class="work-page {html_escape(section_class)}"
+             id="{escaped_section}"
+             data-section-page="{escaped_section}"
+             data-section-title="{escaped_title}"
              data-page-padding
-             aria-label="Trailer">
-      <div class="trailer-wrap trailer-wrap--media">
-        {media_html}
+             aria-label="{escaped_title}">
+      <div class="{escaped_layout_class}">
+        <div class="trailer-wrap trailer-wrap--media">
+          {media_html}
+        </div>
+{links_html}
       </div>
     </section>"""
 
@@ -766,24 +1213,26 @@ def render_trailer_section(work: WorkContent, output_html: Path) -> str:
         poster_html = (
             f'<img class="trailer-poster" '
             f'src="{html_escape(work.trailer_poster_url)}" '
-            f'alt="{html_escape(work.title)} trailer">'
+            f'alt="{html_escape(work.title)} {escaped_section}">'
         )
     else:
         poster_html = '<div class="trailer-poster trailer-poster--placeholder" aria-hidden="true"></div>'
 
-    return f"""    <section class="work-page work-page--trailer"
-             id="trailer"
-             data-section-page="trailer"
-             data-section-title="Trailer"
+    return f"""    <section class="work-page {html_escape(section_class)}"
+             id="{escaped_section}"
+             data-section-page="{escaped_section}"
+             data-section-title="{escaped_title}"
              data-page-padding
-             aria-label="Trailer">
-      <div class="trailer-wrap"
-           id="trailer-player"
-           data-vimeo-embed="{html_escape(work.trailer_embed_url or '')}">
-        {poster_html}
-        <button class="trailer-play" aria-label="Play trailer">
-          <svg viewBox="0 0 68 48" width="68" height="48"><path d="M66.5 7.7c-.8-2.9-2.5-5.4-5.4-6.2C55.8.1 34 0 34 0S12.2.1 6.9 1.5c-2.9.8-4.6 3.3-5.4 6.2C.1 13 0 24 0 24s.1 11 1.5 16.3c.8 2.9 2.5 5.4 5.4 6.2C12.2 47.9 34 48 34 48s21.8-.1 27.1-1.5c2.9-.8 4.6-3.3 5.4-6.2C67.9 35 68 24 68 24s-.1-11-1.5-16.3z" fill="rgba(255,255,255,0.85)"/><path d="M45 24L27 14v20z" fill="#0a0a0a"/></svg>
-        </button>
+             aria-label="{escaped_title}">
+      <div class="{escaped_layout_class}">
+        <div class="trailer-wrap"
+             data-vimeo-embed="{html_escape(work.trailer_embed_url or '')}">
+          {poster_html}
+          <button class="trailer-play" aria-label="Play {escaped_section}">
+            <svg viewBox="0 0 68 48" width="68" height="48"><path d="M66.5 7.7c-.8-2.9-2.5-5.4-5.4-6.2C55.8.1 34 0 34 0S12.2.1 6.9 1.5c-2.9.8-4.6 3.3-5.4 6.2C.1 13 0 24 0 24s.1 11 1.5 16.3c.8 2.9 2.5 5.4 5.4 6.2C12.2 47.9 34 48 34 48s21.8-.1 27.1-1.5c2.9-.8 4.6-3.3 5.4-6.2C67.9 35 68 24 68 24s-.1-11-1.5-16.3z" fill="rgba(255,255,255,0.85)"/><path d="M45 24L27 14v20z" fill="#0a0a0a"/></svg>
+          </button>
+        </div>
+{links_html}
       </div>
     </section>"""
 
@@ -791,9 +1240,23 @@ def render_trailer_section(work: WorkContent, output_html: Path) -> str:
 def render_note_section(work: WorkContent, output_html: Path) -> str:
     media_html = media_tag(work.note_media, output_html, work.title, class_name="work-header-image")
     media_position = "left" if work.note_media.index == 1 else "right"
-    text_html = f"""        <div class="work-header-text">
+    note_title_chinese = work.note.title_html_chinese or work.note.title_html
+    note_body_chinese = work.note.body_html_chinese or work.note.body_html
+    note_title_spanish = work.note.title_html_spanish or work.note.title_html
+    note_body_spanish = work.note.body_html_spanish or work.note.body_html
+    text_html = f"""        <div class="work-header-text" data-language-content="en">
           <h1 class="work-title">{work.note.title_html}</h1>
           <p class="work-subtext">{work.note.body_html}</p>
+          <div class="work-label"><div class="red-dot"></div> Director's note</div>
+        </div>
+        <div class="work-header-text" data-language-content="cn">
+          <h1 class="work-title">{note_title_chinese}</h1>
+          <p class="work-subtext">{note_body_chinese}</p>
+          <div class="work-label"><div class="red-dot"></div> Director's note</div>
+        </div>
+        <div class="work-header-text" data-language-content="es">
+          <h1 class="work-title">{note_title_spanish}</h1>
+          <p class="work-subtext">{note_body_spanish}</p>
           <div class="work-label"><div class="red-dot"></div> Director's note</div>
         </div>"""
     media_block_html = f"""        <div class="work-header-image-wrap work-header-piece--{media_position}">
@@ -910,10 +1373,79 @@ def render_bts_section(work: WorkContent, output_html: Path) -> str:
         </div>
 
         <div class="bts-copy">
-          <p class="bts-text">{work.bts_text_html}</p>
+          <p class="bts-text" data-language-content="en">{work.bts_text_html}</p>
+          <p class="bts-text" data-language-content="cn">{work.bts_text_html_chinese or work.bts_text_html}</p>
+          <p class="bts-text" data-language-content="es">{work.bts_text_html_spanish or work.bts_text_html}</p>
         </div>
       </div>
     </section>"""
+
+
+def render_site_header_actions() -> str:
+    return """    <div class="site-header-actions">
+      <nav class="site-header-socials" aria-label="Contact links">
+        <a class="site-header-social-link" href="mailto:raehufilm@gmail.com" aria-label="Email Rae Hu">
+          <svg class="site-header-social-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M4.75 6.75h14.5v10.5H4.75z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+            <path d="m5.25 7.25 6.75 5.4 6.75-5.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+        <a class="site-header-social-link" href="https://vimeo.com/raehu" target="_blank" rel="noreferrer" aria-label="Rae Hu on Vimeo">
+          <svg class="site-header-social-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M4.25 8.25c1.25-1.05 2.25-1.57 3-1.57 1.15 0 1.9 0.72 2.25 2.16l1.25 5.18c0.22 0.86 0.53 1.29 0.94 1.29 0.48 0 1.12-0.58 1.93-1.74 0.8-1.16 1.23-2.08 1.29-2.78 0.07-0.78-0.23-1.17-0.88-1.17-0.4 0-0.87 0.1-1.41 0.31 0.95-2.83 2.59-4.2 4.92-4.1 1.72 0.06 2.5 1.16 2.34 3.31-0.16 2.03-1.64 4.72-4.45 8.08-1.96 2.34-3.64 3.51-5.03 3.51-1.29 0-2.2-1.18-2.72-3.55L6.43 11.8c-0.22-0.94-0.55-1.41-0.98-1.41-0.26 0-0.78 0.31-1.56 0.93L3 9.98l1.25-1.73Z" fill="currentColor"/>
+          </svg>
+        </a>
+        <a class="site-header-social-link" href="https://instagram.com/raehufilm" target="_blank" rel="noreferrer" aria-label="Rae Hu on Instagram">
+          <svg class="site-header-social-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <rect x="5" y="5" width="14" height="14" rx="4" fill="none" stroke="currentColor" stroke-width="1.7"/>
+            <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+            <circle cx="16.25" cy="7.75" r="0.95" fill="currentColor"/>
+          </svg>
+        </a>
+      </nav>
+      <button class="theme-toggle"
+              type="button"
+              data-theme-toggle
+              aria-label="Switch to light mode"
+              aria-pressed="false">
+        <svg class="theme-toggle-icon theme-toggle-icon--moon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20.25 14.2A8.35 8.35 0 1 1 9.8 3.75 6.65 6.65 0 0 0 20.25 14.2Z"></path>
+        </svg>
+        <svg class="theme-toggle-icon theme-toggle-icon--sun" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="3.75"></circle>
+          <path d="M12 2.75V5M12 19v2.25M4.55 4.55l1.6 1.6M17.85 17.85l1.6 1.6M2.75 12H5M19 12h2.25M4.55 19.45l1.6-1.6M17.85 6.15l1.6-1.6"></path>
+        </svg>
+      </button>
+      <div class="language-menu" data-language-menu>
+        <button class="language-toggle"
+                type="button"
+                data-language-toggle
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-label="Change language">
+          <span data-language-current>EN</span>
+          <svg class="language-toggle-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6 9l6 6 6-6"></path>
+          </svg>
+        </button>
+        <div class="language-menu-list" role="listbox" aria-label="Language options">
+          <button class="language-option" type="button" role="option" data-language-option="en" aria-selected="true">EN</button>
+          <button class="language-option" type="button" role="option" data-language-option="cn" aria-selected="false">CN</button>
+          <button class="language-option" type="button" role="option" data-language-option="es" aria-selected="false">ES</button>
+        </div>
+      </div>
+    </div>"""
+
+
+def apply_template_replacements(template: str, replacements: Mapping[str, str]) -> str:
+    rendered = template
+    for placeholder, value in sorted(
+        replacements.items(),
+        key=lambda item: len(item[0]),
+        reverse=True,
+    ):
+        rendered = rendered.replace(placeholder, value)
+    return rendered
 
 
 def render_work(work: WorkContent, template: str, output_html: Path) -> str:
@@ -928,8 +1460,16 @@ def render_work(work: WorkContent, template: str, output_html: Path) -> str:
         "{{DOCUMENT_TITLE}}": html_escape(work.title),
         "{{WORK_SLUG}}": html_escape(work.slug),
         "{{WORK_CATEGORY}}": html_escape(work.category),
+        "{{WORK_CATEGORY_LABEL}}": html_escape(category_label(work.category)),
+        "{{WORK_CATEGORY_LABEL_HTML}}": render_nav_label(work.category),
+        "{{WORK_CATEGORY_URL}}": root_category_url_from(output_html, work.category),
         "{{ROOT_INDEX_URL}}": root_index_url_from(output_html),
-        "{{WORKS_INDEX_URL}}": root_works_url_from(output_html),
+        "{{FAVICON_URL}}": generated_site_relative_url(output_html, "images", "favicon.svg"),
+        "{{SITE_HEADER_CSS_URL}}": generated_site_relative_url(
+            output_html,
+            "css",
+            "site-header.css",
+        ),
         "{{SHARED_EFFECTS_CSS_URL}}": generated_site_relative_url(
             output_html,
             "css",
@@ -940,19 +1480,43 @@ def render_work(work: WorkContent, template: str, output_html: Path) -> str:
             "js",
             "portfolio-grid.js",
         ),
-        "{{SECTION_TRACKER_LINKS}}": render_tracker_links(SECTION_ORDER),
+        "{{LOCAL_PREVIEW_LINKS_JS_URL}}": generated_site_relative_url(
+            output_html,
+            "js",
+            "local-preview-links.js",
+        ),
+        "{{PREFERENCES_JS_URL}}": generated_site_relative_url(
+            output_html,
+            "js",
+            "preferences.js",
+        ),
+        "{{LANGUAGE_INIT_JS_URL}}": generated_site_relative_url(
+            output_html,
+            "js",
+            "language-init.js",
+        ),
+        "{{LANGUAGE_TOGGLE_JS_URL}}": generated_site_relative_url(
+            output_html,
+            "js",
+            "language-toggle.js",
+        ),
+        "{{THEME_TOGGLE_JS_URL}}": generated_site_relative_url(
+            output_html,
+            "js",
+            "theme-toggle.js",
+        ),
+        "{{SITE_HEADER_ACTIONS}}": render_site_header_actions(),
+        "{{SECTION_TRACKER_LINKS}}": render_tracker_links(work_section_order(work)),
         "{{WORK_SECTIONS}}": "\n\n".join(sections),
     }
 
-    rendered = template
-    for placeholder, value in replacements.items():
-        rendered = rendered.replace(placeholder, value)
-    return rendered
+    return apply_template_replacements(template, replacements)
 
 
 def render_works_index_grid_item(work: WorkContent, output_html: Path) -> str:
     href = work_public_url_from(output_html, work)
     title = html_escape(work.title)
+    preview_label = html_escape(f"{primary_section_for_category(work.category)} preview")
 
     if work.trailer_media:
         src = output_relative_url(output_html, work.trailer_media.path)
@@ -960,30 +1524,32 @@ def render_works_index_grid_item(work: WorkContent, output_html: Path) -> str:
             preview_html = (
                 f'<video class="media-hover-zoom-target" src="{src}" '
                 'muted playsinline autoplay loop preload="metadata" '
-                f'aria-label="{title} trailer preview"></video>'
+                f'aria-label="{title} {preview_label}"></video>'
             )
         else:
             preview_html = (
                 f'<img class="media-hover-zoom-target" src="{src}" '
-                f'alt="{title} trailer preview" loading="lazy" decoding="async">'
+                f'alt="{title} {preview_label}" loading="lazy" decoding="async">'
             )
     elif work.trailer_poster_url:
         preview_html = (
             f'<img class="media-hover-zoom-target" src="{html_escape(work.trailer_poster_url)}" '
-            f'alt="{title} trailer preview" loading="lazy" decoding="async">'
+            f'alt="{title} {preview_label}" loading="lazy" decoding="async">'
         )
     else:
         poster_src = output_relative_url(output_html, work.note_media.path)
         preview_html = (
             f'<img class="media-hover-zoom-target" src="{poster_src}" '
-            f'alt="{title} trailer preview" loading="lazy" decoding="async">'
+            f'alt="{title} {preview_label}" loading="lazy" decoding="async">'
         )
 
     return f"""        <a class="works-grid-link media-hover-zoom" href="{href}" aria-label="{title}">
           {preview_html}
           <span class="works-grid-title">
             <span class="works-grid-title-text">{title}</span>
-            <span class="works-grid-title-chevron interactive-chevron interactive-chevron--right" aria-hidden="true">&gt;</span>
+            <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
+            </svg>
           </span>
         </a>"""
 
@@ -1001,7 +1567,7 @@ def render_works_index_section(
     if not grid_items:
         empty = '        <p class="works-index-empty">Coming soon.</p>'
 
-    return f"""    <section class="works-index-page"
+    return f"""    <section class="works-index-page fade-up"
              id="{html_escape(category)}"
              data-work-category-section="{html_escape(category)}"
              data-section-title="{html_escape(category_label(category))}"
@@ -1014,7 +1580,12 @@ def render_works_index_section(
     </section>"""
 
 
-def render_home(works: tuple[WorkContent, ...], template: str, output_html: Path) -> str:
+def render_home(
+    works: tuple[WorkContent, ...],
+    about: AboutContent,
+    template: str,
+    output_html: Path,
+) -> str:
     works_by_category = {
         category: tuple(work for work in works if work.category == category)
         for category in WORK_CATEGORIES
@@ -1026,6 +1597,23 @@ def render_home(works: tuple[WorkContent, ...], template: str, output_html: Path
 
     replacements = {
         "{{HERO_ILLUSTRATION_SVG}}": read_inline_svg(HERO_ILLUSTRATION),
+        "{{FAVICON_URL}}": generated_site_relative_url(output_html, "images", "favicon.svg"),
+        "{{ABOUT_TITLE}}": about.title_html,
+        "{{ABOUT_BODY_HTML}}": about.body_html,
+        "{{ABOUT_CONTACT_HTML}}": about.contact_html,
+        "{{ABOUT_TITLE_CHINESE}}": about.title_html_chinese,
+        "{{ABOUT_BODY_HTML_CHINESE}}": about.body_html_chinese,
+        "{{ABOUT_CONTACT_HTML_CHINESE}}": about.contact_html_chinese,
+        "{{ABOUT_TITLE_SPANISH}}": about.title_html_spanish,
+        "{{ABOUT_BODY_HTML_SPANISH}}": about.body_html_spanish,
+        "{{ABOUT_CONTACT_HTML_SPANISH}}": about.contact_html_spanish,
+        "{{ABOUT_IMAGE_HTML}}": about.image_html,
+        "{{ABOUT_QUOTE_HTML}}": about.quote_html,
+        "{{SITE_HEADER_CSS_URL}}": generated_site_relative_url(
+            output_html,
+            "css",
+            "site-header.css",
+        ),
         "{{SHARED_EFFECTS_CSS_URL}}": generated_site_relative_url(
             output_html,
             "css",
@@ -1036,26 +1624,38 @@ def render_home(works: tuple[WorkContent, ...], template: str, output_html: Path
             "js",
             "portfolio-grid.js",
         ),
+        "{{LOCAL_PREVIEW_LINKS_JS_URL}}": generated_site_relative_url(
+            output_html,
+            "js",
+            "local-preview-links.js",
+        ),
+        "{{PREFERENCES_JS_URL}}": generated_site_relative_url(
+            output_html,
+            "js",
+            "preferences.js",
+        ),
+        "{{LANGUAGE_INIT_JS_URL}}": generated_site_relative_url(
+            output_html,
+            "js",
+            "language-init.js",
+        ),
+        "{{LANGUAGE_TOGGLE_JS_URL}}": generated_site_relative_url(
+            output_html,
+            "js",
+            "language-toggle.js",
+        ),
+        "{{THEME_TOGGLE_JS_URL}}": generated_site_relative_url(
+            output_html,
+            "js",
+            "theme-toggle.js",
+        ),
+        "{{SITE_HEADER_ACTIONS}}": render_site_header_actions(),
         "{{ROOT_SECTION_TRACKER_LINKS}}": render_tracker_links(ROOT_SECTION_ORDER),
         "{{WORK_CATEGORY_TRACKER_LINKS}}": render_work_category_links(WORK_CATEGORIES),
         "{{WORKS_INDEX_SECTIONS}}": "\n\n".join(sections),
     }
 
-    rendered = template
-    for placeholder, value in replacements.items():
-        rendered = rendered.replace(placeholder, value)
-    return rendered
-
-
-def render_works_redirect(template: str, output_html: Path) -> str:
-    replacements = {
-        "{{ROOT_WORKS_URL}}": root_works_url_from(output_html),
-    }
-
-    rendered = template
-    for placeholder, value in replacements.items():
-        rendered = rendered.replace(placeholder, value)
-    return rendered
+    return apply_template_replacements(template, replacements)
 
 
 def write_or_check(output_html: Path, rendered: str, check: bool) -> int:
@@ -1127,14 +1727,14 @@ def sync_static_assets(check: bool) -> int:
     return failures
 
 
-def discover_work_dirs(editable_works_dir: Path, selected_slug: str | None = None) -> list[Path]:
-    if not editable_works_dir.is_dir():
-        raise PageGenerationError(f"Missing editable works folder: {editable_works_dir}")
+def discover_work_dirs(editable_work_dir: Path, selected_slug: str | None = None) -> list[Path]:
+    if not editable_work_dir.is_dir():
+        raise PageGenerationError(f"Missing editable work folder: {editable_work_dir}")
 
     work_dirs = []
     seen_slugs: dict[str, Path] = {}
     for category in WORK_CATEGORIES:
-        category_dir = editable_works_dir / category
+        category_dir = editable_work_dir / category
         if not category_dir.is_dir():
             continue
         for work_dir in sorted(path for path in category_dir.iterdir() if path.is_dir()):
@@ -1156,7 +1756,7 @@ def discover_work_dirs(editable_works_dir: Path, selected_slug: str | None = Non
 
 def generate(check: bool = False, selected_slug: str | None = None) -> int:
     work_template = read_text(WORK_PAGE_TEMPLATE)
-    work_dirs = discover_work_dirs(EDITABLE_WORKS_DIR, selected_slug)
+    work_dirs = discover_work_dirs(EDITABLE_WORK_DIR, selected_slug)
     if selected_slug and not work_dirs:
         raise PageGenerationError(f"No valid started work found for slug: {selected_slug}")
 
@@ -1178,16 +1778,9 @@ def generate(check: bool = False, selected_slug: str | None = None) -> int:
 
     if not selected_slug:
         home_template = read_text(HOME_TEMPLATE)
-        home_rendered = render_home(tuple(works), home_template, HOME_OUTPUT_HTML)
+        about = load_about_content(write_assets=not check)
+        home_rendered = render_home(tuple(works), about, home_template, HOME_OUTPUT_HTML)
         failures += write_or_check(HOME_OUTPUT_HTML, home_rendered, check)
-
-        works_redirect_template = read_text(WORKS_REDIRECT_TEMPLATE)
-        works_redirect_html = WORKS_OUTPUT_DIR / "index.html"
-        works_redirect_rendered = render_works_redirect(
-            works_redirect_template,
-            works_redirect_html,
-        )
-        failures += write_or_check(works_redirect_html, works_redirect_rendered, check)
 
     if not check and vimeo_thumbnail_cache != original_vimeo_thumbnail_cache:
         write_vimeo_thumbnail_cache(vimeo_thumbnail_cache)

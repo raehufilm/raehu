@@ -118,13 +118,12 @@ for path in paths:
 
     suffix = path.suffix.lower()
     parts = path.parts
-    in_editable_work = (
-        len(parts) >= 5
+    in_editable_content = (
+        len(parts) >= 2
         and parts[0] == "editable-content"
-        and parts[1] == "works"
     )
 
-    if in_editable_work and suffix in MEDIA_EXTENSIONS:
+    if in_editable_content and suffix in MEDIA_EXTENSIONS:
         if suffix not in ALLOWED_WORK_MEDIA:
             bad.append(str(path))
         else:
@@ -133,7 +132,7 @@ for path in paths:
         bad.append(str(path))
 
 print(
-    "Publishable work media size: "
+    "Publishable editable media size: "
     f"{publishable_media_bytes / (1024 * 1024):.2f} MB / 800.00 MB"
 )
 
@@ -145,7 +144,7 @@ if bad:
 
 if publishable_media_bytes > LIMIT_BYTES:
     print(
-        "Publishable work media exceeds the 800 MB repository budget.",
+        "Publishable editable media exceeds the 800 MB repository budget.",
         file=sys.stderr,
     )
     sys.exit(1)
@@ -294,8 +293,10 @@ configure_pages_workflow_mode
 dispatch_publish_workflow
 
 log "Live pages"
-printf "https://raehu.com/#works\n"
-for work_dir in generated-website/works/*(/N); do
-  work_slug="${work_dir:t}"
-  printf "https://raehu.com/works/%s/\n" "$work_slug"
+printf "https://raehu.com/#work\n"
+for category in films commercials; do
+  for work_dir in generated-website/$category/*(/N); do
+    work_slug="${work_dir:t}"
+    printf "https://raehu.com/%s/%s/\n" "$category" "$work_slug"
+  done
 done
