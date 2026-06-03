@@ -52,9 +52,10 @@
  *      This guarantees every cell is at least min_aspect_ratio wide-to-tall.
  *      Images fill cells via object-fit:cover, cropping symmetrically.
  *
- *   On narrow screens, the grid switches to two-item justified rows whose
- *   column spans and row height are derived from each media item's own aspect
- *   ratio. This keeps portfolio frames closer to their source composition.
+ *   On narrow screens, the grid switches to varied 1/2/3-item justified rows
+ *   whose column spans and row height are derived from each media item's own
+ *   aspect ratio. This keeps portfolio frames closer to their source
+ *   composition without making every mobile row look the same.
  */
 
 (function () {
@@ -133,32 +134,89 @@
     return rows;
   }
 
-  function generateMobileLayout(children, totalCols) {
+  function generateMobileLayout(children, totalCols, seed) {
     var n = children.length;
     if (n <= 0) return [];
     if (n === 1) return [[totalCols]];
 
     var rows = [];
-    var remaining = n;
+    var rowSizes = partitionMobileIntoRows(n, seed);
     var itemIndex = 0;
 
-    while (remaining > 0) {
-      if (remaining === 1) {
+    rowSizes.forEach(function (rowSize) {
+      if (rowSize === 1) {
         rows.push([totalCols]);
-        remaining -= 1;
         itemIndex += 1;
-        continue;
+        return;
       }
 
       rows.push(spansForAspectRatios(
-        children.slice(itemIndex, itemIndex + 2).map(childAspectRatio),
+        children.slice(itemIndex, itemIndex + rowSize).map(childAspectRatio),
         totalCols
       ));
-      remaining -= 2;
-      itemIndex += 2;
-    }
+      itemIndex += rowSize;
+    });
 
     return rows;
+  }
+
+  function partitionMobileIntoRows(n, seed) {
+    var rng = makeRng(seed);
+    var sizes = [];
+    var remaining = n;
+    var lastSize = 0;
+
+    while (remaining > 0) {
+      var candidates = [1, 2, 3].filter(function (size) {
+        return size <= remaining;
+      });
+
+      if (lastSize === 1 && candidates.length > 1) {
+        candidates = candidates.filter(function (size) {
+          return size !== 1;
+        });
+      }
+
+      var size = pickWeightedRowSize(candidates, lastSize, remaining, rng);
+      sizes.push(size);
+      remaining -= size;
+      lastSize = size;
+    }
+
+    return sizes;
+  }
+
+  function pickWeightedRowSize(candidates, lastSize, remaining, rng) {
+    var totalWeight = 0;
+    var weighted = candidates.map(function (size) {
+      var weight = size === 1 ? 0.22 : size === 2 ? 0.42 : 0.36;
+
+      if (size === lastSize && candidates.length > 1) {
+        weight *= 0.45;
+      }
+
+      if (remaining - size === 1 && candidates.indexOf(1) !== -1) {
+        weight *= 0.75;
+      }
+
+      totalWeight += weight;
+      return {
+        size: size,
+        weight: weight
+      };
+    });
+
+    var target = rng() * totalWeight;
+    var cursor = 0;
+
+    for (var i = 0; i < weighted.length; i++) {
+      cursor += weighted[i].weight;
+      if (target <= cursor) {
+        return weighted[i].size;
+      }
+    }
+
+    return weighted[weighted.length - 1].size;
   }
 
   function spansForAspectRatios(ratios, totalCols) {
@@ -172,7 +230,7 @@
     });
 
     spans = spans.map(function (span) {
-      return Math.max(2, Math.min(totalCols - 2, span));
+      return Math.max(1, Math.min(totalCols - 1, span));
     });
 
     var delta = totalCols - spans.reduce(function (total, span) {
@@ -186,8 +244,8 @@
       for (var i = 0; i < ratios.length; i++) {
         var idealSpan = (Math.max(0.2, ratios[i]) / sum) * totalCols;
         var remainder = idealSpan - spans[i];
-        var canGrow = delta > 0 && spans[i] < totalCols - 2;
-        var canShrink = delta < 0 && spans[i] > 2;
+        var canGrow = delta > 0 && spans[i] < totalCols - 1;
+        var canShrink = delta < 0 && spans[i] > 1;
 
         if (canGrow && remainder > bestRemainder) {
           bestRemainder = remainder;
@@ -225,6 +283,40 @@
     }
 
     return DEFAULT_MEDIA_AR;
+  }
+
+  function gridSeed(container, layoutStr, children) {
+    var explicitSeed = parseInt(container.getAttribute('data-seed'), 10);
+    if (!isNaN(explicitSeed)) return explicitSeed;
+
+    var seedText = layoutStr || '';
+    seedText += '|' + children.map(childSourceKey).join('|');
+    return hashString(seedText) || children.length;
+  }
+
+  function childSourceKey(child) {
+    var media = child.matches && child.matches('img, video')
+      ? child
+      : child.querySelector && child.querySelector('img, video');
+
+    if (media) {
+      return media.getAttribute('src') ||
+        media.getAttribute('data-src') ||
+        media.getAttribute('poster') ||
+        '';
+    }
+
+    return child.getAttribute('href') || child.textContent || '';
+  }
+
+  function hashString(str) {
+    var hash = 0;
+
+    for (var i = 0; i < str.length; i++) {
+      hash = Math.imul(31, hash) + str.charCodeAt(i) | 0;
+    }
+
+    return hash;
   }
 
   function partitionIntoRows(n, rng) {
@@ -296,7 +388,7 @@
     var layoutStr = isMobile ? null : container.getAttribute('data-layout');
 
     if (isMobile) {
-      totalCols = 6;
+      totalCols = 12;
     }
 
     if (layoutStr) {
@@ -312,8 +404,8 @@
     }
 
     if (!rows) {
-      var seed = parseInt(container.getAttribute('data-seed'), 10) || 0;
-      rows = isMobile ? generateMobileLayout(children, totalCols) : generateLayout(n, totalCols, seed);
+      var seed = gridSeed(container, layoutStr, children);
+      rows = isMobile ? generateMobileLayout(children, totalCols, seed) : generateLayout(n, totalCols, seed);
     }
 
     // Set up CSS Grid
@@ -394,12 +486,26 @@
       watchedMedia.add(media);
 
       if (media.tagName === 'IMG') {
+        if (media.complete && media.naturalWidth) {
+          window.setTimeout(function () {
+            layoutGrid(grid);
+          }, 0);
+          return;
+        }
+
         media.addEventListener('load', function () {
           layoutGrid(grid);
         }, { once: true });
       }
 
       if (media.tagName === 'VIDEO') {
+        if (media.readyState >= 1 && media.videoWidth) {
+          window.setTimeout(function () {
+            layoutGrid(grid);
+          }, 0);
+          return;
+        }
+
         media.addEventListener('loadedmetadata', function () {
           layoutGrid(grid);
         }, { once: true });

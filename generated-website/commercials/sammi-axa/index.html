@@ -493,8 +493,12 @@
     }
 
     @media (hover: none) {
-      .highlight-expand-button,
-      .highlight-collapse-button {
+      .highlight-tile:hover .highlight-expand-button,
+      .highlight-expand-button:hover {
+        opacity: 0;
+      }
+
+      .highlight-expand-button:focus-visible {
         opacity: 1;
       }
     }
@@ -650,25 +654,24 @@
 
       .section-tracker-dot {
         margin-right: 0.4em;
+        --red-dot-offset-y: 0.08em;
       }
 
       .trailer-wrap {
-        height: calc(
-          100svh - var(--site-header-height) - var(--mobile-section-tracker-height) - var(--page-padding)
-        );
-        min-height: 28rem;
+        height: auto;
+        min-height: 0;
+        aspect-ratio: 16 / 9;
       }
 
       .primary-section-layout--has-links .trailer-wrap {
-        height: calc(
-          100svh - var(--site-header-height) - var(--mobile-section-tracker-height) - var(--page-padding) - 4rem
-        );
-        min-height: 24rem;
+        height: auto;
+        min-height: 0;
+        aspect-ratio: 16 / 9;
       }
 
       .primary-section-links {
-        align-items: flex-start;
-        text-align: left;
+        align-items: flex-end;
+        text-align: right;
         font-size: 0.92rem;
         line-height: 1.25;
       }
@@ -724,6 +727,10 @@
         height: 1.8rem;
       }
 
+      .work-page--bts {
+        --page-padding-top: 2rem;
+      }
+
       .bts-layout {
         grid-template-columns: 1fr;
         gap: 1rem;
@@ -732,7 +739,9 @@
       }
 
       .bts-slideshow {
-        min-height: auto;
+        width: 100%;
+        height: min(62svh, 34rem);
+        min-height: 18rem;
         aspect-ratio: 4 / 5;
       }
 
@@ -762,7 +771,7 @@
       }
 
       .trailer-wrap {
-        min-height: 24rem;
+        min-height: 0;
       }
     }
   </style>
@@ -1291,6 +1300,18 @@
       var links = Array.prototype.slice.call(document.querySelectorAll('[data-section-link]'));
       var ticking = false;
 
+      function activeAnchorY() {
+        if (!window.matchMedia('(max-width: 700px)').matches) {
+          return window.innerHeight * 0.4;
+        }
+
+        var header = document.querySelector('.site-header');
+        var tracker = document.querySelector('.section-tracker');
+        var headerHeight = header ? header.getBoundingClientRect().height : 52;
+        var trackerHeight = tracker ? tracker.getBoundingClientRect().height : 48;
+        return headerHeight + trackerHeight + 40;
+      }
+
       function setActive(sectionName) {
         links.forEach(function (link) {
           var isActive = link.getAttribute('data-section-link') === sectionName;
@@ -1302,16 +1323,43 @@
         });
       }
 
-      function updateActiveSection() {
-        var anchorY = window.innerHeight * 0.4;
-        var active = sections[0];
+      function visibleSectionAt(anchorY) {
+        if (!document.elementsFromPoint) return null;
 
-        sections.forEach(function (section) {
-          var rect = section.getBoundingClientRect();
-          if (rect.top <= anchorY) {
-            active = section;
+        var y = Math.max(0, Math.min(window.innerHeight - 1, anchorY));
+        var probeXs = [
+          window.innerWidth * 0.5,
+          window.innerWidth * 0.25,
+          window.innerWidth * 0.75
+        ];
+
+        for (var i = 0; i < probeXs.length; i++) {
+          var elements = document.elementsFromPoint(probeXs[i], y);
+
+          for (var j = 0; j < elements.length; j++) {
+            if (!elements[j].closest) continue;
+
+            var section = elements[j].closest('[data-section-page]');
+            if (section) return section;
           }
-        });
+        }
+
+        return null;
+      }
+
+      function updateActiveSection() {
+        var anchorY = activeAnchorY();
+        var visibleSection = visibleSectionAt(anchorY);
+        var active = visibleSection || sections[0];
+
+        if (!visibleSection) {
+          sections.forEach(function (section) {
+            var rect = section.getBoundingClientRect();
+            if (rect.top <= anchorY) {
+              active = section;
+            }
+          });
+        }
 
         if (active) {
           setActive(active.getAttribute('data-section-page'));
@@ -1340,6 +1388,11 @@
 
       window.addEventListener('scroll', requestUpdate, { passive: true });
       window.addEventListener('resize', requestUpdate);
+      window.addEventListener('hashchange', requestUpdate);
+      window.addEventListener('load', requestUpdate);
+      window.setTimeout(requestUpdate, 100);
+      window.setTimeout(requestUpdate, 500);
+      window.setTimeout(requestUpdate, 1200);
       updateActiveSection();
     })();
   </script>

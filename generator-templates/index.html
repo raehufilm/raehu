@@ -260,7 +260,7 @@
       font-family: var(--sans);
       font-size: 0.782rem;
       font-weight: 600;
-      line-height: 1;
+      line-height: 1.25;
       letter-spacing: 0.18em;
       color: var(--soft-text);
       text-align: center;
@@ -318,6 +318,7 @@
 
     .section-divider-text {
       display: inline-block;
+      line-height: 1.25;
       white-space: nowrap;
       clip-path: inset(0 100% 0 0);
     }
@@ -330,6 +331,7 @@
 
     .section-divider-segment {
       display: inline-block;
+      line-height: 1.25;
       clip-path: inset(0 100% 0 0);
     }
 
@@ -825,6 +827,7 @@
       }
 
       .clients-marquee {
+        --client-logo-gap: clamp(1.45rem, 6vw, 2.25rem);
         padding: 1rem 0;
       }
 
@@ -901,6 +904,10 @@
         white-space: nowrap;
       }
 
+      .section-tracker-dot {
+        --red-dot-offset-y: 0.08em;
+      }
+
       .section-subtracker {
         display: none;
         max-height: none;
@@ -923,6 +930,13 @@
           100svh - var(--site-header-height) - var(--mobile-section-tracker-height) - var(--page-padding)
         );
         margin: 0 var(--page-padding);
+      }
+
+      .landing-illustration svg {
+        width: auto;
+        height: 100%;
+        max-width: none;
+        max-height: none;
       }
 
       .section-divider--about {
