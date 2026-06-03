@@ -335,6 +335,12 @@
       clip-path: inset(0 100% 0 0);
     }
 
+    .section-divider-segment--camera-suffix,
+    .section-divider-segment--suffix {
+      padding-right: 0.28em;
+      margin-right: -0.28em;
+    }
+
     .section-divider-segment--prefix {
       --section-divider-segment-duration: var(--section-divider-prefix-duration);
       --section-divider-segment-delay: var(--section-divider-reveal-delay);
@@ -566,7 +572,7 @@
       --client-logo-gap: clamp(0.45rem, 0.9vw, 0.8rem);
       width: 100%;
       margin-top: 0;
-      padding: 1rem 0;
+      padding: 0.65rem 0;
       overflow: hidden;
       -webkit-mask-image: linear-gradient(
         90deg,
@@ -604,7 +610,7 @@
       align-items: center;
       justify-content: center;
       width: auto;
-      height: 4.6rem;
+      height: 2.99rem;
       padding: 0;
       flex-shrink: 0;
     }
@@ -612,7 +618,7 @@
     .client-logo img {
       display: block;
       width: auto;
-      height: var(--client-logo-image-height, 2.05rem);
+      height: var(--client-logo-image-height, 1.33rem);
       max-width: none;
       max-height: none;
       object-fit: contain;
@@ -641,38 +647,38 @@
 
     .client-logo img[src$="adidas.svg"],
     .client-logo img[src$="under-armour.svg"] {
-      --client-logo-image-height: 3rem;
-      --client-logo-image-height-mobile: 2.45rem;
+      --client-logo-image-height: 1.95rem;
+      --client-logo-image-height-mobile: 1.59rem;
     }
 
     .client-logo img[src$="axa.svg"],
     .client-logo img[src$="lego.svg"],
     .client-logo img[src$="uniqlo.svg"] {
-      --client-logo-image-height: 2.75rem;
-      --client-logo-image-height-mobile: 2.25rem;
+      --client-logo-image-height: 1.79rem;
+      --client-logo-image-height-mobile: 1.46rem;
     }
 
     .client-logo img[src$="taobao.svg"],
     .client-logo img[src$="xiaohongshu.svg"] {
-      --client-logo-image-height: 3.65rem;
-      --client-logo-image-height-mobile: 2.9rem;
+      --client-logo-image-height: 2.37rem;
+      --client-logo-image-height-mobile: 1.89rem;
     }
 
     .client-logo img[src$="hennessy.svg"],
     .client-logo img[src$="anta.svg"] {
-      --client-logo-image-height: 3.8rem;
-      --client-logo-image-height-mobile: 3rem;
+      --client-logo-image-height: 2.47rem;
+      --client-logo-image-height-mobile: 1.95rem;
     }
 
     .client-logo img[src$="fendi.svg"] {
-      --client-logo-image-height: 3.6rem;
-      --client-logo-image-height-mobile: 2.9rem;
+      --client-logo-image-height: 2.34rem;
+      --client-logo-image-height-mobile: 1.89rem;
     }
 
     .client-logo img[src$="on-running.svg"],
     .client-logo img[src$="yili.svg"] {
-      --client-logo-image-height: 3rem;
-      --client-logo-image-height-mobile: 2.45rem;
+      --client-logo-image-height: 1.95rem;
+      --client-logo-image-height-mobile: 1.59rem;
     }
 
     @keyframes clients-marquee {
@@ -828,17 +834,17 @@
 
       .clients-marquee {
         --client-logo-gap: clamp(1.45rem, 6vw, 2.25rem);
-        padding: 1rem 0;
+        padding: 0.55rem 0;
       }
 
       .client-logo {
         width: auto;
-        height: 3.9rem;
+        height: 2.16rem;
         padding: 0;
       }
 
       .client-logo img {
-        height: var(--client-logo-image-height-mobile, 1.7rem);
+        height: var(--client-logo-image-height-mobile, 0.94rem);
       }
 
       .works-grid-link {
@@ -861,16 +867,18 @@
       }
 
       .home-pages {
-        padding-top: calc(var(--site-header-height) + var(--mobile-section-tracker-height));
+        padding-top: var(--site-header-height);
         padding-left: 0;
+        padding-bottom: var(--mobile-section-tracker-height);
       }
 
       .home-page {
-        scroll-margin-top: calc(var(--site-header-height) + var(--mobile-section-tracker-height));
+        scroll-margin-top: var(--site-header-height);
       }
 
       .section-tracker {
-        top: var(--site-header-height);
+        top: auto;
+        bottom: 0;
         left: 0;
         right: 0;
         height: var(--mobile-section-tracker-height);

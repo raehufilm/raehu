@@ -52,7 +52,7 @@
  *      This guarantees every cell is at least min_aspect_ratio wide-to-tall.
  *      Images fill cells via object-fit:cover, cropping symmetrically.
  *
- *   On narrow screens, the grid switches to varied 1/2/3-item justified rows
+ *   On narrow screens, the grid switches to varied 1/2-item justified rows
  *   whose column spans and row height are derived from each media item's own
  *   aspect ratio. This keeps portfolio frames closer to their source
  *   composition without making every mobile row look the same.
@@ -167,7 +167,7 @@
     var lastSize = 0;
 
     while (remaining > 0) {
-      var candidates = [1, 2, 3].filter(function (size) {
+      var candidates = [1, 2].filter(function (size) {
         return size <= remaining;
       });
 
@@ -189,10 +189,10 @@
   function pickWeightedRowSize(candidates, lastSize, remaining, rng) {
     var totalWeight = 0;
     var weighted = candidates.map(function (size) {
-      var weight = size === 1 ? 0.22 : size === 2 ? 0.42 : 0.36;
+      var weight = size === 1 ? 0.34 : 0.66;
 
       if (size === lastSize && candidates.length > 1) {
-        weight *= 0.45;
+        weight *= 0.62;
       }
 
       if (remaining - size === 1 && candidates.indexOf(1) !== -1) {

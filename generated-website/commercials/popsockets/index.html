@@ -613,16 +613,18 @@
       }
 
       .work-pages {
-        padding-top: calc(var(--site-header-height) + var(--mobile-section-tracker-height));
+        padding-top: var(--site-header-height);
         padding-left: 0;
+        padding-bottom: var(--mobile-section-tracker-height);
       }
 
       .work-page {
-        scroll-margin-top: calc(var(--site-header-height) + var(--mobile-section-tracker-height));
+        scroll-margin-top: var(--site-header-height);
       }
 
       .section-tracker {
-        top: var(--site-header-height);
+        top: auto;
+        bottom: 0;
         left: 0;
         right: 0;
         height: var(--mobile-section-tracker-height);
@@ -740,9 +742,13 @@
 
       .bts-slideshow {
         width: 100%;
-        height: min(62svh, 34rem);
-        min-height: 18rem;
-        aspect-ratio: 4 / 5;
+        height: auto;
+        min-height: 0;
+        aspect-ratio: 16 / 9;
+      }
+
+      .bts-slide {
+        object-fit: contain;
       }
 
       .bts-slide-control {
@@ -1355,10 +1361,8 @@
         }
 
         var header = document.querySelector('.site-header');
-        var tracker = document.querySelector('.section-tracker');
         var headerHeight = header ? header.getBoundingClientRect().height : 52;
-        var trackerHeight = tracker ? tracker.getBoundingClientRect().height : 48;
-        return headerHeight + trackerHeight + 40;
+        return headerHeight + 40;
       }
 
       function setActive(sectionName) {
