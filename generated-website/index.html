@@ -322,9 +322,7 @@
     }
 
     .section-divider--cut.visible .section-divider-dot {
-      animation:
-        pulse var(--section-divider-dot-cycle-duration) ease-in-out infinite,
-        section-divider-dot-fade-out var(--section-divider-dot-cycle-duration) ease-in-out var(--section-divider-dot-delay) forwards;
+      animation: pulse var(--section-divider-dot-cycle-duration) ease-in-out forwards;
     }
 
     .section-divider-text {
@@ -415,13 +413,6 @@
       to { visibility: visible; }
     }
 
-    @keyframes section-divider-dot-fade-out {
-      to {
-        opacity: 0;
-        visibility: hidden;
-      }
-    }
-
     @media (prefers-reduced-motion: reduce) {
       :root {
         --theme-transition-duration: 0s;
@@ -455,8 +446,8 @@
       }
 
       .section-divider--cut .section-divider-dot {
-        opacity: 0;
-        visibility: hidden;
+        opacity: 1;
+        visibility: visible;
         animation: none;
       }
     }

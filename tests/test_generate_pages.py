@@ -263,10 +263,10 @@ class GeneratePagesTests(unittest.TestCase):
         )
         self.assertIn("--section-divider-dot-cycle-duration: 1.6s;", template)
         self.assertIn(
-            "section-divider-dot-fade-out var(--section-divider-dot-cycle-duration) "
-            "ease-in-out var(--section-divider-dot-delay) forwards",
+            "animation: pulse var(--section-divider-dot-cycle-duration) ease-in-out forwards;",
             template,
         )
+        self.assertNotIn("section-divider-dot-fade-out", template)
         self.assertNotIn("......", template)
 
     def test_load_about_image_requires_numbered_prefix(self):
