@@ -1248,6 +1248,16 @@
 
       if (!tracker || !sections.length || !links.length) return;
 
+      function activeAnchorY() {
+        if (!window.matchMedia('(max-width: 700px)').matches) {
+          return window.innerHeight * 0.4;
+        }
+
+        var header = document.querySelector('.site-header');
+        var headerHeight = header ? header.getBoundingClientRect().height : 52;
+        return headerHeight + 40;
+      }
+
       function setActive(sectionName) {
         tracker.setAttribute('data-active-section', sectionName);
         links.forEach(function (link) {
@@ -1280,7 +1290,7 @@
       function updateActiveCategory() {
         if (!categorySections.length) return;
 
-        var anchorY = window.innerHeight * 0.4;
+        var anchorY = activeAnchorY();
         var active = categorySections[0];
 
         categorySections.forEach(function (section) {
@@ -1296,7 +1306,7 @@
       }
 
       function updateActiveSection() {
-        var anchorY = window.innerHeight * 0.4;
+        var anchorY = activeAnchorY();
         var active = sections[0];
 
         sections.forEach(function (section) {
