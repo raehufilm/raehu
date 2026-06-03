@@ -886,6 +886,81 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertIn("trailer/1_trailer.mp4", rendered)
         self.assertIn("muted playsinline autoplay loop", rendered)
 
+    def test_works_index_grid_uses_optional_grid_preview_before_primary_preview(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_html = root / "generated-website" / "index.html"
+            primary_media = (
+                root
+                / "editable-content"
+                / "work"
+                / "commercials"
+                / "sample-work"
+                / "film"
+                / "1_film.mp4"
+            )
+            grid_preview_media = (
+                root
+                / "editable-content"
+                / "work"
+                / "commercials"
+                / "sample-work"
+                / "grid_preview"
+                / "1_preview.webp"
+            )
+            work = generate_pages.WorkContent(
+                slug="sample-work",
+                title="Sample Work",
+                trailer_embed_url=None,
+                trailer_poster_url=None,
+                note=generate_pages.NoteContent(title_html="Title", body_html="Body"),
+                note_media=generate_pages.MediaItem(1, Path("note.webp"), "image"),
+                highlight_media=(),
+                bts_text_html="Credits",
+                bts_media=(),
+                category="commercials",
+                trailer_media=generate_pages.MediaItem(1, primary_media, "video"),
+                grid_preview_media=generate_pages.MediaItem(1, grid_preview_media, "image"),
+            )
+
+            rendered = generate_pages.render_works_index_grid_item(work, output_html)
+
+        self.assertIn("<img", rendered)
+        self.assertIn("grid_preview/1_preview.webp", rendered)
+        self.assertNotIn("film/1_film.mp4", rendered)
+
+    def test_load_work_rejects_multiple_grid_preview_media(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "editable-content" / "work" / "films" / "sample-work"
+
+            (source / "trailer").mkdir(parents=True)
+            (source / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/123456789",
+                encoding="utf-8",
+            )
+            (source / "note").mkdir(parents=True)
+            (source / "note" / "1_text.md").write_text(
+                "# Sample Work\n\nA sample note.",
+                encoding="utf-8",
+            )
+            (source / "note" / "2_note.webp").write_text("webp", encoding="utf-8")
+            (source / "highlight").mkdir(parents=True)
+            (source / "highlight" / "1_highlight.webp").write_text("webp", encoding="utf-8")
+            (source / "bts").mkdir(parents=True)
+            (source / "bts" / "text.md").write_text("Credits", encoding="utf-8")
+            (source / "bts" / "1_bts.webp").write_text("webp", encoding="utf-8")
+            (source / "grid_preview").mkdir()
+            (source / "grid_preview" / "1_preview.webp").write_text("webp", encoding="utf-8")
+            (source / "grid_preview" / "2_preview.webp").write_text("webp", encoding="utf-8")
+
+            with self.assertRaises(generate_pages.PageGenerationError) as context:
+                generate_pages.load_work(source)
+
+        message = str(context.exception)
+        self.assertIn("multiple grid preview media files", message)
+        self.assertIn("Keep exactly one", message)
+
     def test_render_home_uses_category_sections_and_trailer_posters(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -104,6 +104,8 @@ editable-content/work/films/my-film/
     additional_links.md
     # or 1_trailer.jpg
     # or 1_trailer.mp4
+  grid_preview/
+    1_preview.jpg
   note/
     1_text.md
     2_note-image.jpg
@@ -127,6 +129,8 @@ editable-content/work/commercials/my-commercial/
     additional_links.md
     # or 1_film.jpg
     # or 1_film.mp4
+  grid_preview/
+    1_preview.jpg
   note/
     1_text.md
     2_note-image.jpg
@@ -187,6 +191,19 @@ Put one Markdown link on each line.
 [view full film](https://vimeo.com/1119717934)
 [second link](https://example.com)
 ```
+
+### Grid Preview
+
+Optional: create `grid_preview/` when you want the homepage work grid to use a different image or video than the first section.
+
+Put exactly one numbered image or MP4 in the folder.
+
+```text
+grid_preview/
+  1_preview.jpg
+```
+
+If you do not create `grid_preview/`, the website automatically uses the `trailer/` or `film/` media. If the first section is a Vimeo link, it uses the Vimeo preview image.
 
 ### Note
 
@@ -359,6 +376,7 @@ Media rules:
 - Films use `trailer/` as the first section and it must contain exactly one source: either a non-empty `trailer_link.md`, one numbered image, or one numbered `.mp4`.
 - Commercials use `film/` as the first section and it must contain exactly one source: either a non-empty `film_link.md`, one numbered image, or one numbered `.mp4`.
 - The first section may also contain optional `additional_links.md`. It does not count as the first-section source and must contain one Markdown link per non-empty line.
+- `grid_preview/` is optional. If present, it must contain exactly one numbered image or `.mp4` and it overrides the homepage work-grid preview. If missing, the work grid falls back to the first-section media or Vimeo thumbnail.
 - `note/` must contain exactly one numbered Markdown file and exactly one numbered media item. Together they must use positions `1_` and `2_` exactly once so the user can swap left/right layout by renaming files.
 - Total publishable work media must stay under 800 MB.
 

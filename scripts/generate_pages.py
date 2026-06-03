@@ -132,6 +132,7 @@ class WorkContent:
     bts_media: tuple[MediaItem, ...]
     category: str = ""
     trailer_media: MediaItem | None = None
+    grid_preview_media: MediaItem | None = None
     primary_links: tuple[PrimaryLink, ...] = ()
     bts_text_html_chinese: str | None = None
     bts_text_html_spanish: str | None = None
@@ -980,6 +981,38 @@ def load_localized_markdown_lines(path: Path) -> tuple[str, str, str]:
     return english_html, chinese_html, spanish_html
 
 
+def load_optional_grid_preview_media(
+    work_dir: Path,
+    write_assets: bool = False,
+) -> MediaItem | None:
+    preview_dir = work_dir / "grid_preview"
+    if not preview_dir.exists():
+        return None
+    if not preview_dir.is_dir():
+        raise PageGenerationError(
+            f"{preview_dir} must be a folder. "
+            "Create grid_preview/ with one numbered image or MP4, or remove it."
+        )
+
+    preview_media = ordered_media(
+        preview_dir,
+        write_assets=write_assets,
+        require_media=False,
+    )
+    if len(preview_media) != 1:
+        if not preview_media:
+            raise PageGenerationError(
+                f"{preview_dir} must contain exactly one grid preview media file. "
+                "Add one numbered image or MP4 such as 1_preview.jpg, or remove grid_preview/ "
+                "to use the film/trailer preview automatically."
+            )
+        raise PageGenerationError(
+            f"{preview_dir} has multiple grid preview media files. "
+            "Keep exactly one numbered image or MP4, such as 1_preview.jpg."
+        )
+    return preview_media[0]
+
+
 def load_work(
     work_dir: Path,
     write_assets: bool = False,
@@ -1003,6 +1036,10 @@ def load_work(
     note = load_note_content(note_dir)
     note_media = ordered_media(note_dir, write_assets=write_assets)
     highlight_media = ordered_media(work_dir / "highlight", write_assets=write_assets)
+    grid_preview_media = load_optional_grid_preview_media(
+        work_dir,
+        write_assets=write_assets,
+    )
     bts_text_html, bts_text_html_chinese, bts_text_html_spanish = load_localized_markdown_lines(
         work_dir / "bts" / "text.md"
     )
@@ -1024,6 +1061,7 @@ def load_work(
         bts_text_html_spanish=bts_text_html_spanish,
         category=category,
         trailer_media=trailer_media,
+        grid_preview_media=grid_preview_media,
         primary_links=primary_links,
     )
 
@@ -1516,11 +1554,14 @@ def render_work(work: WorkContent, template: str, output_html: Path) -> str:
 def render_works_index_grid_item(work: WorkContent, output_html: Path) -> str:
     href = work_public_url_from(output_html, work)
     title = html_escape(work.title)
-    preview_label = html_escape(f"{primary_section_for_category(work.category)} preview")
-
-    if work.trailer_media:
-        src = output_relative_url(output_html, work.trailer_media.path)
-        if work.trailer_media.kind == "video":
+    preview_media = work.grid_preview_media or work.trailer_media
+    if work.grid_preview_media:
+        preview_label = html_escape("grid preview")
+    else:
+        preview_label = html_escape(f"{primary_section_for_category(work.category)} preview")
+    if preview_media:
+        src = output_relative_url(output_html, preview_media.path)
+        if preview_media.kind == "video":
             preview_html = (
                 f'<video class="media-hover-zoom-target" src="{src}" '
                 'muted playsinline autoplay loop preload="metadata" '
