@@ -171,6 +171,50 @@ stage_site_changes() {
   git add -A -- $stage_paths
 }
 
+working_tree_has_changes() {
+  [[ -n "$(git status --porcelain --untracked-files=all)" ]]
+}
+
+sync_remote_changes() {
+  local counts ahead behind stash_created before_stash after_stash
+
+  log "Checking for remote changes"
+  git fetch origin "$BRANCH"
+  counts="$(git rev-list --left-right --count "HEAD...origin/$BRANCH")"
+  ahead="${counts%%[[:space:]]*}"
+  behind="${counts##*[[:space:]]}"
+
+  if (( behind == 0 )); then
+    return 0
+  fi
+
+  log "Updating this folder with $behind newer GitHub commit(s)"
+  stash_created=0
+  if working_tree_has_changes; then
+    log "Temporarily preserving local changes while updating"
+    before_stash="$(git rev-parse -q --verify refs/stash || true)"
+    git stash push --include-untracked -m "generate_website local changes before sync" >/dev/null
+    after_stash="$(git rev-parse -q --verify refs/stash || true)"
+    if [[ "$after_stash" != "$before_stash" ]]; then
+      stash_created=1
+    fi
+  fi
+
+  if ! git merge --ff-only "origin/$BRANCH"; then
+    if (( stash_created )); then
+      git stash pop >/dev/null || true
+    fi
+    fail "Could not update this folder automatically. Ask a technical helper to reconcile the local folder with GitHub."
+  fi
+
+  if (( stash_created )); then
+    log "Restoring local changes"
+    if ! git stash pop >/dev/null; then
+      fail "Updated from GitHub, but local changes conflicted while being restored. Ask a technical helper to reconcile the local folder."
+    fi
+  fi
+}
+
 wait_for_workflow_file() {
   local attempt
   for attempt in {1..24}; do
@@ -249,14 +293,7 @@ git config core.hooksPath .githooks
 current_branch="$(git branch --show-current)"
 [[ "$current_branch" == "$BRANCH" ]] || fail "Current branch is $current_branch, expected $BRANCH"
 
-log "Checking for remote changes"
-git fetch origin "$BRANCH"
-counts="$(git rev-list --left-right --count "HEAD...origin/$BRANCH")"
-ahead="${counts%%[[:space:]]*}"
-behind="${counts##*[[:space:]]}"
-if (( behind > 0 )); then
-  fail "Local branch is behind origin/$BRANCH by $behind commit(s). Pull/reconcile before publishing."
-fi
+sync_remote_changes
 
 log "Generating pages"
 python3 scripts/generate_pages.py
