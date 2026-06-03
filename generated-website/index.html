@@ -561,6 +561,7 @@
     }
 
     .clients-marquee {
+      --client-logo-gap: clamp(0.45rem, 0.9vw, 0.8rem);
       width: 100%;
       margin-top: 0;
       padding: 1rem 0;
@@ -591,8 +592,8 @@
     .clients-marquee-group {
       display: flex;
       align-items: center;
-      gap: clamp(1rem, 2.1vw, 1.8rem);
-      padding-right: clamp(1rem, 2.1vw, 1.8rem);
+      gap: var(--client-logo-gap);
+      padding-right: var(--client-logo-gap);
       flex-shrink: 0;
     }
 
