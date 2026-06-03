@@ -119,3 +119,15 @@
     animation: none;
   }
 }
+
+@supports (content-visibility: auto) {
+  .content-visibility-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 100vh;
+  }
+
+  .content-visibility-auto--short {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 36rem;
+  }
+}

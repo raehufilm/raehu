@@ -7,20 +7,11 @@
   <title>Sammi Axa — Rae Hu</title>
   <link rel="icon" href="../../images/favicon.svg" type="image/svg+xml">
   <script src="../../js/preferences.js"></script>
-  <script>
-    (function () {
-      try {
-        var theme = window.raehuPreferences && window.raehuPreferences.get('theme');
-        document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
-      } catch (error) {
-        document.documentElement.setAttribute('data-theme', 'dark');
-      }
-    })();
-  </script>
+  <script src="../../js/theme-init.js"></script>
   <script src="../../js/language-init.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Syne:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../css/shared-effects.css">
   <link rel="stylesheet" href="../../css/site-header.css">
   <style>
@@ -704,7 +695,7 @@
       <div class="primary-section-layout">
         <div class="trailer-wrap"
              data-vimeo-embed="https://player.vimeo.com/video/477051460?autoplay=1&amp;badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479">
-          <img class="trailer-poster" src="https://i.vimeocdn.com/video/991158424-889504a6a46f608c3482bb0b944f33357dec1ec08e0584b2e8b7c01bc6f7eaf0-d_1280?region=us" alt="Sammi Axa film">
+          <img class="trailer-poster" src="https://i.vimeocdn.com/video/991158424-889504a6a46f608c3482bb0b944f33357dec1ec08e0584b2e8b7c01bc6f7eaf0-d_1280?region=us" alt="Sammi Axa film" loading="eager" decoding="async" fetchpriority="high">
           <button class="trailer-play" aria-label="Play film">
             <svg viewBox="0 0 68 48" width="68" height="48"><path d="M66.5 7.7c-.8-2.9-2.5-5.4-5.4-6.2C55.8.1 34 0 34 0S12.2.1 6.9 1.5c-2.9.8-4.6 3.3-5.4 6.2C.1 13 0 24 0 24s.1 11 1.5 16.3c.8 2.9 2.5 5.4 5.4 6.2C12.2 47.9 34 48 34 48s21.8-.1 27.1-1.5c2.9-.8 4.6-3.3 5.4-6.2C67.9 35 68 24 68 24s-.1-11-1.5-16.3z" fill="rgba(255,255,255,0.85)"/><path d="M45 24L27 14v20z" fill="#0a0a0a"/></svg>
           </button>
@@ -713,7 +704,7 @@
       </div>
     </section>
 
-    <section class="work-page work-page--note"
+    <section class="work-page work-page--note content-visibility-auto"
              id="note"
              data-section-page="note"
              data-section-title="Note"
@@ -736,12 +727,12 @@
           <div class="work-label"><div class="red-dot"></div> Director's note</div>
         </div>
         <div class="work-header-image-wrap work-header-piece--right">
-          <img class="work-header-image" src="../../../editable-content/work/commercials/sammi-axa/note/2_note.webp" alt="Sammi Axa">
+          <img class="work-header-image" src="../../../editable-content/work/commercials/sammi-axa/note/2_note.webp" srcset="../../media/editable-content/work/commercials/sammi-axa/note/2_note-480.webp 480w, ../../media/editable-content/work/commercials/sammi-axa/note/2_note-960.webp 960w, ../../media/editable-content/work/commercials/sammi-axa/note/2_note-1440.webp 1440w, ../../media/editable-content/work/commercials/sammi-axa/note/2_note-1920.webp 1920w" sizes="100vw" alt="Sammi Axa" loading="lazy" decoding="async">
         </div>
       </div>
     </section>
 
-    <section class="work-page work-page--highlight"
+    <section class="work-page work-page--highlight content-visibility-auto"
              id="highlight"
              data-section-page="highlight"
              data-section-title="Highlight"
@@ -750,7 +741,7 @@
       <div class="grid-wrapper">
         <div class="portfolio-grid" data-layout="5-3-4, 4-5-3">
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/sammi-axa/highlight/1_highlight.webp" alt="Sammi Axa highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/sammi-axa/highlight/1_highlight.webp" srcset="../../media/editable-content/work/commercials/sammi-axa/highlight/1_highlight-480.webp 480w, ../../media/editable-content/work/commercials/sammi-axa/highlight/1_highlight-960.webp 960w, ../../media/editable-content/work/commercials/sammi-axa/highlight/1_highlight-1440.webp 1440w, ../../media/editable-content/work/commercials/sammi-axa/highlight/1_highlight-1920.webp 1920w" sizes="100vw" alt="Sammi Axa highlight" loading="lazy" decoding="async">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -762,7 +753,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/sammi-axa/highlight/2_highlight.webp" alt="Sammi Axa highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/sammi-axa/highlight/2_highlight.webp" srcset="../../media/editable-content/work/commercials/sammi-axa/highlight/2_highlight-480.webp 480w, ../../media/editable-content/work/commercials/sammi-axa/highlight/2_highlight-960.webp 960w, ../../media/editable-content/work/commercials/sammi-axa/highlight/2_highlight-1440.webp 1440w, ../../media/editable-content/work/commercials/sammi-axa/highlight/2_highlight-1920.webp 1920w" sizes="100vw" alt="Sammi Axa highlight" loading="lazy" decoding="async">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -774,7 +765,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/sammi-axa/highlight/3_highlight.webp" alt="Sammi Axa highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/sammi-axa/highlight/3_highlight.webp" srcset="../../media/editable-content/work/commercials/sammi-axa/highlight/3_highlight-480.webp 480w, ../../media/editable-content/work/commercials/sammi-axa/highlight/3_highlight-960.webp 960w, ../../media/editable-content/work/commercials/sammi-axa/highlight/3_highlight-1440.webp 1440w, ../../media/editable-content/work/commercials/sammi-axa/highlight/3_highlight-1920.webp 1920w" sizes="100vw" alt="Sammi Axa highlight" loading="lazy" decoding="async">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -786,7 +777,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/sammi-axa/highlight/4_highlight.webp" alt="Sammi Axa highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/sammi-axa/highlight/4_highlight.webp" srcset="../../media/editable-content/work/commercials/sammi-axa/highlight/4_highlight-480.webp 480w, ../../media/editable-content/work/commercials/sammi-axa/highlight/4_highlight-960.webp 960w, ../../media/editable-content/work/commercials/sammi-axa/highlight/4_highlight-1440.webp 1440w, ../../media/editable-content/work/commercials/sammi-axa/highlight/4_highlight-1920.webp 1920w" sizes="100vw" alt="Sammi Axa highlight" loading="lazy" decoding="async">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -798,7 +789,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/sammi-axa/highlight/5_highlight.webp" alt="Sammi Axa highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/sammi-axa/highlight/5_highlight.webp" srcset="../../media/editable-content/work/commercials/sammi-axa/highlight/5_highlight-480.webp 480w, ../../media/editable-content/work/commercials/sammi-axa/highlight/5_highlight-960.webp 960w, ../../media/editable-content/work/commercials/sammi-axa/highlight/5_highlight-1440.webp 1440w, ../../media/editable-content/work/commercials/sammi-axa/highlight/5_highlight-1920.webp 1920w" sizes="100vw" alt="Sammi Axa highlight" loading="lazy" decoding="async">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -810,7 +801,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/sammi-axa/highlight/6_highlight.webp" alt="Sammi Axa highlight">
+          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/sammi-axa/highlight/6_highlight.webp" srcset="../../media/editable-content/work/commercials/sammi-axa/highlight/6_highlight-480.webp 480w, ../../media/editable-content/work/commercials/sammi-axa/highlight/6_highlight-960.webp 960w, ../../media/editable-content/work/commercials/sammi-axa/highlight/6_highlight-1440.webp 1440w, ../../media/editable-content/work/commercials/sammi-axa/highlight/6_highlight-1920.webp 1920w" sizes="100vw" alt="Sammi Axa highlight" loading="lazy" decoding="async">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -825,7 +816,7 @@
       </div>
     </section>
 
-    <section class="work-page work-page--bts"
+    <section class="work-page work-page--bts content-visibility-auto"
              id="bts"
              data-section-page="bts"
              data-section-title="BTS"
@@ -833,10 +824,10 @@
              aria-label="Behind the scenes">
       <div class="bts-layout">
         <div class="bts-slideshow" aria-label="Behind the scenes slideshow">
-          <img class="bts-slide is-active" src="../../../editable-content/work/commercials/sammi-axa/bts/1_bts.webp" alt="Sammi Axa behind the scenes">
-          <img class="bts-slide" src="../../../editable-content/work/commercials/sammi-axa/bts/2_bts.webp" alt="Sammi Axa behind the scenes">
-          <img class="bts-slide" src="../../../editable-content/work/commercials/sammi-axa/bts/3_bts.webp" alt="Sammi Axa behind the scenes">
-          <img class="bts-slide" src="../../../editable-content/work/commercials/sammi-axa/bts/4_bts.webp" alt="Sammi Axa behind the scenes">
+          <img class="bts-slide is-active" src="../../../editable-content/work/commercials/sammi-axa/bts/1_bts.webp" srcset="../../media/editable-content/work/commercials/sammi-axa/bts/1_bts-480.webp 480w, ../../media/editable-content/work/commercials/sammi-axa/bts/1_bts-960.webp 960w, ../../media/editable-content/work/commercials/sammi-axa/bts/1_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/sammi-axa/bts/1_bts-1920.webp 1920w" sizes="100vw" alt="Sammi Axa behind the scenes" loading="lazy" decoding="async">
+          <img class="bts-slide" src="../../../editable-content/work/commercials/sammi-axa/bts/2_bts.webp" srcset="../../media/editable-content/work/commercials/sammi-axa/bts/2_bts-480.webp 480w, ../../media/editable-content/work/commercials/sammi-axa/bts/2_bts-960.webp 960w, ../../media/editable-content/work/commercials/sammi-axa/bts/2_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/sammi-axa/bts/2_bts-1920.webp 1920w" sizes="100vw" alt="Sammi Axa behind the scenes" loading="lazy" decoding="async">
+          <img class="bts-slide" src="../../../editable-content/work/commercials/sammi-axa/bts/3_bts.webp" srcset="../../media/editable-content/work/commercials/sammi-axa/bts/3_bts-480.webp 480w, ../../media/editable-content/work/commercials/sammi-axa/bts/3_bts-960.webp 960w, ../../media/editable-content/work/commercials/sammi-axa/bts/3_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/sammi-axa/bts/3_bts-1920.webp 1920w" sizes="100vw" alt="Sammi Axa behind the scenes" loading="lazy" decoding="async">
+          <img class="bts-slide" src="../../../editable-content/work/commercials/sammi-axa/bts/4_bts.webp" srcset="../../media/editable-content/work/commercials/sammi-axa/bts/4_bts-480.webp 480w, ../../media/editable-content/work/commercials/sammi-axa/bts/4_bts-960.webp 960w, ../../media/editable-content/work/commercials/sammi-axa/bts/4_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/sammi-axa/bts/4_bts-1920.webp 1920w" sizes="100vw" alt="Sammi Axa behind the scenes" loading="lazy" decoding="async">
           <button class="bts-slide-control bts-slide-control--prev"
                   type="button"
                   data-bts-slide-control="prev"
@@ -877,6 +868,7 @@
   <script src="../../js/theme-toggle.js"></script>
   <script src="../../js/language-toggle.js"></script>
   <script src="../../js/portfolio-grid.js"></script>
+  <script src="../../js/lazy-media.js"></script>
   <script>
     // Primary video facade: swap poster for iframe on click
     (function () {
@@ -965,6 +957,10 @@
         clone.removeAttribute('id');
 
         if (clone.tagName === 'VIDEO') {
+          if (!clone.getAttribute('src') && clone.getAttribute('data-src')) {
+            clone.setAttribute('src', clone.getAttribute('data-src'));
+            clone.load();
+          }
           clone.muted = true;
           clone.loop = true;
           clone.playsInline = true;

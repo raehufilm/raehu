@@ -7,20 +7,11 @@
   <title>{{DOCUMENT_TITLE}} — Rae Hu</title>
   <link rel="icon" href="{{FAVICON_URL}}" type="image/svg+xml">
   <script src="{{PREFERENCES_JS_URL}}"></script>
-  <script>
-    (function () {
-      try {
-        var theme = window.raehuPreferences && window.raehuPreferences.get('theme');
-        document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
-      } catch (error) {
-        document.documentElement.setAttribute('data-theme', 'dark');
-      }
-    })();
-  </script>
+  <script src="{{THEME_INIT_JS_URL}}"></script>
   <script src="{{LANGUAGE_INIT_JS_URL}}"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Syne:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{SHARED_EFFECTS_CSS_URL}}">
   <link rel="stylesheet" href="{{SITE_HEADER_CSS_URL}}">
   <style>
@@ -644,6 +635,7 @@
   <script src="{{THEME_TOGGLE_JS_URL}}"></script>
   <script src="{{LANGUAGE_TOGGLE_JS_URL}}"></script>
   <script src="{{PORTFOLIO_GRID_JS_URL}}"></script>
+  <script src="{{LAZY_MEDIA_JS_URL}}"></script>
   <script>
     // Primary video facade: swap poster for iframe on click
     (function () {
@@ -732,6 +724,10 @@
         clone.removeAttribute('id');
 
         if (clone.tagName === 'VIDEO') {
+          if (!clone.getAttribute('src') && clone.getAttribute('data-src')) {
+            clone.setAttribute('src', clone.getAttribute('data-src'));
+            clone.load();
+          }
           clone.muted = true;
           clone.loop = true;
           clone.playsInline = true;

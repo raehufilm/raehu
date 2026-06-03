@@ -458,6 +458,94 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertEqual(len(media), 1)
         self.assertEqual(media[0].path.name, "1_first.webp")
 
+    def test_responsive_variants_skip_up_to_date_webp_conversion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "editable-content" / "work" / "films" / "sample" / "highlight" / "1_first.webp"
+            generated_site = root / "generated-website"
+            source.parent.mkdir(parents=True)
+            source.write_text("webp", encoding="utf-8")
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+            ):
+                for target in generate_pages.responsive_image_variant_paths(source):
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("webp", encoding="utf-8")
+                    newer_time = source.stat().st_mtime + 10
+                    import os
+                    os.utime(target, (newer_time, newer_time))
+
+                with mock.patch.object(generate_pages, "convert_image_to_webp") as convert:
+                    generate_pages.ensure_responsive_image_variants(source, write_assets=True)
+
+        convert.assert_not_called()
+
+    def test_grid_preview_video_transcode_skips_up_to_date_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = (
+                root
+                / "editable-content"
+                / "work"
+                / "commercials"
+                / "sample"
+                / "grid_preview"
+                / "1_preview.mp4"
+            )
+            generated_site = root / "generated-website"
+            source.parent.mkdir(parents=True)
+            source.write_text("mp4", encoding="utf-8")
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+            ):
+                target = generate_pages.optimized_grid_preview_video_path(source)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("mp4", encoding="utf-8")
+                newer_time = source.stat().st_mtime + 10
+                import os
+                os.utime(target, (newer_time, newer_time))
+
+                with mock.patch.object(generate_pages, "transcode_grid_preview_video") as transcode:
+                    optimized = generate_pages.ensure_optimized_grid_preview_video(
+                        source,
+                        write_assets=True,
+                    )
+
+        transcode.assert_not_called()
+        self.assertEqual(optimized.name, "1_preview-grid-preview-720p-v3.mp4")
+
+    def test_grid_preview_video_check_mode_requires_generated_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = (
+                root
+                / "editable-content"
+                / "work"
+                / "commercials"
+                / "sample"
+                / "grid_preview"
+                / "1_preview.mp4"
+            )
+            source.parent.mkdir(parents=True)
+            source.write_text("mp4", encoding="utf-8")
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", root / "generated-website"),
+                self.assertRaises(generate_pages.PageGenerationError) as context,
+            ):
+                generate_pages.ensure_optimized_grid_preview_video(
+                    source,
+                    write_assets=False,
+                    check_generated_assets=True,
+                )
+
+        self.assertIn("Optimized grid preview video is missing or stale", str(context.exception))
+
     def test_note_markdown_uses_heading_for_title_and_body_for_copy(self):
         with tempfile.TemporaryDirectory() as tmp:
             note_file = Path(tmp) / "1_text.md"
@@ -702,8 +790,10 @@ class GeneratePagesTests(unittest.TestCase):
                 "{{PORTFOLIO_GRID_JS_URL}}"
                 "{{LOCAL_PREVIEW_LINKS_JS_URL}}"
                 "{{PREFERENCES_JS_URL}}"
+                "{{THEME_INIT_JS_URL}}"
                 "{{LANGUAGE_INIT_JS_URL}}"
                 "{{LANGUAGE_TOGGLE_JS_URL}}"
+                "{{LAZY_MEDIA_JS_URL}}"
                 "{{WORK_SECTIONS}}",
                 encoding="utf-8",
             )
@@ -713,6 +803,10 @@ class GeneratePagesTests(unittest.TestCase):
             (source_assets / "js" / "portfolio-grid.js").write_text("", encoding="utf-8")
             (source_assets / "js" / "local-preview-links.js").write_text("", encoding="utf-8")
 
+            def fake_convert_image_to_webp(source_path, target_path, **_kwargs):
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                target_path.write_text("webp", encoding="utf-8")
+
             with (
                 contextlib.redirect_stdout(io.StringIO()),
                 mock.patch.object(generate_pages, "REPO_ROOT", root),
@@ -721,6 +815,11 @@ class GeneratePagesTests(unittest.TestCase):
                 mock.patch.object(generate_pages, "WORK_PAGE_TEMPLATE", template),
                 mock.patch.object(generate_pages, "SITE_SOURCE_ASSETS_DIR", source_assets),
                 mock.patch.object(generate_pages, "vimeo_thumbnail_url", return_value=None),
+                mock.patch.object(
+                    generate_pages,
+                    "convert_image_to_webp",
+                    side_effect=fake_convert_image_to_webp,
+                ),
             ):
                 failures = generate_pages.generate(selected_slug="sample-work")
 
@@ -742,8 +841,10 @@ class GeneratePagesTests(unittest.TestCase):
             self.assertIn("../../js/portfolio-grid.js", generated)
             self.assertIn("../../js/local-preview-links.js", generated)
             self.assertIn("../../js/preferences.js", generated)
+            self.assertIn("../../js/theme-init.js", generated)
             self.assertIn("../../js/language-init.js", generated)
             self.assertIn("../../js/language-toggle.js", generated)
+            self.assertIn("../../js/lazy-media.js", generated)
 
     def test_commercial_loads_film_folder_and_renders_film_tracker(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -883,8 +984,53 @@ class GeneratePagesTests(unittest.TestCase):
             rendered = generate_pages.render_works_index_grid_item(work, output_html)
 
         self.assertIn("<video", rendered)
-        self.assertIn("trailer/1_trailer.mp4", rendered)
-        self.assertIn("muted playsinline autoplay loop", rendered)
+        self.assertIn('data-src="../editable-content/work/films/sample-work/trailer/1_trailer.mp4"', rendered)
+        self.assertIn('preload="none"', rendered)
+        self.assertIn('data-autoplay="true"', rendered)
+
+    def test_works_index_grid_uses_generated_video_preview_when_available(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_html = root / "generated-website" / "index.html"
+            source_media = (
+                root
+                / "editable-content"
+                / "work"
+                / "commercials"
+                / "sample-work"
+                / "grid_preview"
+                / "1_preview.mp4"
+            )
+            generated_media = (
+                root
+                / "generated-website"
+                / "media"
+                / "editable-content"
+                / "work"
+                / "commercials"
+                / "sample-work"
+                / "grid_preview"
+                / "1_preview-grid-preview-720p-v3.mp4"
+            )
+            work = generate_pages.WorkContent(
+                slug="sample-work",
+                title="Sample Work",
+                trailer_embed_url=None,
+                trailer_poster_url=None,
+                note=generate_pages.NoteContent(title_html="Title", body_html="Body"),
+                note_media=generate_pages.MediaItem(1, Path("note.webp"), "image"),
+                highlight_media=(),
+                bts_text_html="Credits",
+                bts_media=(),
+                category="commercials",
+                grid_preview_media=generate_pages.MediaItem(1, source_media, "video"),
+                grid_display_media=generate_pages.MediaItem(1, generated_media, "video"),
+            )
+
+            rendered = generate_pages.render_works_index_grid_item(work, output_html)
+
+        self.assertIn("media/editable-content/work/commercials/sample-work/grid_preview/1_preview-grid-preview-720p-v3.mp4", rendered)
+        self.assertNotIn("../editable-content/work/commercials/sample-work/grid_preview/1_preview.mp4", rendered)
 
     def test_works_index_grid_uses_optional_grid_preview_before_primary_preview(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -927,6 +1073,8 @@ class GeneratePagesTests(unittest.TestCase):
 
         self.assertIn("<img", rendered)
         self.assertIn("grid_preview/1_preview.webp", rendered)
+        self.assertIn("srcset=", rendered)
+        self.assertIn("sizes=", rendered)
         self.assertNotIn("film/1_film.mp4", rendered)
 
     def test_load_work_rejects_multiple_grid_preview_media(self):
@@ -960,6 +1108,62 @@ class GeneratePagesTests(unittest.TestCase):
         message = str(context.exception)
         self.assertIn("multiple grid preview media files", message)
         self.assertIn("Keep exactly one", message)
+
+    def test_load_work_optimizes_video_grid_preview(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "editable-content" / "work" / "commercials" / "sample-work"
+            generated_site = root / "generated-website"
+
+            (source / "film").mkdir(parents=True)
+            (source / "film" / "film_link.md").write_text(
+                "https://vimeo.com/123456789",
+                encoding="utf-8",
+            )
+            (source / "note").mkdir(parents=True)
+            (source / "note" / "1_text.md").write_text(
+                "# Sample Work\n\nA sample note.",
+                encoding="utf-8",
+            )
+            (source / "note" / "2_note.webp").write_text("webp", encoding="utf-8")
+            (source / "highlight").mkdir(parents=True)
+            (source / "highlight" / "1_highlight.webp").write_text("webp", encoding="utf-8")
+            (source / "bts").mkdir(parents=True)
+            (source / "bts" / "text.md").write_text("Credits", encoding="utf-8")
+            (source / "bts" / "1_bts.webp").write_text("webp", encoding="utf-8")
+            (source / "grid_preview").mkdir()
+            (source / "grid_preview" / "1_preview.mp4").write_text("mp4", encoding="utf-8")
+
+            def fake_convert_image_to_webp(_source_path, target_path, **_kwargs):
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                target_path.write_text("webp", encoding="utf-8")
+
+            def fake_transcode_grid_preview_video(_source_path, target_path):
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                target_path.write_text("mp4", encoding="utf-8")
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+                mock.patch.object(generate_pages, "vimeo_thumbnail_url", return_value=None),
+                mock.patch.object(
+                    generate_pages,
+                    "convert_image_to_webp",
+                    side_effect=fake_convert_image_to_webp,
+                ),
+                mock.patch.object(
+                    generate_pages,
+                    "transcode_grid_preview_video",
+                    side_effect=fake_transcode_grid_preview_video,
+                ) as transcode,
+            ):
+                work = generate_pages.load_work(source, write_assets=True)
+
+        transcode.assert_called_once()
+        self.assertIsNotNone(work.grid_preview_media)
+        self.assertIsNotNone(work.grid_display_media)
+        self.assertEqual(work.grid_preview_media.path.name, "1_preview.mp4")
+        self.assertEqual(work.grid_display_media.path.name, "1_preview-grid-preview-720p-v3.mp4")
 
     def test_render_home_uses_category_sections_and_trailer_posters(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1013,9 +1217,11 @@ class GeneratePagesTests(unittest.TestCase):
                 "{{PORTFOLIO_GRID_JS_URL}}"
                 "{{LOCAL_PREVIEW_LINKS_JS_URL}}"
                 "{{PREFERENCES_JS_URL}}"
+                "{{THEME_INIT_JS_URL}}"
                 "{{LANGUAGE_INIT_JS_URL}}"
                 "{{LANGUAGE_TOGGLE_JS_URL}}"
                 "{{THEME_TOGGLE_JS_URL}}"
+                "{{LAZY_MEDIA_JS_URL}}"
                 "{{SITE_HEADER_ACTIONS}}"
                 "{{ABOUT_TITLE_CHINESE}}"
                 "{{ABOUT_BODY_HTML_CHINESE}}"
@@ -1063,9 +1269,11 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertIn("css/site-header.css", rendered)
         self.assertIn("css/shared-effects.css", rendered)
         self.assertIn("js/preferences.js", rendered)
+        self.assertIn("js/theme-init.js", rendered)
         self.assertIn("js/language-init.js", rendered)
         self.assertIn("js/language-toggle.js", rendered)
         self.assertIn("js/theme-toggle.js", rendered)
+        self.assertIn("js/lazy-media.js", rendered)
         self.assertIn("data-language-menu", rendered)
         self.assertIn("data-language-option=\"cn\"", rendered)
         self.assertIn("data-language-option=\"es\"", rendered)

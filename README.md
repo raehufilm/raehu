@@ -205,6 +205,8 @@ grid_preview/
 
 If you do not create `grid_preview/`, the website automatically uses the `trailer/` or `film/` media. If the first section is a Vimeo link, it uses the Vimeo preview image.
 
+If `grid_preview/` contains an MP4, the generator automatically makes a short, muted, compressed preview video for the homepage grid. You do not need to edit or compress that video by hand.
+
 ### Note
 
 Put the page title and note text in one numbered Markdown file.
@@ -349,7 +351,7 @@ Hard requirements:
 - Preserve user-created local files and uncommitted work. Check `git status` before editing or committing.
 - Keep the site static: no npm, no package manager, no framework, no deploy-time build.
 - `scripts/generate_pages.py` must stay Python-standard-library only.
-- `ffmpeg` is the local image conversion tool for raw image media.
+- `ffmpeg` is the local media conversion tool for raw images and optimized grid preview videos.
 - Generated HTML is committed output. Source content lives in `editable-content/about/` and `editable-content/work/`.
 - Optional translated Markdown files use the normal filename plus `_chinese` or `_spanish` before `.md`, for example `text.md`, `text_chinese.md`, and `text_spanish.md`. Missing translated files must fall back to English content.
 - About media is discovered from `editable-content/about/` by the same `NUMBER_` prefix convention as work media. Do not add special-case filenames like `image.jpg`.
@@ -377,6 +379,7 @@ Media rules:
 - Commercials use `film/` as the first section and it must contain exactly one source: either a non-empty `film_link.md`, one numbered image, or one numbered `.mp4`.
 - The first section may also contain optional `additional_links.md`. It does not count as the first-section source and must contain one Markdown link per non-empty line.
 - `grid_preview/` is optional. If present, it must contain exactly one numbered image or `.mp4` and it overrides the homepage work-grid preview. If missing, the work grid falls back to the first-section media or Vimeo thumbnail.
+- Grid preview videos used by the homepage work grid must render through generated optimized MP4s under `generated-website/media/`: max 720px wide, short, muted, compressed, faststart, and skipped when already current.
 - `note/` must contain exactly one numbered Markdown file and exactly one numbered media item. Together they must use positions `1_` and `2_` exactly once so the user can swap left/right layout by renaming files.
 - Total publishable work media must stay under 800 MB.
 

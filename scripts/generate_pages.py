@@ -58,6 +58,14 @@ IGNORED_NAMES = {".DS_Store"}
 IMAGE_EXTENSIONS = {".avif", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
 VIDEO_EXTENSIONS = {".mp4"}
 WEB_IMAGE_EXTENSION = ".webp"
+RESPONSIVE_IMAGE_WIDTHS = (480, 960, 1440, 1920)
+GRID_PREVIEW_VIDEO_EXTENSION = ".mp4"
+GRID_PREVIEW_VIDEO_VERSION = "v3"
+GRID_PREVIEW_VIDEO_DURATION_SECONDS = 6
+GRID_PREVIEW_VIDEO_MAX_WIDTH = 720
+GRID_PREVIEW_VIDEO_BITRATE = "1200k"
+GRID_PREVIEW_VIDEO_MAXRATE = "1400k"
+GRID_PREVIEW_VIDEO_BUFSIZE = "2400k"
 GRID_SPANS_BY_ROW_SIZE = {
     1: ((12,),),
     2: ((7, 5), (5, 7), (8, 4), (4, 8)),
@@ -133,6 +141,7 @@ class WorkContent:
     category: str = ""
     trailer_media: MediaItem | None = None
     grid_preview_media: MediaItem | None = None
+    grid_display_media: MediaItem | None = None
     primary_links: tuple[PrimaryLink, ...] = ()
     bts_text_html_chinese: str | None = None
     bts_text_html_spanish: str | None = None
@@ -441,17 +450,30 @@ def render_about_image(item: MediaItem | None, output_html: Path) -> str:
     if item is None:
         return ""
 
-    src = output_relative_url(output_html, item.path)
+    image_html = image_tag(
+        item,
+        output_html,
+        "Rae Hu",
+        class_name="about-image",
+        loading="lazy",
+        sizes="(max-width: 900px) 100vw, 42vw",
+    )
     return f"""        <figure class="about-image-wrap fade-up">
-          <img class="about-image" src="{html_escape(src)}" alt="Rae Hu">
+          {image_html}
         </figure>"""
 
 
 def load_about_image(
     about_dir: Path = EDITABLE_ABOUT_DIR,
     write_assets: bool = False,
+    check_generated_assets: bool = False,
 ) -> MediaItem | None:
-    media = ordered_media(about_dir, write_assets=write_assets, require_media=False)
+    media = ordered_media(
+        about_dir,
+        write_assets=write_assets,
+        require_media=False,
+        check_generated_assets=check_generated_assets,
+    )
     if not media:
         return None
     if len(media) > 1:
@@ -472,6 +494,7 @@ def load_about_content(
     about_dir: Path = EDITABLE_ABOUT_DIR,
     output_html: Path = HOME_OUTPUT_HTML,
     write_assets: bool = False,
+    check_generated_assets: bool = False,
 ) -> AboutContent:
     title_html, body_html, contact_html = parse_about_text(text_path)
     chinese_text_path = alternate_language_path(text_path, "chinese")
@@ -493,7 +516,11 @@ def load_about_content(
         body_html_spanish = body_html
         contact_html_spanish = contact_html
     quote_html = parse_about_quote(quote_path)
-    image = load_about_image(about_dir, write_assets=write_assets)
+    image = load_about_image(
+        about_dir,
+        write_assets=write_assets,
+        check_generated_assets=check_generated_assets,
+    )
     return AboutContent(
         title_html=title_html,
         body_html=body_html,
@@ -660,7 +687,12 @@ def needs_conversion(source: Path, target: Path) -> bool:
     return source.stat().st_mtime_ns > target.stat().st_mtime_ns
 
 
-def convert_image_to_webp(source: Path, target: Path) -> None:
+def convert_image_to_webp(
+    source: Path,
+    target: Path,
+    max_width: int = 1920,
+    quality: int = 82,
+) -> None:
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
         raise PageGenerationError(
@@ -677,11 +709,11 @@ def convert_image_to_webp(source: Path, target: Path) -> None:
         "-i",
         str(source),
         "-vf",
-        r"scale=w=min(1920\,iw):h=-2",
+        f"scale=w=min({max_width}\\,iw):h=-2",
         "-c:v",
         "libwebp",
         "-quality",
-        "82",
+        str(quality),
         "-compression_level",
         "6",
         str(target),
@@ -692,13 +724,191 @@ def convert_image_to_webp(source: Path, target: Path) -> None:
         raise PageGenerationError(f"ffmpeg failed to convert {source} to {target}") from exc
 
 
-def canonical_media_path(path: Path, write_assets: bool) -> Path:
+def require_ffmpeg() -> str:
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise PageGenerationError(
+            "ffmpeg is required to optimize media. Install ffmpeg and rerun generate_website."
+        )
+    return ffmpeg
+
+
+def responsive_media_dir() -> Path:
+    return GENERATED_WEBSITE_DIR / "media"
+
+
+def responsive_image_variant_path(source: Path, width: int) -> Path:
+    try:
+        relative_source = source.relative_to(REPO_ROOT)
+    except ValueError:
+        digest = hashlib.sha1(str(source).encode("utf-8")).hexdigest()[:12]
+        relative_source = Path("external") / digest / source.name
+
+    return (
+        responsive_media_dir()
+        / relative_source.parent
+        / f"{relative_source.stem}-{width}{WEB_IMAGE_EXTENSION}"
+    )
+
+
+def responsive_image_variant_paths(source: Path) -> tuple[Path, ...]:
+    return tuple(responsive_image_variant_path(source, width) for width in RESPONSIVE_IMAGE_WIDTHS)
+
+
+def generated_media_path(source: Path, filename: str) -> Path:
+    try:
+        relative_source = source.relative_to(REPO_ROOT)
+    except ValueError:
+        digest = hashlib.sha1(str(source).encode("utf-8")).hexdigest()[:12]
+        relative_source = Path("external") / digest / source.name
+
+    return responsive_media_dir() / relative_source.parent / filename
+
+
+def is_repo_content_path(source: Path) -> bool:
+    try:
+        source.relative_to(REPO_ROOT)
+    except ValueError:
+        return False
+    return True
+
+
+def ensure_responsive_image_variants(
+    source: Path,
+    write_assets: bool,
+    check_generated_assets: bool = False,
+) -> None:
+    if not write_assets and not check_generated_assets:
+        return
+    if not is_repo_content_path(source):
+        return
+
+    for width, target in zip(RESPONSIVE_IMAGE_WIDTHS, responsive_image_variant_paths(source)):
+        if needs_conversion(source, target):
+            if not write_assets:
+                raise PageGenerationError(
+                    f"Responsive image variant is missing or stale for {source}: {target}. "
+                    "Run python3 scripts/generate_pages.py."
+                )
+            convert_image_to_webp(source, target, max_width=width, quality=78)
+
+
+def optimized_grid_preview_video_path(source: Path) -> Path:
+    filename = (
+        f"{source.stem}-grid-preview-{GRID_PREVIEW_VIDEO_MAX_WIDTH}p-"
+        f"{GRID_PREVIEW_VIDEO_VERSION}{GRID_PREVIEW_VIDEO_EXTENSION}"
+    )
+    return generated_media_path(source, filename)
+
+
+def transcode_grid_preview_video(source: Path, target: Path) -> None:
+    ffmpeg = require_ffmpeg()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    command = [
+        ffmpeg,
+        "-y",
+        "-loglevel",
+        "error",
+        "-i",
+        str(source),
+        "-map",
+        "0:v:0",
+        "-t",
+        str(GRID_PREVIEW_VIDEO_DURATION_SECONDS),
+        "-vf",
+        f"scale=w=min({GRID_PREVIEW_VIDEO_MAX_WIDTH}\\,iw):h=-2",
+        "-an",
+        "-dn",
+        "-map_metadata",
+        "-1",
+        "-map_chapters",
+        "-1",
+        "-c:v",
+        "libx264",
+        "-profile:v",
+        "main",
+        "-pix_fmt",
+        "yuv420p",
+        "-preset",
+        "medium",
+        "-b:v",
+        GRID_PREVIEW_VIDEO_BITRATE,
+        "-maxrate",
+        GRID_PREVIEW_VIDEO_MAXRATE,
+        "-bufsize",
+        GRID_PREVIEW_VIDEO_BUFSIZE,
+        "-movflags",
+        "+faststart",
+        "-write_tmcd",
+        "0",
+        str(target),
+    ]
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as exc:
+        raise PageGenerationError(
+            f"ffmpeg failed to optimize grid preview video {source} to {target}. "
+            "Make sure ffmpeg includes the libx264 encoder."
+        ) from exc
+
+
+def ensure_optimized_grid_preview_video(
+    source: Path,
+    write_assets: bool,
+    check_generated_assets: bool = False,
+) -> Path:
+    target = optimized_grid_preview_video_path(source)
+    if not write_assets and not check_generated_assets:
+        return target
+    if not is_repo_content_path(source):
+        return target
+    if not needs_conversion(source, target):
+        return target
+    if not write_assets:
+        raise PageGenerationError(
+            f"Optimized grid preview video is missing or stale for {source}: {target}. "
+            "Run python3 scripts/generate_pages.py."
+        )
+    transcode_grid_preview_video(source, target)
+    return target
+
+
+def grid_display_media_for(
+    item: MediaItem | None,
+    write_assets: bool,
+    check_generated_assets: bool = False,
+) -> MediaItem | None:
+    if item is None:
+        return None
+    if item.kind != "video":
+        return item
+    return MediaItem(
+        index=item.index,
+        path=ensure_optimized_grid_preview_video(
+            item.path,
+            write_assets=write_assets,
+            check_generated_assets=check_generated_assets,
+        ),
+        kind=item.kind,
+    )
+
+
+def canonical_media_path(
+    path: Path,
+    write_assets: bool,
+    check_generated_assets: bool = False,
+) -> Path:
     kind = media_kind(path)
     if kind != "image":
         return path
 
     target = converted_image_path(path)
     if path.suffix.lower() == WEB_IMAGE_EXTENSION:
+        ensure_responsive_image_variants(
+            path,
+            write_assets=write_assets,
+            check_generated_assets=check_generated_assets,
+        )
         return path
 
     if needs_conversion(path, target):
@@ -708,6 +918,11 @@ def canonical_media_path(path: Path, write_assets: bool) -> Path:
                 "Run python3 scripts/generate_pages.py."
             )
         convert_image_to_webp(path, target)
+    ensure_responsive_image_variants(
+        target,
+        write_assets=write_assets,
+        check_generated_assets=check_generated_assets,
+    )
     return target
 
 
@@ -811,6 +1026,7 @@ def ordered_media(
     section_dir: Path,
     write_assets: bool = False,
     require_media: bool = True,
+    check_generated_assets: bool = False,
 ) -> tuple[MediaItem, ...]:
     if not section_dir.is_dir():
         raise PageGenerationError(f"Missing required section folder: {section_dir}")
@@ -826,7 +1042,11 @@ def ordered_media(
         if not is_media_path(path):
             continue
         index = media_index(path)
-        canonical_path = canonical_media_path(path, write_assets=write_assets)
+        canonical_path = canonical_media_path(
+            path,
+            write_assets=write_assets,
+            check_generated_assets=check_generated_assets,
+        )
         if canonical_path in seen_paths:
             continue
         if index in seen_indexes:
@@ -858,6 +1078,57 @@ def generated_site_relative_url(output_html: Path, *parts: str) -> str:
     return output_relative_url(output_html, GENERATED_WEBSITE_DIR.joinpath(*parts))
 
 
+def responsive_image_srcset(source: Path, output_html: Path) -> str:
+    return ", ".join(
+        f"{output_relative_url(output_html, responsive_image_variant_path(source, width))} {width}w"
+        for width in RESPONSIVE_IMAGE_WIDTHS
+    )
+
+
+def image_tag(
+    item: MediaItem,
+    output_html: Path,
+    alt: str,
+    class_name: str | None = None,
+    loading: str = "lazy",
+    sizes: str = "100vw",
+    fetchpriority: str | None = None,
+) -> str:
+    src = output_relative_url(output_html, item.path)
+    class_attr = f' class="{class_name}"' if class_name else ""
+    fetchpriority_attr = f' fetchpriority="{fetchpriority}"' if fetchpriority else ""
+    return (
+        f'<img{class_attr} src="{src}" srcset="{responsive_image_srcset(item.path, output_html)}" '
+        f'sizes="{html_escape(sizes)}" alt="{html_escape(alt)}" '
+        f'loading="{html_escape(loading)}" decoding="async"{fetchpriority_attr}>'
+    )
+
+
+def video_tag(
+    item: MediaItem,
+    output_html: Path,
+    label: str,
+    class_name: str | None = None,
+    autoplay: bool = True,
+    controls: bool = False,
+    lazy: bool = True,
+    preload: str = "none",
+    muted: bool = True,
+) -> str:
+    src = output_relative_url(output_html, item.path)
+    class_attr = f' class="{class_name}"' if class_name else ""
+    controls_attr = " controls" if controls else ""
+    muted_attr = " muted" if muted else ""
+    autoplay_attr = " autoplay" if autoplay and not lazy else ""
+    src_attr = f' data-src="{src}" data-lazy-video' if lazy else f' src="{src}"'
+    data_autoplay = ' data-autoplay="true"' if autoplay and lazy else ""
+    return (
+        f'<video{class_attr}{src_attr}{muted_attr} playsinline{autoplay_attr} loop{controls_attr} '
+        f'preload="{html_escape(preload)}"{data_autoplay} '
+        f'aria-label="{html_escape(label)}"></video>'
+    )
+
+
 def work_output_html(work: WorkContent) -> Path:
     return GENERATED_WEBSITE_DIR / work.category / work.slug / "index.html"
 
@@ -885,17 +1156,27 @@ def media_tag(
     class_name: str | None = None,
     active: bool = False,
 ) -> str:
-    src = output_relative_url(output_html, item.path)
     class_attr = ""
     if class_name:
         classes = class_name + (" is-active" if active else "")
-        class_attr = f' class="{classes}"'
+    else:
+        classes = ""
 
     if item.kind == "image":
-        return f'<img{class_attr} src="{src}" alt="{html_escape(alt)}">'
-    return (
-        f'<video{class_attr} src="{src}" muted playsinline autoplay loop '
-        f'aria-label="{html_escape(alt)}"></video>'
+        return image_tag(
+            item,
+            output_html,
+            alt,
+            class_name=classes or None,
+        )
+    return video_tag(
+        item,
+        output_html,
+        alt,
+        class_name=classes or None,
+        autoplay=True,
+        lazy=True,
+        preload="none",
     )
 
 
@@ -911,6 +1192,7 @@ def load_primary_media_source(
     section_name: str,
     link_file_name: str,
     write_assets: bool = False,
+    check_generated_assets: bool = False,
     vimeo_thumbnail_cache: dict[str, str] | None = None,
     fetch_vimeo_thumbnails: bool = True,
 ) -> tuple[str | None, str | None, MediaItem | None]:
@@ -923,6 +1205,7 @@ def load_primary_media_source(
         source_dir,
         write_assets=write_assets,
         require_media=False,
+        check_generated_assets=check_generated_assets,
     )
 
     sources = []
@@ -984,6 +1267,7 @@ def load_localized_markdown_lines(path: Path) -> tuple[str, str, str]:
 def load_optional_grid_preview_media(
     work_dir: Path,
     write_assets: bool = False,
+    check_generated_assets: bool = False,
 ) -> MediaItem | None:
     preview_dir = work_dir / "grid_preview"
     if not preview_dir.exists():
@@ -998,6 +1282,7 @@ def load_optional_grid_preview_media(
         preview_dir,
         write_assets=write_assets,
         require_media=False,
+        check_generated_assets=check_generated_assets,
     )
     if len(preview_media) != 1:
         if not preview_media:
@@ -1016,6 +1301,7 @@ def load_optional_grid_preview_media(
 def load_work(
     work_dir: Path,
     write_assets: bool = False,
+    check_generated_assets: bool = False,
     vimeo_thumbnail_cache: dict[str, str] | None = None,
     fetch_vimeo_thumbnails: bool = True,
 ) -> WorkContent:
@@ -1028,22 +1314,41 @@ def load_work(
         primary_section,
         primary_link_file_for_section(primary_section),
         write_assets=write_assets,
+        check_generated_assets=check_generated_assets,
         vimeo_thumbnail_cache=vimeo_thumbnail_cache,
         fetch_vimeo_thumbnails=fetch_vimeo_thumbnails,
     )
     primary_links = load_primary_links(primary_dir / "additional_links.md")
     note_dir = work_dir / "note"
     note = load_note_content(note_dir)
-    note_media = ordered_media(note_dir, write_assets=write_assets)
-    highlight_media = ordered_media(work_dir / "highlight", write_assets=write_assets)
+    note_media = ordered_media(
+        note_dir,
+        write_assets=write_assets,
+        check_generated_assets=check_generated_assets,
+    )
+    highlight_media = ordered_media(
+        work_dir / "highlight",
+        write_assets=write_assets,
+        check_generated_assets=check_generated_assets,
+    )
     grid_preview_media = load_optional_grid_preview_media(
         work_dir,
         write_assets=write_assets,
+        check_generated_assets=check_generated_assets,
     )
     bts_text_html, bts_text_html_chinese, bts_text_html_spanish = load_localized_markdown_lines(
         work_dir / "bts" / "text.md"
     )
-    bts_media = ordered_media(work_dir / "bts", write_assets=write_assets)
+    bts_media = ordered_media(
+        work_dir / "bts",
+        write_assets=write_assets,
+        check_generated_assets=check_generated_assets,
+    )
+    grid_display_media = grid_display_media_for(
+        grid_preview_media or trailer_media,
+        write_assets=write_assets,
+        check_generated_assets=check_generated_assets,
+    )
 
     note_media_item = validate_note_content(note_dir, note, note_media)
 
@@ -1062,6 +1367,7 @@ def load_work(
         category=category,
         trailer_media=trailer_media,
         grid_preview_media=grid_preview_media,
+        grid_display_media=grid_display_media,
         primary_links=primary_links,
     )
 
@@ -1177,15 +1483,26 @@ def render_trailer_media(
     title: str,
     section_name: str,
 ) -> str:
-    src = output_relative_url(output_html, item.path)
     if item.kind == "image":
-        return (
-            f'<img class="trailer-poster" src="{src}" '
-            f'alt="{html_escape(title)} {html_escape(section_name)}">'
+        return image_tag(
+            item,
+            output_html,
+            f"{title} {section_name}",
+            class_name="trailer-poster",
+            loading="eager",
+            sizes="100vw",
+            fetchpriority="high",
         )
-    return (
-        f'<video class="trailer-poster trailer-video" src="{src}" '
-        "controls playsinline preload=\"metadata\"></video>"
+    return video_tag(
+        item,
+        output_html,
+        f"{title} {section_name}",
+        class_name="trailer-poster trailer-video",
+        autoplay=False,
+        controls=True,
+        lazy=False,
+        preload="metadata",
+        muted=False,
     )
 
 
@@ -1251,7 +1568,8 @@ def render_trailer_section(work: WorkContent, output_html: Path) -> str:
         poster_html = (
             f'<img class="trailer-poster" '
             f'src="{html_escape(work.trailer_poster_url)}" '
-            f'alt="{html_escape(work.title)} {escaped_section}">'
+            f'alt="{html_escape(work.title)} {escaped_section}" '
+            'loading="eager" decoding="async" fetchpriority="high">'
         )
     else:
         poster_html = '<div class="trailer-poster trailer-poster--placeholder" aria-hidden="true"></div>'
@@ -1310,7 +1628,7 @@ def render_note_section(work: WorkContent, output_html: Path) -> str:
             key=lambda item: item[0],
         )
     )
-    return f"""    <section class="work-page work-page--note"
+    return f"""    <section class="work-page work-page--note content-visibility-auto"
              id="note"
              data-section-page="note"
              data-section-title="Note"
@@ -1332,7 +1650,7 @@ def render_highlight_section(work: WorkContent, output_html: Path) -> str:
         len(work.highlight_media),
         f"{work.category}/{work.slug}",
     )
-    return f"""    <section class="work-page work-page--highlight"
+    return f"""    <section class="work-page work-page--highlight content-visibility-auto"
              id="highlight"
              data-section-page="highlight"
              data-section-title="Highlight"
@@ -1399,7 +1717,7 @@ def render_bts_section(work: WorkContent, output_html: Path) -> str:
             </svg>
           </button>"""
 
-    return f"""    <section class="work-page work-page--bts"
+    return f"""    <section class="work-page work-page--bts content-visibility-auto"
              id="bts"
              data-section-page="bts"
              data-section-title="BTS"
@@ -1528,6 +1846,11 @@ def render_work(work: WorkContent, template: str, output_html: Path) -> str:
             "js",
             "preferences.js",
         ),
+        "{{THEME_INIT_JS_URL}}": generated_site_relative_url(
+            output_html,
+            "js",
+            "theme-init.js",
+        ),
         "{{LANGUAGE_INIT_JS_URL}}": generated_site_relative_url(
             output_html,
             "js",
@@ -1543,6 +1866,11 @@ def render_work(work: WorkContent, template: str, output_html: Path) -> str:
             "js",
             "theme-toggle.js",
         ),
+        "{{LAZY_MEDIA_JS_URL}}": generated_site_relative_url(
+            output_html,
+            "js",
+            "lazy-media.js",
+        ),
         "{{SITE_HEADER_ACTIONS}}": render_site_header_actions(),
         "{{SECTION_TRACKER_LINKS}}": render_tracker_links(work_section_order(work)),
         "{{WORK_SECTIONS}}": "\n\n".join(sections),
@@ -1554,23 +1882,30 @@ def render_work(work: WorkContent, template: str, output_html: Path) -> str:
 def render_works_index_grid_item(work: WorkContent, output_html: Path) -> str:
     href = work_public_url_from(output_html, work)
     title = html_escape(work.title)
-    preview_media = work.grid_preview_media or work.trailer_media
+    preview_media = work.grid_display_media or work.grid_preview_media or work.trailer_media
     if work.grid_preview_media:
         preview_label = html_escape("grid preview")
     else:
         preview_label = html_escape(f"{primary_section_for_category(work.category)} preview")
     if preview_media:
-        src = output_relative_url(output_html, preview_media.path)
         if preview_media.kind == "video":
-            preview_html = (
-                f'<video class="media-hover-zoom-target" src="{src}" '
-                'muted playsinline autoplay loop preload="metadata" '
-                f'aria-label="{title} {preview_label}"></video>'
+            preview_html = video_tag(
+                preview_media,
+                output_html,
+                f"{work.title} {preview_label}",
+                class_name="media-hover-zoom-target",
+                autoplay=True,
+                lazy=True,
+                preload="none",
             )
         else:
-            preview_html = (
-                f'<img class="media-hover-zoom-target" src="{src}" '
-                f'alt="{title} {preview_label}" loading="lazy" decoding="async">'
+            preview_html = image_tag(
+                preview_media,
+                output_html,
+                f"{work.title} {preview_label}",
+                class_name="media-hover-zoom-target",
+                loading="lazy",
+                sizes="(max-width: 900px) 100vw, 33vw",
             )
     elif work.trailer_poster_url:
         preview_html = (
@@ -1578,10 +1913,13 @@ def render_works_index_grid_item(work: WorkContent, output_html: Path) -> str:
             f'alt="{title} {preview_label}" loading="lazy" decoding="async">'
         )
     else:
-        poster_src = output_relative_url(output_html, work.note_media.path)
-        preview_html = (
-            f'<img class="media-hover-zoom-target" src="{poster_src}" '
-            f'alt="{title} {preview_label}" loading="lazy" decoding="async">'
+        preview_html = image_tag(
+            work.note_media,
+            output_html,
+            f"{work.title} {preview_label}",
+            class_name="media-hover-zoom-target",
+            loading="lazy",
+            sizes="(max-width: 900px) 100vw, 33vw",
         )
 
     return f"""        <a class="works-grid-link media-hover-zoom" href="{href}" aria-label="{title}">
@@ -1608,7 +1946,7 @@ def render_works_index_section(
     if not grid_items:
         empty = '        <p class="works-index-empty">Coming soon.</p>'
 
-    return f"""    <section class="works-index-page fade-up"
+    return f"""    <section class="works-index-page fade-up content-visibility-auto"
              id="{html_escape(category)}"
              data-work-category-section="{html_escape(category)}"
              data-section-title="{html_escape(category_label(category))}"
@@ -1675,6 +2013,11 @@ def render_home(
             "js",
             "preferences.js",
         ),
+        "{{THEME_INIT_JS_URL}}": generated_site_relative_url(
+            output_html,
+            "js",
+            "theme-init.js",
+        ),
         "{{LANGUAGE_INIT_JS_URL}}": generated_site_relative_url(
             output_html,
             "js",
@@ -1689,6 +2032,11 @@ def render_home(
             output_html,
             "js",
             "theme-toggle.js",
+        ),
+        "{{LAZY_MEDIA_JS_URL}}": generated_site_relative_url(
+            output_html,
+            "js",
+            "lazy-media.js",
         ),
         "{{SITE_HEADER_ACTIONS}}": render_site_header_actions(),
         "{{ROOT_SECTION_TRACKER_LINKS}}": render_tracker_links(ROOT_SECTION_ORDER),
@@ -1736,6 +2084,19 @@ def visible_files(root: Path) -> list[Path]:
     )
 
 
+def minify_svg_text(svg: str) -> str:
+    svg = re.sub(r"<!--.*?-->", "", svg, flags=re.S)
+    svg = re.sub(r">\s+<", "><", svg)
+    svg = re.sub(r"\s{2,}", " ", svg)
+    return svg.strip() + "\n"
+
+
+def generated_static_asset_bytes(path: Path) -> bytes:
+    if path.suffix.lower() == ".svg":
+        return minify_svg_text(path.read_text(encoding="utf-8")).encode("utf-8")
+    return path.read_bytes()
+
+
 def sync_static_assets(check: bool) -> int:
     failures = 0
     for dirname in STATIC_ASSET_DIRS:
@@ -1744,7 +2105,7 @@ def sync_static_assets(check: bool) -> int:
 
         if check:
             source_files = {
-                path.relative_to(source_dir): path.read_bytes()
+                path.relative_to(source_dir): generated_static_asset_bytes(path)
                 for path in visible_files(source_dir)
             }
             output_files = {
@@ -1762,7 +2123,13 @@ def sync_static_assets(check: bool) -> int:
         if output_dir.exists():
             shutil.rmtree(output_dir)
         if source_dir.exists():
-            shutil.copytree(source_dir, output_dir)
+            for source in visible_files(source_dir):
+                destination = output_dir / source.relative_to(source_dir)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                if source.suffix.lower() == ".svg":
+                    destination.write_bytes(generated_static_asset_bytes(source))
+                else:
+                    shutil.copy2(source, destination)
             print(f"synced {output_dir.relative_to(REPO_ROOT)}")
 
     return failures
@@ -1809,6 +2176,7 @@ def generate(check: bool = False, selected_slug: str | None = None) -> int:
         work = load_work(
             work_dir,
             write_assets=not check,
+            check_generated_assets=check,
             vimeo_thumbnail_cache=vimeo_thumbnail_cache,
             fetch_vimeo_thumbnails=not check,
         )
@@ -1819,7 +2187,10 @@ def generate(check: bool = False, selected_slug: str | None = None) -> int:
 
     if not selected_slug:
         home_template = read_text(HOME_TEMPLATE)
-        about = load_about_content(write_assets=not check)
+        about = load_about_content(
+            write_assets=not check,
+            check_generated_assets=check,
+        )
         home_rendered = render_home(tuple(works), about, home_template, HOME_OUTPUT_HTML)
         failures += write_or_check(HOME_OUTPUT_HTML, home_rendered, check)
 
