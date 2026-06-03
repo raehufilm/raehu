@@ -332,6 +332,26 @@ https://raehu.com/commercials/<work-folder-name>/
 
 Do not edit generated HTML files directly. Edit the folders under `editable-content/work/`, then run `generate_website`.
 
+The generator only commits and publishes the website package:
+
+```text
+editable-content/
+generated-website/
+generator-templates/
+site-source-assets/
+scripts/
+tests/
+.github/workflows/
+.githooks/
+.gitignore
+README.md
+docs/
+vimeo-thumbnails.json
+generate_website
+```
+
+Other local files are ignored by the generator unless they are moved into one of those places.
+
 ### What the Other Folders Mean
 
 ```text
@@ -353,6 +373,7 @@ Hard requirements:
 - `scripts/generate_pages.py` must stay Python-standard-library only.
 - `ffmpeg` is the local media conversion tool for raw images and optimized grid preview videos.
 - Generated HTML is committed output. Source content lives in `editable-content/about/` and `editable-content/work/`.
+- `generate_website` must use its explicit package allowlist for staging, media policy, and local-change preservation. Do not make whole-worktree dirty files block publishing unless they are inside that allowlist.
 - Optional translated Markdown files use the normal filename plus `_chinese` or `_spanish` before `.md`, for example `text.md`, `text_chinese.md`, and `text_spanish.md`. Missing translated files must fall back to English content.
 - About media is discovered from `editable-content/about/` by the same `NUMBER_` prefix convention as work media. Do not add special-case filenames like `image.jpg`.
 - Work slugs must stay unique across `films` and `commercials` so generated links and tooling remain unambiguous.

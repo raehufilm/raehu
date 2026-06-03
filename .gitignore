@@ -6,6 +6,7 @@
 Thumbs.db
 __pycache__/
 *.py[cod]
+generate_website.log
 
 # editable-content/ media sections commit only web-ready media.
 # Raw image/video drops can stay local; the generator converts images to WebP.

@@ -12,6 +12,27 @@ EXPECTED_GIT_EMAIL="283902148+raehufilm@users.noreply.github.com"
 DRY_RUN=0
 NO_PAUSE=0
 COMMIT_MESSAGE="Update generated website content"
+CURRENT_STEP="starting"
+ERROR_CONTEXT_PRINTED=0
+COMMIT_DONE=0
+PUSH_DONE=0
+PUBLISH_DONE=0
+LOG_FILE=""
+PACKAGE_PATHS=(
+  generate_website
+  editable-content
+  generated-website
+  generator-templates
+  site-source-assets
+  vimeo-thumbnails.json
+  scripts
+  tests
+  .github/workflows
+  .githooks
+  .gitignore
+  README.md
+  docs
+)
 
 usage() {
   cat <<'USAGE'
@@ -29,12 +50,50 @@ USAGE
 }
 
 log() {
+  CURRENT_STEP="$1"
   printf "\n==> %s\n" "$1"
+}
+
+print_failure_context() {
+  local exit_status="$1"
+
+  [[ "$ERROR_CONTEXT_PRINTED" == "1" ]] && return 0
+  ERROR_CONTEXT_PRINTED=1
+
+  printf "\n--- Failure details ---\n" >&2
+  printf "Stopped during: %s\n" "$CURRENT_STEP" >&2
+  printf "Exit status: %s\n" "$exit_status" >&2
+
+  if [[ "$COMMIT_DONE" != "1" ]]; then
+    printf "Result: no commit was created, nothing was pushed, and nothing was published.\n" >&2
+  elif [[ "$PUSH_DONE" != "1" ]]; then
+    printf "Result: a local commit may exist, but it was not pushed or published.\n" >&2
+  elif [[ "$PUBLISH_DONE" != "1" ]]; then
+    printf "Result: changes were pushed, but the publish workflow did not finish successfully.\n" >&2
+  else
+    printf "Result: publish completed, but a later reporting step failed.\n" >&2
+  fi
+
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    printf "\nCurrent git status:\n" >&2
+    git status --short --branch >&2 || true
+  fi
+
+  if [[ -n "$LOG_FILE" ]]; then
+    printf "\nFull log: %s\n" "$LOG_FILE" >&2
+  fi
 }
 
 fail() {
   printf "\nERROR: %s\n" "$1" >&2
+  print_failure_context 1
   exit 1
+}
+
+TRAPERR() {
+  local exit_status=$?
+  print_failure_context "$exit_status"
+  return 0
 }
 
 finish() {
@@ -45,6 +104,9 @@ finish() {
       printf "Website generation finished.\n"
     else
       printf "Website generation stopped with an error.\n"
+      if [[ -n "$LOG_FILE" ]]; then
+        printf "Full log: %s\n" "$LOG_FILE"
+      fi
     fi
     printf "Press Return to close this window..."
     read -r reply || true
@@ -80,6 +142,9 @@ done
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$REPO_DIR"
+LOG_FILE="$REPO_DIR/generate_website.log"
+: > "$LOG_FILE"
+exec > >(tee -a "$LOG_FILE") 2>&1
 
 export GIT_TERMINAL_PROMPT=0
 export GH_PROMPT_DISABLED=1
@@ -90,20 +155,21 @@ require_tool() {
 }
 
 check_media_policy() {
-  python3 - <<'PY'
+  python3 - "${PACKAGE_PATHS[@]}" <<'PY'
 from pathlib import Path
 import subprocess
 import sys
 
 LIMIT_BYTES = 800 * 1024 * 1024
-ALLOWED_WORK_MEDIA = {".webp", ".mp4"}
+ALLOWED_PACKAGE_MEDIA = {".webp", ".mp4"}
 MEDIA_EXTENSIONS = {
     ".avif", ".bmp", ".gif", ".heic", ".jpeg", ".jpg", ".m4v", ".mkv",
     ".mov", ".mp4", ".png", ".tif", ".tiff", ".webm", ".webp",
 }
+PACKAGE_PATHS = sys.argv[1:]
 
 result = subprocess.run(
-    ["git", "ls-files", "-z", "-co", "--exclude-standard"],
+    ["git", "ls-files", "-z", "-co", "--exclude-standard", "--", *PACKAGE_PATHS],
     check=True,
     stdout=subprocess.PIPE,
 )
@@ -117,29 +183,55 @@ for path in paths:
         continue
 
     suffix = path.suffix.lower()
-    parts = path.parts
-    in_editable_content = (
-        len(parts) >= 2
-        and parts[0] == "editable-content"
-    )
+    if suffix not in MEDIA_EXTENSIONS:
+        continue
 
-    if in_editable_content and suffix in MEDIA_EXTENSIONS:
-        if suffix not in ALLOWED_WORK_MEDIA:
-            bad.append(str(path))
-        else:
-            publishable_media_bytes += path.stat().st_size
-    elif suffix in MEDIA_EXTENSIONS and suffix not in ALLOWED_WORK_MEDIA:
+    if suffix not in ALLOWED_PACKAGE_MEDIA:
         bad.append(str(path))
+    else:
+        publishable_media_bytes += path.stat().st_size
 
 print(
-    "Publishable editable media size: "
-    f"{publishable_media_bytes / (1024 * 1024):.2f} MB / 800.00 MB"
+    "Publishable package media size: "
+    f"{publishable_media_bytes / (1024 * 1024):.2f} MB / 800.00 MB",
+    flush=True,
 )
 
 if bad:
-    print("Only .webp and .mp4 media may be pushed. Offending files:", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("STOP: Website publishing did not happen.", file=sys.stderr)
+    print("", file=sys.stderr)
+    print(
+        "The website package contains image/video files that are not allowed "
+        "for publishing. Only .webp and .mp4 media may be committed.",
+        file=sys.stderr,
+    )
+    print("", file=sys.stderr)
+    print("Files to fix:", file=sys.stderr)
     for path in bad:
         print(f"  {path}", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("How to fix this:", file=sys.stderr)
+    print(
+        "  1. If the file is not meant for the website, move it into "
+        "a folder outside the website package, such as local-ignored-files/.",
+        file=sys.stderr,
+    )
+    print(
+        "  2. If it is meant for a page, put it under editable-content/ "
+        "with a NUMBER_ filename, then run generate_website again.",
+        file=sys.stderr,
+    )
+    print(
+        "  3. Raw .jpg/.png files inside editable-content/ are okay locally; "
+        "Git ignores them and the generator converts them before publishing.",
+        file=sys.stderr,
+    )
+    print("", file=sys.stderr)
+    print(
+        "No commit, push, or publish was performed because this check failed.",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 if publishable_media_bytes > LIMIT_BYTES:
@@ -152,27 +244,60 @@ PY
 }
 
 stage_site_changes() {
-  local stage_paths=(
-    generate_website
-    editable-content
-    generated-website
-    generator-templates
-    site-source-assets
-    vimeo-thumbnails.json
-    scripts
-    tests
-    .github/workflows
-    .githooks
-    .gitignore
-    README.md
-    docs
-  )
-
-  git add -A -- $stage_paths
+  git add -A -- "${PACKAGE_PATHS[@]}"
 }
 
-working_tree_has_changes() {
-  [[ -n "$(git status --porcelain --untracked-files=all)" ]]
+package_tree_has_changes() {
+  [[ -n "$(git status --porcelain --untracked-files=all -- "${PACKAGE_PATHS[@]}")" ]]
+}
+
+report_non_package_dirty_files() {
+  python3 - "${PACKAGE_PATHS[@]}" <<'PY'
+from pathlib import Path
+import subprocess
+import sys
+
+PACKAGE_PATHS = [Path(path) for path in sys.argv[1:]]
+
+def is_package_path(raw_path: str) -> bool:
+    path = Path(raw_path)
+    for allowed in PACKAGE_PATHS:
+        if path == allowed:
+            return True
+        try:
+            path.relative_to(allowed)
+            return True
+        except ValueError:
+            pass
+    return False
+
+result = subprocess.run(
+    ["git", "status", "--porcelain", "--untracked-files=all"],
+    check=True,
+    stdout=subprocess.PIPE,
+    text=True,
+)
+
+outside = []
+for line in result.stdout.splitlines():
+    if not line:
+        continue
+    path_text = line[3:]
+    if " -> " in path_text:
+        path_text = path_text.split(" -> ", 1)[1]
+    if not is_package_path(path_text):
+        outside.append(line)
+
+if outside:
+    print("")
+    print("Local files outside the website package will be ignored by this run:")
+    for line in outside[:25]:
+        print(f"  {line}")
+    if len(outside) > 25:
+        print(f"  ...and {len(outside) - 25} more")
+    print("")
+    print("Only files under the website package allowlist can be committed, pushed, or published.")
+PY
 }
 
 sync_remote_changes() {
@@ -190,10 +315,10 @@ sync_remote_changes() {
 
   log "Updating this folder with $behind newer GitHub commit(s)"
   stash_created=0
-  if working_tree_has_changes; then
+  if package_tree_has_changes; then
     log "Temporarily preserving local changes while updating"
     before_stash="$(git rev-parse -q --verify refs/stash || true)"
-    git stash push --include-untracked -m "generate_website local changes before sync" >/dev/null
+    git stash push --include-untracked -m "generate_website local package changes before sync" -- "${PACKAGE_PATHS[@]}"
     after_stash="$(git rev-parse -q --verify refs/stash || true)"
     if [[ "$after_stash" != "$before_stash" ]]; then
       stash_created=1
@@ -202,14 +327,14 @@ sync_remote_changes() {
 
   if ! git merge --ff-only "origin/$BRANCH"; then
     if (( stash_created )); then
-      git stash pop >/dev/null || true
+      git stash pop || true
     fi
     fail "Could not update this folder automatically. Ask a technical helper to reconcile the local folder with GitHub."
   fi
 
   if (( stash_created )); then
     log "Restoring local changes"
-    if ! git stash pop >/dev/null; then
+    if ! git stash pop; then
       fail "Updated from GitHub, but local changes conflicted while being restored. Ask a technical helper to reconcile the local folder."
     fi
   fi
@@ -229,7 +354,9 @@ wait_for_workflow_file() {
 
 configure_pages_workflow_mode() {
   local current_build_type
-  current_build_type="$(gh api "repos/$OWNER/$REPO/pages" --jq '.build_type // ""')"
+  if ! current_build_type="$(gh api "repos/$OWNER/$REPO/pages" --jq '.build_type // ""')"; then
+    fail "Could not read GitHub Pages settings. Check the network connection and GitHub access, then run generate_website again."
+  fi
 
   if [[ "$current_build_type" == "workflow" ]]; then
     log "GitHub Pages is already configured for workflow publishing"
@@ -237,7 +364,7 @@ configure_pages_workflow_mode() {
   fi
 
   log "Switching GitHub Pages from legacy branch publishing to workflow publishing"
-  gh api --method PUT "repos/$OWNER/$REPO/pages" -f build_type=workflow >/dev/null
+  gh api --method PUT "repos/$OWNER/$REPO/pages" -f build_type=workflow
 }
 
 dispatch_publish_workflow() {
@@ -248,7 +375,7 @@ dispatch_publish_workflow() {
   wait_for_workflow_file || fail "GitHub did not register $WORKFLOW_FILE after push"
 
   log "Dispatching the publish workflow"
-  gh workflow run "$WORKFLOW_FILE" --ref "$BRANCH" >/dev/null
+  gh workflow run "$WORKFLOW_FILE" --ref "$BRANCH"
 
   for attempt in {1..24}; do
     run_id="$(
@@ -281,8 +408,10 @@ require_tool ffmpeg
 require_tool gh
 
 log "Checking GitHub account"
-gh auth status --active >/dev/null
-gh_user="$(gh api user --jq .login)"
+gh auth status --active
+if ! gh_user="$(gh api user --jq .login)"; then
+  fail "Could not verify the active GitHub account. Check the network connection, then run gh auth status."
+fi
 [[ "$gh_user" == "$EXPECTED_GH_USER" ]] || fail "Active gh user is $gh_user, expected $EXPECTED_GH_USER"
 
 log "Configuring local git identity"
@@ -292,6 +421,9 @@ git config core.hooksPath .githooks
 
 current_branch="$(git branch --show-current)"
 [[ "$current_branch" == "$BRANCH" ]] || fail "Current branch is $current_branch, expected $BRANCH"
+
+log "Checking files outside the website package"
+report_non_package_dirty_files
 
 sync_remote_changes
 
@@ -318,16 +450,20 @@ stage_site_changes
 
 if git diff --cached --quiet; then
   log "No changes to commit"
+  COMMIT_DONE=1
 else
   log "Committing changes"
   git commit -m "$COMMIT_MESSAGE"
+  COMMIT_DONE=1
 fi
 
 log "Pushing to origin/$BRANCH"
 git push origin "$BRANCH"
+PUSH_DONE=1
 
 configure_pages_workflow_mode
 dispatch_publish_workflow
+PUBLISH_DONE=1
 
 log "Live pages"
 printf "https://raehu.com/#work\n"
