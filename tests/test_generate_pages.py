@@ -403,6 +403,52 @@ class GeneratePagesTests(unittest.TestCase):
             template,
         )
 
+    def test_templates_keep_justified_grid_fill_black_in_light_mode(self):
+        home_template = generate_pages.read_text(generate_pages.HOME_TEMPLATE)
+        work_template = generate_pages.read_text(generate_pages.WORK_PAGE_TEMPLATE)
+
+        self.assertIn("--grid-fill-bg: #000;", home_template)
+        self.assertNotIn("--grid-fill-bg", home_template.split(':root[data-theme="light"]', 1)[1].split("}", 1)[0])
+        self.assertIn(
+            ".portfolio-grid[data-grid-mode=\"justify\"] {\n"
+            "      align-items: flex-start;\n"
+            "      background: var(--grid-fill-bg);\n"
+            "    }",
+            home_template,
+        )
+        self.assertIn(
+            ".portfolio-grid[data-grid-mode=\"justify\"] > .portfolio-grid-row {\n"
+            "      display: flex;\n"
+            "      width: 100%;\n"
+            "      align-items: flex-start;\n"
+            "      background: var(--grid-fill-bg);\n"
+            "    }",
+            home_template,
+        )
+        self.assertIn(
+            ".portfolio-grid[data-grid-mode=\"justify\"] .works-grid-link {\n"
+            "      min-height: 0;\n"
+            "      background: var(--grid-fill-bg);\n"
+            "    }",
+            home_template,
+        )
+        self.assertIn(
+            ".portfolio-grid[data-grid-mode=\"justify\"] {\n"
+            "      align-items: flex-start;\n"
+            "      background: var(--media-bg);\n"
+            "    }",
+            work_template,
+        )
+        self.assertIn(
+            ".portfolio-grid[data-grid-mode=\"justify\"] > .portfolio-grid-row > * {\n"
+            "      min-height: 0;\n"
+            "      margin: 0;\n"
+            "      overflow: hidden;\n"
+            "      background: var(--media-bg);\n"
+            "    }",
+            work_template,
+        )
+
     def test_load_about_image_requires_numbered_prefix(self):
         with tempfile.TemporaryDirectory() as tmp:
             about_dir = Path(tmp) / "editable-content" / "about"

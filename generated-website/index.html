@@ -24,6 +24,7 @@
       --soft-text: rgba(244, 241, 236, 0.55);
       --faint-text: rgba(244, 241, 236, 0.5);
       --tile-bg: #111;
+      --grid-fill-bg: #000;
       --border-subtle: rgba(244, 241, 236, 0.1);
       --header-bg: #0a0a0a;
       --header-text: #f4f1ec;
@@ -724,17 +725,20 @@
 
     .portfolio-grid[data-grid-mode="justify"] {
       align-items: flex-start;
+      background: var(--grid-fill-bg);
     }
 
     .portfolio-grid[data-grid-mode="justify"] > .portfolio-grid-row {
       display: flex;
       width: 100%;
       align-items: flex-start;
+      background: var(--grid-fill-bg);
     }
 
     .portfolio-grid[data-grid-mode="justify"] > .portfolio-grid-row > * {
       min-height: 0;
       overflow: hidden;
+      background: var(--grid-fill-bg);
     }
 
     .works-grid-link {
@@ -760,6 +764,7 @@
 
     .portfolio-grid[data-grid-mode="justify"] .works-grid-link {
       min-height: 0;
+      background: var(--grid-fill-bg);
     }
 
     .portfolio-grid[data-grid-mode="justify"] .works-grid-link img,

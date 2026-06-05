@@ -408,7 +408,9 @@ require_tool ffmpeg
 require_tool gh
 
 log "Checking GitHub account"
-gh auth status --active
+if ! gh auth status --active; then
+  printf "\nWarning: gh auth status could not complete. Verifying the active account with gh api user instead.\n"
+fi
 if ! gh_user="$(gh api user --jq .login)"; then
   fail "Could not verify the active GitHub account. Check the network connection, then run gh auth status."
 fi
