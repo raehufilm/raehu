@@ -65,7 +65,10 @@
  *   In data-grid-mode="justify", the irregular grid's row-planning idea is
  *   reused: desktop/tablet candidates are scored for deterministic 2/3 row
  *   rhythm, transition count, row-height variation, and repeat avoidance.
- *   Mobile is mostly 2-item rows with at most one 1-item row for odd counts.
+ *   A layout with the same item count in every row is treated as invalid when
+ *   there is enough media to vary the rhythm. Mobile is mostly 2-item rows,
+ *   with 1-item rows inserted only to avoid uniform stacks or handle odd
+ *   counts.
  *   Once rows are chosen, each row is rendered as a real row wrapper and item
  *   dimensions are calculated from media aspect ratios. This preserves frames
  *   without the greedy single-column stacking failure mode.
@@ -521,6 +524,14 @@
 
   function bestScoredRowPlan(count, seed, maxItems, layoutRows, aspectRatios) {
     var candidates = candidateRowSizePlans(count, maxItems);
+    candidates = nonUniformCandidatesOrOriginal(candidates);
+
+    if (candidates.length && candidates.every(isUniformRowPlan)) {
+      candidates = nonUniformCandidatesOrOriginal(
+        candidateRowSizePlans(count, maxItems, true)
+      );
+    }
+
     if (!candidates.length) return null;
 
     var best = null;
@@ -537,12 +548,13 @@
     return best;
   }
 
-  function candidateRowSizePlans(count, maxItems) {
+  function candidateRowSizePlans(count, maxItems, allowSingleRows) {
     if (count > 24) return [];
 
     var candidates = [];
     var sizes = [];
-    for (var size = 2; size <= Math.max(2, maxItems); size++) {
+    var minSize = allowSingleRows ? 1 : 2;
+    for (var size = minSize; size <= Math.max(minSize, maxItems); size++) {
       sizes.push(size);
     }
 
@@ -563,6 +575,20 @@
 
     collect(count, []);
     return candidates;
+  }
+
+  function nonUniformCandidatesOrOriginal(candidates) {
+    var varied = candidates.filter(function (plan) {
+      return !isUniformRowPlan(plan);
+    });
+
+    return varied.length ? varied : candidates;
+  }
+
+  function isUniformRowPlan(plan) {
+    return plan.length > 1 && plan.every(function (size) {
+      return size === plan[0];
+    });
   }
 
   function scoreJustifiedRowPlan(plan, seed, layoutRows, aspectRatios) {
@@ -588,13 +614,15 @@
       }
     });
 
+    var singletonCount = rowCounts[1] || 0;
     var uniqueSizes = Object.keys(rowCounts);
     score += transitionCount * 9;
     score -= repeatCount * 18;
     score -= Math.max(0, maxRunLength - 2) * 18;
+    score -= singletonCount * 10;
 
     if (uniqueSizes.length === 1 && plan.length > 1) {
-      score -= 30;
+      score -= 120;
     }
 
     var idealRows = plan.reduce(function (sum, size) {
@@ -660,7 +688,14 @@
     var pairCount = Math.floor(count / 2);
     var rows = repeatRowSize(pairCount, 2);
 
-    if (count % 2 === 0) return rows;
+    if (count % 2 === 0) {
+      if (rows.length <= 1) return rows;
+
+      var splitRng = makeRng(seed);
+      var splitIndex = Math.floor(splitRng() * Math.max(1, rows.length - 1));
+      rows.splice(splitIndex, 2, 1, 2, 1);
+      return rows;
+    }
 
     if (rows.length <= 1) {
       rows.push(1);

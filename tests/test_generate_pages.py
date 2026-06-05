@@ -855,6 +855,8 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertIn("mostlyPairRows", script)
         self.assertIn("bestScoredRowPlan", script)
         self.assertIn("scoreJustifiedRowPlan", script)
+        self.assertIn("isUniformRowPlan", script)
+        self.assertIn("nonUniformCandidatesOrOriginal", script)
         self.assertIn("document.createElement('div')", script)
         self.assertIn("rowEl.appendChild(child)", script)
         self.assertNotIn("container.style.flexWrap = 'wrap'", script)
@@ -902,7 +904,27 @@ const mobile = window.portfolioGrid.planJustifiedRows(
   '',
   ratios
 );
-console.log(JSON.stringify({{ desktop, main, mobile }}));
+const desktopByCount = {{}};
+const mobileByCount = {{}};
+for (let count = 4; count <= 16; count += 1) {{
+  desktopByCount[count] = window.portfolioGrid.planJustifiedRows(
+    count,
+    400 + count,
+    3,
+    false,
+    '',
+    Array(count).fill(16 / 9)
+  );
+  mobileByCount[count] = window.portfolioGrid.planJustifiedRows(
+    count,
+    800 + count,
+    2,
+    true,
+    '',
+    Array(count).fill(16 / 9)
+  );
+}}
+console.log(JSON.stringify({{ desktop, main, mobile, desktopByCount, mobileByCount }}));
 """
         result = subprocess.run(
             ["node", "-e", node_script],
@@ -931,6 +953,135 @@ console.log(JSON.stringify({{ desktop, main, mobile }}));
         self.assertEqual(sum(plans["mobile"]), 9)
         self.assertEqual(plans["mobile"].count(1), 1)
         self.assertEqual(plans["mobile"].count(2), 4)
+
+        for count, plan in plans["desktopByCount"].items():
+            self.assertEqual(sum(plan), int(count))
+            if len(plan) > 1:
+                self.assertGreater(
+                    len(set(plan)),
+                    1,
+                    f"desktop count {count} should not use a uniform row plan: {plan}",
+                )
+
+        for count, plan in plans["mobileByCount"].items():
+            self.assertEqual(sum(plan), int(count))
+            if len(plan) > 1:
+                self.assertGreater(
+                    len(set(plan)),
+                    1,
+                    f"mobile count {count} should not use a uniform row plan: {plan}",
+                )
+
+    def test_current_site_justified_grids_use_non_uniform_row_counts(self):
+        script_path = (
+            Path(__file__).resolve().parents[1]
+            / "site-source-assets"
+            / "js"
+            / "portfolio-grid.js"
+        )
+        works = tuple(
+            generate_pages.load_work(
+                work_dir,
+                write_assets=False,
+                fetch_vimeo_thumbnails=False,
+            )
+            for work_dir in generate_pages.discover_work_dirs(
+                generate_pages.EDITABLE_WORK_DIR
+            )
+        )
+        works_by_category = {
+            category: tuple(work for work in works if work.category == category)
+            for category in generate_pages.WORK_CATEGORIES
+        }
+        cases = [
+            {
+                "name": f"main/{category}",
+                "count": len(works_by_category[category]),
+                "seed": len(category),
+                "layout": "",
+                "ratios": [16 / 9] * len(works_by_category[category]),
+            }
+            for category in generate_pages.WORK_CATEGORIES
+        ]
+        cases.extend(
+            {
+                "name": f"{work.category}/{work.slug}/highlight",
+                "count": len(work.highlight_media),
+                "seed": generate_pages.stable_seed(
+                    f"{work.category}/{work.slug}/highlight"
+                ),
+                "layout": generate_pages.highlight_grid_layout(
+                    len(work.highlight_media),
+                    f"{work.category}/{work.slug}",
+                ),
+                "ratios": [
+                    (item.width / item.height)
+                    if item.width and item.height
+                    else 16 / 9
+                    for item in work.highlight_media
+                ],
+            }
+            for work in works
+        )
+
+        self.assertEqual(len(cases), len(works) + len(generate_pages.WORK_CATEGORIES))
+        self.assertTrue(any(case["name"] == "main/films" for case in cases))
+        self.assertTrue(any(case["name"] == "main/commercials" for case in cases))
+
+        node_script = f"""
+const fs = require('fs');
+const cases = {json.dumps(cases)};
+global.window = {{ addEventListener() {{}}, setTimeout }};
+global.document = {{
+  readyState: 'loading',
+  addEventListener() {{}},
+  querySelectorAll() {{ return []; }}
+}};
+eval(fs.readFileSync({json.dumps(str(script_path))}, 'utf8'));
+const results = cases.map((testCase) => ({{
+  name: testCase.name,
+  count: testCase.count,
+  desktop: window.portfolioGrid.planJustifiedRows(
+    testCase.count,
+    testCase.seed,
+    3,
+    false,
+    testCase.layout,
+    testCase.ratios
+  ),
+  mobile: window.portfolioGrid.planJustifiedRows(
+    testCase.count,
+    testCase.seed,
+    2,
+    true,
+    testCase.layout,
+    testCase.ratios
+  )
+}}));
+console.log(JSON.stringify(results));
+"""
+        result = subprocess.run(
+            ["node", "-e", node_script],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        results = json.loads(result.stdout)
+
+        self.assertEqual(len(results), len(cases))
+        for result in results:
+            for viewport in ("desktop", "mobile"):
+                plan = result[viewport]
+                with self.subTest(grid=result["name"], viewport=viewport, plan=plan):
+                    self.assertEqual(sum(plan), result["count"])
+                    self.assertTrue(all(size > 0 for size in plan))
+                    self.assertLessEqual(max(plan, default=0), 3 if viewport == "desktop" else 2)
+                    if len(plan) > 1:
+                        self.assertGreater(
+                            len(set(plan)),
+                            1,
+                            f"{result['name']} {viewport} should not use one row size for every row: {plan}",
+                        )
 
     def test_discover_work_dirs_traverses_commercials_and_films(self):
         with tempfile.TemporaryDirectory() as tmp:
