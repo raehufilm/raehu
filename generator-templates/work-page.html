@@ -362,6 +362,22 @@
 
     /* --- Stills grid --- */
     .portfolio-grid { width: 100%; }
+    .portfolio-grid[data-grid-mode="justify"] {
+      align-items: flex-start;
+    }
+
+    .portfolio-grid[data-grid-mode="justify"] > .portfolio-grid-row {
+      display: flex;
+      width: 100%;
+      align-items: flex-start;
+    }
+
+    .portfolio-grid[data-grid-mode="justify"] > .portfolio-grid-row > * {
+      min-height: 0;
+      margin: 0;
+      overflow: hidden;
+    }
+
     .portfolio-grid > * {
       width: 100%;
       height: 100%;
@@ -384,6 +400,10 @@
       height: 100%;
       object-fit: cover;
       display: block;
+    }
+
+    .portfolio-grid[data-grid-mode="justify"] .highlight-media {
+      object-fit: contain;
     }
 
     .highlight-expand-button,

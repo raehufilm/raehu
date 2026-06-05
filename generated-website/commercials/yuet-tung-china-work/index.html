@@ -362,6 +362,22 @@
 
     /* --- Stills grid --- */
     .portfolio-grid { width: 100%; }
+    .portfolio-grid[data-grid-mode="justify"] {
+      align-items: flex-start;
+    }
+
+    .portfolio-grid[data-grid-mode="justify"] > .portfolio-grid-row {
+      display: flex;
+      width: 100%;
+      align-items: flex-start;
+    }
+
+    .portfolio-grid[data-grid-mode="justify"] > .portfolio-grid-row > * {
+      min-height: 0;
+      margin: 0;
+      overflow: hidden;
+    }
+
     .portfolio-grid > * {
       width: 100%;
       height: 100%;
@@ -384,6 +400,10 @@
       height: 100%;
       object-fit: cover;
       display: block;
+    }
+
+    .portfolio-grid[data-grid-mode="justify"] .highlight-media {
+      object-fit: contain;
     }
 
     .highlight-expand-button,
@@ -908,7 +928,7 @@
           <div class="work-label"><div class="red-dot"></div> Director's note</div>
         </div>
         <div class="work-header-image-wrap work-header-piece--right">
-          <img class="work-header-image" src="../../../editable-content/work/commercials/yuet-tung-china-work/note/2_note.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/note/2_note-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/note/2_note-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/note/2_note-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/note/2_note-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work" loading="lazy" decoding="async">
+          <img class="work-header-image" width="1920" height="1200" data-aspect-ratio="1.600000" src="../../../editable-content/work/commercials/yuet-tung-china-work/note/2_note.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/note/2_note-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/note/2_note-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/note/2_note-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/note/2_note-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work" loading="lazy" decoding="async">
         </div>
       </div>
     </section>
@@ -920,9 +940,13 @@
              data-page-padding
              aria-label="Highlight">
       <div class="grid-wrapper">
-        <div class="portfolio-grid" data-layout="4-5-3, 4-8">
+        <div class="portfolio-grid"
+             data-grid-mode="justify"
+             data-layout="4-5-3, 4-8"
+             data-justify-max-items="3"
+             data-justify-mobile-max-items="2">
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/yuet-tung-china-work/highlight/1_highlight.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/1_highlight-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/1_highlight-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/1_highlight-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/1_highlight-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work highlight" loading="lazy" decoding="async">
+          <img class="highlight-media media-hover-zoom-target" width="1920" height="1200" data-aspect-ratio="1.600000" src="../../../editable-content/work/commercials/yuet-tung-china-work/highlight/1_highlight.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/1_highlight-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/1_highlight-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/1_highlight-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/1_highlight-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work highlight" loading="eager" decoding="async">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -934,7 +958,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/yuet-tung-china-work/highlight/2_highlight.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/2_highlight-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/2_highlight-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/2_highlight-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/2_highlight-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work highlight" loading="lazy" decoding="async">
+          <img class="highlight-media media-hover-zoom-target" width="1920" height="1200" data-aspect-ratio="1.600000" src="../../../editable-content/work/commercials/yuet-tung-china-work/highlight/2_highlight.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/2_highlight-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/2_highlight-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/2_highlight-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/2_highlight-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work highlight" loading="eager" decoding="async">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -946,7 +970,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/yuet-tung-china-work/highlight/3_highlight.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/3_highlight-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/3_highlight-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/3_highlight-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/3_highlight-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work highlight" loading="lazy" decoding="async">
+          <img class="highlight-media media-hover-zoom-target" width="1920" height="1200" data-aspect-ratio="1.600000" src="../../../editable-content/work/commercials/yuet-tung-china-work/highlight/3_highlight.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/3_highlight-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/3_highlight-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/3_highlight-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/3_highlight-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work highlight" loading="eager" decoding="async">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -958,7 +982,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/yuet-tung-china-work/highlight/4_highlight.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/4_highlight-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/4_highlight-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/4_highlight-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/4_highlight-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work highlight" loading="lazy" decoding="async">
+          <img class="highlight-media media-hover-zoom-target" width="1920" height="1200" data-aspect-ratio="1.600000" src="../../../editable-content/work/commercials/yuet-tung-china-work/highlight/4_highlight.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/4_highlight-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/4_highlight-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/4_highlight-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/4_highlight-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work highlight" loading="eager" decoding="async">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -970,7 +994,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <img class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/yuet-tung-china-work/highlight/5_highlight.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/5_highlight-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/5_highlight-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/5_highlight-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/5_highlight-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work highlight" loading="lazy" decoding="async">
+          <img class="highlight-media media-hover-zoom-target" width="1920" height="1200" data-aspect-ratio="1.600000" src="../../../editable-content/work/commercials/yuet-tung-china-work/highlight/5_highlight.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/5_highlight-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/5_highlight-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/5_highlight-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/highlight/5_highlight-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work highlight" loading="eager" decoding="async">
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -993,10 +1017,10 @@
              aria-label="Behind the scenes">
       <div class="bts-layout">
         <div class="bts-slideshow" aria-label="Behind the scenes slideshow">
-          <img class="bts-slide is-active" src="../../../editable-content/work/commercials/yuet-tung-china-work/bts/1_bts.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/bts/1_bts-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/1_bts-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/1_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/1_bts-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work behind the scenes" loading="lazy" decoding="async">
-          <img class="bts-slide" src="../../../editable-content/work/commercials/yuet-tung-china-work/bts/2_bts.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/bts/2_bts-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/2_bts-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/2_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/2_bts-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work behind the scenes" loading="lazy" decoding="async">
-          <img class="bts-slide" src="../../../editable-content/work/commercials/yuet-tung-china-work/bts/3_bts.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/bts/3_bts-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/3_bts-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/3_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/3_bts-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work behind the scenes" loading="lazy" decoding="async">
-          <img class="bts-slide" src="../../../editable-content/work/commercials/yuet-tung-china-work/bts/4_bts.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/bts/4_bts-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/4_bts-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/4_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/4_bts-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work behind the scenes" loading="lazy" decoding="async">
+          <img class="bts-slide is-active" width="1920" height="1200" data-aspect-ratio="1.600000" src="../../../editable-content/work/commercials/yuet-tung-china-work/bts/1_bts.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/bts/1_bts-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/1_bts-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/1_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/1_bts-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work behind the scenes" loading="lazy" decoding="async">
+          <img class="bts-slide" width="1920" height="1200" data-aspect-ratio="1.600000" src="../../../editable-content/work/commercials/yuet-tung-china-work/bts/2_bts.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/bts/2_bts-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/2_bts-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/2_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/2_bts-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work behind the scenes" loading="lazy" decoding="async">
+          <img class="bts-slide" width="1920" height="1200" data-aspect-ratio="1.600000" src="../../../editable-content/work/commercials/yuet-tung-china-work/bts/3_bts.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/bts/3_bts-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/3_bts-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/3_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/3_bts-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work behind the scenes" loading="lazy" decoding="async">
+          <img class="bts-slide" width="1920" height="1200" data-aspect-ratio="1.600000" src="../../../editable-content/work/commercials/yuet-tung-china-work/bts/4_bts.webp" srcset="../../media/editable-content/work/commercials/yuet-tung-china-work/bts/4_bts-480.webp 480w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/4_bts-960.webp 960w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/4_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/yuet-tung-china-work/bts/4_bts-1920.webp 1920w" sizes="100vw" alt="Yuet Tung China Work behind the scenes" loading="lazy" decoding="async">
           <button class="bts-slide-control bts-slide-control--prev"
                   type="button"
                   data-bts-slide-control="prev"

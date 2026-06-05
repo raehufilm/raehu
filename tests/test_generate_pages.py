@@ -1,5 +1,8 @@
 import contextlib
 import io
+import itertools
+import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -697,10 +700,106 @@ class GeneratePagesTests(unittest.TestCase):
 
         self.assertIn('class="highlight-tile media-hover-zoom" data-highlight-tile', rendered)
         self.assertIn('class="highlight-media media-hover-zoom-target"', rendered)
+        self.assertIn('data-grid-mode="justify"', rendered)
+        self.assertIn('data-justify-max-items="3"', rendered)
+        self.assertIn('loading="eager"', rendered)
+        self.assertNotIn("data-row-height", rendered)
+        self.assertNotIn("data-mobile-row-height", rendered)
         self.assertIn("interactive-chevron--expand-ne", rendered)
         self.assertIn("interactive-chevron--expand-sw", rendered)
         self.assertIn("data-highlight-expand", rendered)
         self.assertIn("Expand highlight media", rendered)
+
+    def test_portfolio_grid_justify_mode_uses_explicit_row_wrappers(self):
+        script = (
+            Path(__file__).resolve().parents[1]
+            / "site-source-assets"
+            / "js"
+            / "portfolio-grid.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("portfolio-grid-row", script)
+        self.assertIn("plannedJustifiedRowSizes", script)
+        self.assertIn("rowSizesFromLayout", script)
+        self.assertIn("mostlyPairRows", script)
+        self.assertIn("bestScoredRowPlan", script)
+        self.assertIn("scoreJustifiedRowPlan", script)
+        self.assertIn("document.createElement('div')", script)
+        self.assertIn("rowEl.appendChild(child)", script)
+        self.assertNotIn("container.style.flexWrap = 'wrap'", script)
+        self.assertNotIn("currentDiff", script)
+        self.assertNotIn("nextDiff", script)
+
+    def test_portfolio_grid_justify_planner_scores_varied_row_rhythm(self):
+        script_path = (
+            Path(__file__).resolve().parents[1]
+            / "site-source-assets"
+            / "js"
+            / "portfolio-grid.js"
+        )
+        node_script = f"""
+const fs = require('fs');
+global.window = {{ addEventListener() {{}}, setTimeout }};
+global.document = {{
+  readyState: 'loading',
+  addEventListener() {{}},
+  querySelectorAll() {{ return []; }}
+}};
+eval(fs.readFileSync({json.dumps(str(script_path))}, 'utf8'));
+const ratios = [1.34, 1.78, 1.78, 1.78, 1.34, 1.6, 1.78, 1.78, 1.79];
+const desktop = window.portfolioGrid.planJustifiedRows(
+  9,
+  101,
+  3,
+  false,
+  '4-5-3, 7-5, 8-4, 7-5',
+  ratios
+);
+const main = window.portfolioGrid.planJustifiedRows(
+  13,
+  202,
+  3,
+  false,
+  '',
+  Array(13).fill(16 / 9)
+);
+const mobile = window.portfolioGrid.planJustifiedRows(
+  9,
+  303,
+  2,
+  true,
+  '',
+  ratios
+);
+console.log(JSON.stringify({{ desktop, main, mobile }}));
+"""
+        result = subprocess.run(
+            ["node", "-e", node_script],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        plans = json.loads(result.stdout)
+
+        self.assertEqual(sum(plans["desktop"]), 9)
+        self.assertNotEqual(plans["desktop"], [3, 2, 2, 2])
+        self.assertIn(3, plans["desktop"])
+        self.assertIn(2, plans["desktop"])
+
+        self.assertEqual(sum(plans["main"]), 13)
+        self.assertGreaterEqual(plans["main"].count(3), 2)
+        self.assertGreaterEqual(plans["main"].count(2), 2)
+        self.assertLessEqual(
+            max(
+                len(list(group))
+                for _, group in itertools.groupby(plans["main"])
+            ),
+            2,
+        )
+
+        self.assertEqual(sum(plans["mobile"]), 9)
+        self.assertEqual(plans["mobile"].count(1), 1)
+        self.assertEqual(plans["mobile"].count(2), 4)
 
     def test_discover_work_dirs_traverses_commercials_and_films(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -984,9 +1083,9 @@ class GeneratePagesTests(unittest.TestCase):
             rendered = generate_pages.render_works_index_grid_item(work, output_html)
 
         self.assertIn("<video", rendered)
-        self.assertIn('data-src="../editable-content/work/films/sample-work/trailer/1_trailer.mp4"', rendered)
-        self.assertIn('preload="none"', rendered)
-        self.assertIn('data-autoplay="true"', rendered)
+        self.assertIn('src="../editable-content/work/films/sample-work/trailer/1_trailer.mp4"', rendered)
+        self.assertIn('preload="metadata"', rendered)
+        self.assertNotIn("data-lazy-video", rendered)
 
     def test_works_index_grid_uses_generated_video_preview_when_available(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1262,6 +1361,10 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertIn('<span data-language-content="es">anuncios</span>', rendered)
         self.assertIn('data-work-category-section="films"', rendered)
         self.assertIn('data-work-category-section="commercials"', rendered)
+        self.assertNotIn('works-index-page fade-up content-visibility-auto', rendered)
+        self.assertIn('data-grid-mode="justify"', rendered)
+        self.assertIn('data-justify-mobile-max-items="2"', rendered)
+        self.assertNotIn("data-row-height", rendered)
         self.assertIn('href="films/sample-film/"', rendered)
         self.assertIn('href="commercials/sample-ad/"', rendered)
         self.assertIn("works-grid-title-chevron", rendered)

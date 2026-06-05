@@ -108,6 +108,8 @@ class MediaItem:
     index: int
     path: Path
     kind: str
+    width: int | None = None
+    height: int | None = None
 
 
 @dataclass(frozen=True)
@@ -677,6 +679,105 @@ def is_media_path(path: Path) -> bool:
     return path.suffix.lower() in IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
 
 
+def media_dimensions(path: Path) -> tuple[int, int] | tuple[None, None]:
+    suffix = path.suffix.lower()
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return (None, None)
+
+    if suffix == ".png":
+        return png_dimensions(data)
+    if suffix == ".webp":
+        return webp_dimensions(data)
+    if suffix in {".jpg", ".jpeg"}:
+        return jpeg_dimensions(data)
+    return (None, None)
+
+
+def png_dimensions(data: bytes) -> tuple[int, int] | tuple[None, None]:
+    if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
+        return (None, None)
+    return (
+        int.from_bytes(data[16:20], "big"),
+        int.from_bytes(data[20:24], "big"),
+    )
+
+
+def webp_dimensions(data: bytes) -> tuple[int, int] | tuple[None, None]:
+    if len(data) < 30 or data[:4] != b"RIFF" or data[8:12] != b"WEBP":
+        return (None, None)
+
+    offset = 12
+    while offset + 8 <= len(data):
+        chunk_type = data[offset : offset + 4]
+        chunk_size = int.from_bytes(data[offset + 4 : offset + 8], "little")
+        payload = offset + 8
+
+        if chunk_type == b"VP8X" and payload + 10 <= len(data):
+            width = 1 + int.from_bytes(data[payload + 4 : payload + 7], "little")
+            height = 1 + int.from_bytes(data[payload + 7 : payload + 10], "little")
+            return (width, height)
+
+        if chunk_type == b"VP8 " and payload + 10 <= len(data):
+            if data[payload + 3 : payload + 6] != b"\x9d\x01\x2a":
+                return (None, None)
+            width = int.from_bytes(data[payload + 6 : payload + 8], "little") & 0x3FFF
+            height = int.from_bytes(data[payload + 8 : payload + 10], "little") & 0x3FFF
+            return (width, height)
+
+        if chunk_type == b"VP8L" and payload + 5 <= len(data) and data[payload] == 0x2F:
+            b0, b1, b2, b3 = data[payload + 1 : payload + 5]
+            width = 1 + (((b1 & 0x3F) << 8) | b0)
+            height = 1 + (((b3 & 0x0F) << 10) | (b2 << 2) | ((b1 & 0xC0) >> 6))
+            return (width, height)
+
+        offset = payload + chunk_size + (chunk_size % 2)
+
+    return (None, None)
+
+
+def jpeg_dimensions(data: bytes) -> tuple[int, int] | tuple[None, None]:
+    if len(data) < 4 or data[:2] != b"\xff\xd8":
+        return (None, None)
+
+    offset = 2
+    while offset + 9 <= len(data):
+        if data[offset] != 0xFF:
+            offset += 1
+            continue
+        marker = data[offset + 1]
+        offset += 2
+        if marker in {0xD8, 0xD9}:
+            continue
+        if offset + 2 > len(data):
+            break
+        segment_length = int.from_bytes(data[offset : offset + 2], "big")
+        if segment_length < 2 or offset + segment_length > len(data):
+            break
+        if marker in {
+            0xC0,
+            0xC1,
+            0xC2,
+            0xC3,
+            0xC5,
+            0xC6,
+            0xC7,
+            0xC9,
+            0xCA,
+            0xCB,
+            0xCD,
+            0xCE,
+            0xCF,
+        }:
+            height = int.from_bytes(data[offset + 3 : offset + 5], "big")
+            width = int.from_bytes(data[offset + 5 : offset + 7], "big")
+            return (width, height)
+        offset += segment_length
+
+    return (None, None)
+
+
 def converted_image_path(path: Path) -> Path:
     return path.with_suffix(WEB_IMAGE_EXTENSION)
 
@@ -890,6 +991,8 @@ def grid_display_media_for(
             check_generated_assets=check_generated_assets,
         ),
         kind=item.kind,
+        width=item.width,
+        height=item.height,
     )
 
 
@@ -1055,11 +1158,14 @@ def ordered_media(
             )
         seen_indexes[index] = canonical_path
         seen_paths.add(canonical_path)
+        width, height = media_dimensions(canonical_path)
         media.append(
             MediaItem(
                 index=index,
                 path=canonical_path,
                 kind=media_kind(canonical_path),
+                width=width,
+                height=height,
             )
         )
 
@@ -1085,6 +1191,16 @@ def responsive_image_srcset(source: Path, output_html: Path) -> str:
     )
 
 
+def media_dimension_attrs(item: MediaItem) -> str:
+    if not item.width or not item.height:
+        return ""
+    aspect_ratio = item.width / item.height
+    return (
+        f' width="{item.width}" height="{item.height}"'
+        f' data-aspect-ratio="{aspect_ratio:.6f}"'
+    )
+
+
 def image_tag(
     item: MediaItem,
     output_html: Path,
@@ -1097,8 +1213,10 @@ def image_tag(
     src = output_relative_url(output_html, item.path)
     class_attr = f' class="{class_name}"' if class_name else ""
     fetchpriority_attr = f' fetchpriority="{fetchpriority}"' if fetchpriority else ""
+    dimension_attrs = media_dimension_attrs(item)
     return (
-        f'<img{class_attr} src="{src}" srcset="{responsive_image_srcset(item.path, output_html)}" '
+        f'<img{class_attr}{dimension_attrs} src="{src}" '
+        f'srcset="{responsive_image_srcset(item.path, output_html)}" '
         f'sizes="{html_escape(sizes)}" alt="{html_escape(alt)}" '
         f'loading="{html_escape(loading)}" decoding="async"{fetchpriority_attr}>'
     )
@@ -1117,13 +1235,14 @@ def video_tag(
 ) -> str:
     src = output_relative_url(output_html, item.path)
     class_attr = f' class="{class_name}"' if class_name else ""
+    dimension_attrs = media_dimension_attrs(item)
     controls_attr = " controls" if controls else ""
     muted_attr = " muted" if muted else ""
     autoplay_attr = " autoplay" if autoplay and not lazy else ""
     src_attr = f' data-src="{src}" data-lazy-video' if lazy else f' src="{src}"'
     data_autoplay = ' data-autoplay="true"' if autoplay and lazy else ""
     return (
-        f'<video{class_attr}{src_attr}{muted_attr} playsinline{autoplay_attr} loop{controls_attr} '
+        f'<video{class_attr}{dimension_attrs}{src_attr}{muted_attr} playsinline{autoplay_attr} loop{controls_attr} '
         f'preload="{html_escape(preload)}"{data_autoplay} '
         f'aria-label="{html_escape(label)}"></video>'
     )
@@ -1155,6 +1274,9 @@ def media_tag(
     alt: str,
     class_name: str | None = None,
     active: bool = False,
+    image_loading: str = "lazy",
+    video_lazy: bool = True,
+    video_preload: str = "none",
 ) -> str:
     class_attr = ""
     if class_name:
@@ -1168,6 +1290,7 @@ def media_tag(
             output_html,
             alt,
             class_name=classes or None,
+            loading=image_loading,
         )
     return video_tag(
         item,
@@ -1175,8 +1298,8 @@ def media_tag(
         alt,
         class_name=classes or None,
         autoplay=True,
-        lazy=True,
-        preload="none",
+        lazy=video_lazy,
+        preload=video_preload,
     )
 
 
@@ -1657,7 +1780,11 @@ def render_highlight_section(work: WorkContent, output_html: Path) -> str:
              data-page-padding
              aria-label="Highlight">
       <div class="grid-wrapper">
-        <div class="portfolio-grid" data-layout="{html_escape(layout)}">
+        <div class="portfolio-grid"
+             data-grid-mode="justify"
+             data-layout="{html_escape(layout)}"
+             data-justify-max-items="3"
+             data-justify-mobile-max-items="2">
 {media_html}
         </div>
       </div>
@@ -1670,6 +1797,9 @@ def render_highlight_tile(item: MediaItem, output_html: Path, title: str) -> str
         output_html,
         f"{title} highlight",
         class_name="highlight-media media-hover-zoom-target",
+        image_loading="eager",
+        video_lazy=False,
+        video_preload="metadata",
     )
     return f"""<figure class="highlight-tile media-hover-zoom" data-highlight-tile>
           {media_html}
@@ -1895,8 +2025,8 @@ def render_works_index_grid_item(work: WorkContent, output_html: Path) -> str:
                 f"{work.title} {preview_label}",
                 class_name="media-hover-zoom-target",
                 autoplay=True,
-                lazy=True,
-                preload="none",
+                lazy=False,
+                preload="metadata",
             )
         else:
             preview_html = image_tag(
@@ -1904,13 +2034,14 @@ def render_works_index_grid_item(work: WorkContent, output_html: Path) -> str:
                 output_html,
                 f"{work.title} {preview_label}",
                 class_name="media-hover-zoom-target",
-                loading="lazy",
+                loading="eager",
                 sizes="(max-width: 900px) 100vw, 33vw",
             )
     elif work.trailer_poster_url:
         preview_html = (
-            f'<img class="media-hover-zoom-target" src="{html_escape(work.trailer_poster_url)}" '
-            f'alt="{title} {preview_label}" loading="lazy" decoding="async">'
+            f'<img class="media-hover-zoom-target" width="16" height="9" '
+            f'data-aspect-ratio="1.777778" src="{html_escape(work.trailer_poster_url)}" '
+            f'alt="{title} {preview_label}" loading="eager" decoding="async">'
         )
     else:
         preview_html = image_tag(
@@ -1918,7 +2049,7 @@ def render_works_index_grid_item(work: WorkContent, output_html: Path) -> str:
             output_html,
             f"{work.title} {preview_label}",
             class_name="media-hover-zoom-target",
-            loading="lazy",
+            loading="eager",
             sizes="(max-width: 900px) 100vw, 33vw",
         )
 
@@ -1946,13 +2077,17 @@ def render_works_index_section(
     if not grid_items:
         empty = '        <p class="works-index-empty">Coming soon.</p>'
 
-    return f"""    <section class="works-index-page fade-up content-visibility-auto"
+    return f"""    <section class="works-index-page fade-up"
              id="{html_escape(category)}"
              data-work-category-section="{html_escape(category)}"
              data-section-title="{html_escape(category_label(category))}"
              aria-label="{html_escape(category_label(category))}">
       <div class="works-index-grid-wrap">
-        <div class="portfolio-grid works-index-grid" data-seed="{len(category)}">
+        <div class="portfolio-grid works-index-grid"
+             data-grid-mode="justify"
+             data-seed="{len(category)}"
+             data-justify-max-items="3"
+             data-justify-mobile-max-items="2">
 {grid_items or empty}
         </div>
       </div>

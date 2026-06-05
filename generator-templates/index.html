@@ -38,7 +38,13 @@
       --gray: #888;
       --site-header-height: 3.25rem;
       --tracker-left: 2rem;
-      --tracker-content-space: 6rem;
+      --tracker-rail-width: max(8rem, 14ch);
+      --tracker-content-gap: 0.75rem;
+      --tracker-content-space: calc(
+        var(--tracker-left) +
+        var(--tracker-rail-width) +
+        var(--tracker-content-gap)
+      );
       --page-padding: 3rem;
       --page-padding-double: calc(var(--page-padding) + var(--page-padding));
       --serif: 'EB Garamond', Georgia, serif;
@@ -98,6 +104,7 @@
       flex-direction: column;
       align-items: flex-start;
       gap: 0.85rem;
+      width: var(--tracker-rail-width);
       transform: translateY(-50%);
     }
 
@@ -569,7 +576,7 @@
     }
 
     .clients-marquee {
-      --client-logo-gap: clamp(0.45rem, 0.9vw, 0.8rem);
+      --client-logo-gap: clamp(1.45rem, 6vw, 2.25rem);
       width: 100%;
       margin-top: 0;
       padding: 0.65rem 0;
@@ -701,17 +708,30 @@
     }
 
     .works-index-page {
-      min-height: 100vh;
       scroll-margin-top: var(--site-header-height);
       padding-bottom: var(--page-padding);
     }
 
     .works-index-grid-wrap {
       width: 100%;
-      min-height: calc(100vh - var(--page-padding-double));
     }
 
     .works-index-grid { width: 100%; }
+
+    .portfolio-grid[data-grid-mode="justify"] {
+      align-items: flex-start;
+    }
+
+    .portfolio-grid[data-grid-mode="justify"] > .portfolio-grid-row {
+      display: flex;
+      width: 100%;
+      align-items: flex-start;
+    }
+
+    .portfolio-grid[data-grid-mode="justify"] > .portfolio-grid-row > * {
+      min-height: 0;
+      overflow: hidden;
+    }
 
     .works-grid-link {
       position: relative;
@@ -732,6 +752,15 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+    }
+
+    .portfolio-grid[data-grid-mode="justify"] .works-grid-link {
+      min-height: 0;
+    }
+
+    .portfolio-grid[data-grid-mode="justify"] .works-grid-link img,
+    .portfolio-grid[data-grid-mode="justify"] .works-grid-link video {
+      object-fit: contain;
     }
 
     .works-grid-title {
@@ -806,7 +835,6 @@
     @media (max-width: 900px) {
       :root {
         --tracker-left: 1rem;
-        --tracker-content-space: 4.6rem;
         --page-padding: 1rem;
       }
 
@@ -862,6 +890,7 @@
       :root {
         --mobile-section-tracker-height: 3rem;
         --tracker-left: 0;
+        --tracker-rail-width: auto;
         --tracker-content-space: 0rem;
         --page-padding: 1rem;
       }
@@ -881,6 +910,7 @@
         bottom: 0;
         left: 0;
         right: 0;
+        width: auto;
         height: var(--mobile-section-tracker-height);
         padding: 0 1rem;
         flex-direction: row;

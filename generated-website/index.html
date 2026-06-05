@@ -38,7 +38,13 @@
       --gray: #888;
       --site-header-height: 3.25rem;
       --tracker-left: 2rem;
-      --tracker-content-space: 6rem;
+      --tracker-rail-width: max(8rem, 14ch);
+      --tracker-content-gap: 0.75rem;
+      --tracker-content-space: calc(
+        var(--tracker-left) +
+        var(--tracker-rail-width) +
+        var(--tracker-content-gap)
+      );
       --page-padding: 3rem;
       --page-padding-double: calc(var(--page-padding) + var(--page-padding));
       --serif: 'EB Garamond', Georgia, serif;
@@ -98,6 +104,7 @@
       flex-direction: column;
       align-items: flex-start;
       gap: 0.85rem;
+      width: var(--tracker-rail-width);
       transform: translateY(-50%);
     }
 
@@ -569,7 +576,7 @@
     }
 
     .clients-marquee {
-      --client-logo-gap: clamp(0.45rem, 0.9vw, 0.8rem);
+      --client-logo-gap: clamp(1.45rem, 6vw, 2.25rem);
       width: 100%;
       margin-top: 0;
       padding: 0.65rem 0;
@@ -701,17 +708,30 @@
     }
 
     .works-index-page {
-      min-height: 100vh;
       scroll-margin-top: var(--site-header-height);
       padding-bottom: var(--page-padding);
     }
 
     .works-index-grid-wrap {
       width: 100%;
-      min-height: calc(100vh - var(--page-padding-double));
     }
 
     .works-index-grid { width: 100%; }
+
+    .portfolio-grid[data-grid-mode="justify"] {
+      align-items: flex-start;
+    }
+
+    .portfolio-grid[data-grid-mode="justify"] > .portfolio-grid-row {
+      display: flex;
+      width: 100%;
+      align-items: flex-start;
+    }
+
+    .portfolio-grid[data-grid-mode="justify"] > .portfolio-grid-row > * {
+      min-height: 0;
+      overflow: hidden;
+    }
 
     .works-grid-link {
       position: relative;
@@ -732,6 +752,15 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+    }
+
+    .portfolio-grid[data-grid-mode="justify"] .works-grid-link {
+      min-height: 0;
+    }
+
+    .portfolio-grid[data-grid-mode="justify"] .works-grid-link img,
+    .portfolio-grid[data-grid-mode="justify"] .works-grid-link video {
+      object-fit: contain;
     }
 
     .works-grid-title {
@@ -806,7 +835,6 @@
     @media (max-width: 900px) {
       :root {
         --tracker-left: 1rem;
-        --tracker-content-space: 4.6rem;
         --page-padding: 1rem;
       }
 
@@ -862,6 +890,7 @@
       :root {
         --mobile-section-tracker-height: 3rem;
         --tracker-left: 0;
+        --tracker-rail-width: auto;
         --tracker-content-space: 0rem;
         --page-padding: 1rem;
       }
@@ -881,6 +910,7 @@
         bottom: 0;
         left: 0;
         right: 0;
+        width: auto;
         height: var(--mobile-section-tracker-height);
         padding: 0 1rem;
         flex-direction: row;
@@ -1301,7 +1331,7 @@
           </div>
 
         <figure class="about-image-wrap fade-up">
-          <img class="about-image" src="../editable-content/about/1_image.webp" srcset="media/editable-content/about/1_image-480.webp 480w, media/editable-content/about/1_image-960.webp 960w, media/editable-content/about/1_image-1440.webp 1440w, media/editable-content/about/1_image-1920.webp 1920w" sizes="(max-width: 900px) 100vw, 42vw" alt="Rae Hu" loading="lazy" decoding="async">
+          <img class="about-image" width="1920" height="2400" data-aspect-ratio="0.800000" src="../editable-content/about/1_image.webp" srcset="media/editable-content/about/1_image-480.webp 480w, media/editable-content/about/1_image-960.webp 960w, media/editable-content/about/1_image-1440.webp 1440w, media/editable-content/about/1_image-1920.webp 1920w" sizes="(max-width: 900px) 100vw, 42vw" alt="Rae Hu" loading="lazy" decoding="async">
         </figure>
         </div>
 
@@ -1321,15 +1351,19 @@
 
     <section class="home-page works" id="work" data-root-section="work" aria-label="Work">
       <div class="works-index-pages">
-    <section class="works-index-page fade-up content-visibility-auto"
+    <section class="works-index-page fade-up"
              id="films"
              data-work-category-section="films"
              data-section-title="films"
              aria-label="films">
       <div class="works-index-grid-wrap">
-        <div class="portfolio-grid works-index-grid" data-seed="5">
+        <div class="portfolio-grid works-index-grid"
+             data-grid-mode="justify"
+             data-seed="5"
+             data-justify-max-items="3"
+             data-justify-mobile-max-items="2">
         <a class="works-grid-link media-hover-zoom" href="films/strange-fruit/" aria-label="Strange Fruit">
-          <img class="media-hover-zoom-target" src="https://i.vimeocdn.com/video/758361997-5fc135f2f719df1c22e6a9485d8bbb8c18c9327a67154e746ba22ad34b5dbf4b-d_1280?region=us" alt="Strange Fruit trailer preview" loading="lazy" decoding="async">
+          <img class="media-hover-zoom-target" width="16" height="9" data-aspect-ratio="1.777778" src="https://i.vimeocdn.com/video/758361997-5fc135f2f719df1c22e6a9485d8bbb8c18c9327a67154e746ba22ad34b5dbf4b-d_1280?region=us" alt="Strange Fruit trailer preview" loading="eager" decoding="async">
           <span class="works-grid-title">
             <span class="works-grid-title-text">Strange Fruit</span>
             <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1341,15 +1375,19 @@
       </div>
     </section>
 
-    <section class="works-index-page fade-up content-visibility-auto"
+    <section class="works-index-page fade-up"
              id="commercials"
              data-work-category-section="commercials"
              data-section-title="commercials"
              aria-label="commercials">
       <div class="works-index-grid-wrap">
-        <div class="portfolio-grid works-index-grid" data-seed="11">
+        <div class="portfolio-grid works-index-grid"
+             data-grid-mode="justify"
+             data-seed="11"
+             data-justify-max-items="3"
+             data-justify-mobile-max-items="2">
         <a class="works-grid-link media-hover-zoom" href="commercials/adidas-neo/" aria-label="Adidas Neo">
-          <img class="media-hover-zoom-target" src="https://i.vimeocdn.com/video/1411771557-0f50c1167154bf834090bbd9d5b59d3ba6a6201ce5c8098e02d6bf958b2d06dd-d_1280?region=us" alt="Adidas Neo film preview" loading="lazy" decoding="async">
+          <img class="media-hover-zoom-target" width="16" height="9" data-aspect-ratio="1.777778" src="https://i.vimeocdn.com/video/1411771557-0f50c1167154bf834090bbd9d5b59d3ba6a6201ce5c8098e02d6bf958b2d06dd-d_1280?region=us" alt="Adidas Neo film preview" loading="eager" decoding="async">
           <span class="works-grid-title">
             <span class="works-grid-title-text">Adidas Neo</span>
             <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1358,7 +1396,7 @@
           </span>
         </a>
         <a class="works-grid-link media-hover-zoom" href="commercials/bose-global/" aria-label="Bose Global">
-          <img class="media-hover-zoom-target" src="https://i.vimeocdn.com/video/2060323299-e75c706d561dd7c3e80a6609ce287fe75dcf7ca3f0a32656dd614fd9d082fd92-d_1280?region=us" alt="Bose Global film preview" loading="lazy" decoding="async">
+          <img class="media-hover-zoom-target" width="16" height="9" data-aspect-ratio="1.777778" src="https://i.vimeocdn.com/video/2060323299-e75c706d561dd7c3e80a6609ce287fe75dcf7ca3f0a32656dd614fd9d082fd92-d_1280?region=us" alt="Bose Global film preview" loading="eager" decoding="async">
           <span class="works-grid-title">
             <span class="works-grid-title-text">Bose Global</span>
             <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1367,7 +1405,7 @@
           </span>
         </a>
         <a class="works-grid-link media-hover-zoom" href="commercials/champion/" aria-label="Champion">
-          <img class="media-hover-zoom-target" src="https://i.vimeocdn.com/video/2060269541-4b78d1fc454cbdbd36245e7a86b37727b48b1569b1800de4bd0830fd3a9a21e5-d_1280?region=us" alt="Champion film preview" loading="lazy" decoding="async">
+          <img class="media-hover-zoom-target" width="16" height="9" data-aspect-ratio="1.777778" src="https://i.vimeocdn.com/video/2060269541-4b78d1fc454cbdbd36245e7a86b37727b48b1569b1800de4bd0830fd3a9a21e5-d_1280?region=us" alt="Champion film preview" loading="eager" decoding="async">
           <span class="works-grid-title">
             <span class="works-grid-title-text">Champion</span>
             <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1376,7 +1414,7 @@
           </span>
         </a>
         <a class="works-grid-link media-hover-zoom" href="commercials/coach-unbox-your-joy/" aria-label="Coach Unbox Your Joy">
-          <video class="media-hover-zoom-target" data-src="media/editable-content/work/commercials/coach-unbox-your-joy/grid_preview/1_custom_27s-29s-grid-preview-720p-v3.mp4" data-lazy-video muted playsinline loop preload="none" data-autoplay="true" aria-label="Coach Unbox Your Joy grid preview"></video>
+          <video class="media-hover-zoom-target" src="media/editable-content/work/commercials/coach-unbox-your-joy/grid_preview/1_custom_27s-29s-grid-preview-720p-v3.mp4" muted playsinline autoplay loop preload="metadata" aria-label="Coach Unbox Your Joy grid preview"></video>
           <span class="works-grid-title">
             <span class="works-grid-title-text">Coach Unbox Your Joy</span>
             <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1385,7 +1423,7 @@
           </span>
         </a>
         <a class="works-grid-link media-hover-zoom" href="commercials/google-yeswelder/" aria-label="Google Yeswelder">
-          <img class="media-hover-zoom-target" src="https://i.vimeocdn.com/video/980589228-ffe107e40f0afe5fa496e1dc6f00b5577fd22f35aca6c23839a0ce0816489b48-d_1280?region=us" alt="Google Yeswelder film preview" loading="lazy" decoding="async">
+          <img class="media-hover-zoom-target" width="16" height="9" data-aspect-ratio="1.777778" src="https://i.vimeocdn.com/video/980589228-ffe107e40f0afe5fa496e1dc6f00b5577fd22f35aca6c23839a0ce0816489b48-d_1280?region=us" alt="Google Yeswelder film preview" loading="eager" decoding="async">
           <span class="works-grid-title">
             <span class="works-grid-title-text">Google Yeswelder</span>
             <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1394,7 +1432,7 @@
           </span>
         </a>
         <a class="works-grid-link media-hover-zoom" href="commercials/handsome-factory-barbershop-hong-kong/" aria-label="Handsome Factory Barbershop Hong Kong">
-          <img class="media-hover-zoom-target" src="https://i.vimeocdn.com/video/771155813-6f37e8bfbae4f7ec7647711da8f3e8406fb5f37314edf7f4c19edbf699ba1eb7-d_1280?region=us" alt="Handsome Factory Barbershop Hong Kong film preview" loading="lazy" decoding="async">
+          <img class="media-hover-zoom-target" width="16" height="9" data-aspect-ratio="1.777778" src="https://i.vimeocdn.com/video/771155813-6f37e8bfbae4f7ec7647711da8f3e8406fb5f37314edf7f4c19edbf699ba1eb7-d_1280?region=us" alt="Handsome Factory Barbershop Hong Kong film preview" loading="eager" decoding="async">
           <span class="works-grid-title">
             <span class="works-grid-title-text">Handsome Factory Barbershop Hong Kong</span>
             <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1403,7 +1441,7 @@
           </span>
         </a>
         <a class="works-grid-link media-hover-zoom" href="commercials/miumiu-2022-cny/" aria-label="Miumiu 2022 Cny">
-          <img class="media-hover-zoom-target" src="https://i.vimeocdn.com/video/1335298785-2977530dc8b6d601ca72cbc29031e13e3cb4a0a9291c8645c9c6796066d2606e-d_1280?region=us" alt="Miumiu 2022 Cny film preview" loading="lazy" decoding="async">
+          <img class="media-hover-zoom-target" width="16" height="9" data-aspect-ratio="1.777778" src="https://i.vimeocdn.com/video/1335298785-2977530dc8b6d601ca72cbc29031e13e3cb4a0a9291c8645c9c6796066d2606e-d_1280?region=us" alt="Miumiu 2022 Cny film preview" loading="eager" decoding="async">
           <span class="works-grid-title">
             <span class="works-grid-title-text">Miumiu 2022 Cny</span>
             <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1412,7 +1450,7 @@
           </span>
         </a>
         <a class="works-grid-link media-hover-zoom" href="commercials/popsockets/" aria-label="Popsockets">
-          <video class="media-hover-zoom-target" data-src="media/editable-content/work/commercials/popsockets/grid_preview/1_shot20_0m32s-grid-preview-720p-v3.mp4" data-lazy-video muted playsinline loop preload="none" data-autoplay="true" aria-label="Popsockets grid preview"></video>
+          <video class="media-hover-zoom-target" src="media/editable-content/work/commercials/popsockets/grid_preview/1_shot20_0m32s-grid-preview-720p-v3.mp4" muted playsinline autoplay loop preload="metadata" aria-label="Popsockets grid preview"></video>
           <span class="works-grid-title">
             <span class="works-grid-title-text">Popsockets</span>
             <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1421,7 +1459,7 @@
           </span>
         </a>
         <a class="works-grid-link media-hover-zoom" href="commercials/sammi-axa/" aria-label="Sammi Axa">
-          <img class="media-hover-zoom-target" src="https://i.vimeocdn.com/video/991158424-889504a6a46f608c3482bb0b944f33357dec1ec08e0584b2e8b7c01bc6f7eaf0-d_1280?region=us" alt="Sammi Axa film preview" loading="lazy" decoding="async">
+          <img class="media-hover-zoom-target" width="16" height="9" data-aspect-ratio="1.777778" src="https://i.vimeocdn.com/video/991158424-889504a6a46f608c3482bb0b944f33357dec1ec08e0584b2e8b7c01bc6f7eaf0-d_1280?region=us" alt="Sammi Axa film preview" loading="eager" decoding="async">
           <span class="works-grid-title">
             <span class="works-grid-title-text">Sammi Axa</span>
             <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1430,7 +1468,7 @@
           </span>
         </a>
         <a class="works-grid-link media-hover-zoom" href="commercials/tiktok-eason-chan/" aria-label="Tiktok Eason Chan">
-          <img class="media-hover-zoom-target" src="https://i.vimeocdn.com/video/1544585205-348d9002e455981c18e5654cc4d3d6760bb4fd66004cb541f12fa53208be674b-d_1280?region=us" alt="Tiktok Eason Chan film preview" loading="lazy" decoding="async">
+          <img class="media-hover-zoom-target" width="16" height="9" data-aspect-ratio="1.777778" src="https://i.vimeocdn.com/video/1544585205-348d9002e455981c18e5654cc4d3d6760bb4fd66004cb541f12fa53208be674b-d_1280?region=us" alt="Tiktok Eason Chan film preview" loading="eager" decoding="async">
           <span class="works-grid-title">
             <span class="works-grid-title-text">Tiktok Eason Chan</span>
             <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1439,7 +1477,7 @@
           </span>
         </a>
         <a class="works-grid-link media-hover-zoom" href="commercials/wildaid-tigers/" aria-label="Wildaid Tigers">
-          <img class="media-hover-zoom-target" src="https://i.vimeocdn.com/video/1724242026-29504855a84a2e60d77adf2738fc886dd9a66c74c7d4c457df0f1fd6646c6581-d_1280?region=us" alt="Wildaid Tigers film preview" loading="lazy" decoding="async">
+          <img class="media-hover-zoom-target" width="16" height="9" data-aspect-ratio="1.777778" src="https://i.vimeocdn.com/video/1724242026-29504855a84a2e60d77adf2738fc886dd9a66c74c7d4c457df0f1fd6646c6581-d_1280?region=us" alt="Wildaid Tigers film preview" loading="eager" decoding="async">
           <span class="works-grid-title">
             <span class="works-grid-title-text">Wildaid Tigers</span>
             <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1448,7 +1486,7 @@
           </span>
         </a>
         <a class="works-grid-link media-hover-zoom" href="commercials/young-master-hong-kong-brewery/" aria-label="Young Master Hong Kong Brewery">
-          <img class="media-hover-zoom-target" src="https://i.vimeocdn.com/video/771156431-8e8393c65bd8289bcc779e038b5640e8b9f8340aa6617f339877f56a71ad8ae0-d_1280?region=us" alt="Young Master Hong Kong Brewery film preview" loading="lazy" decoding="async">
+          <img class="media-hover-zoom-target" width="16" height="9" data-aspect-ratio="1.777778" src="https://i.vimeocdn.com/video/771156431-8e8393c65bd8289bcc779e038b5640e8b9f8340aa6617f339877f56a71ad8ae0-d_1280?region=us" alt="Young Master Hong Kong Brewery film preview" loading="eager" decoding="async">
           <span class="works-grid-title">
             <span class="works-grid-title-text">Young Master Hong Kong Brewery</span>
             <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1457,7 +1495,7 @@
           </span>
         </a>
         <a class="works-grid-link media-hover-zoom" href="commercials/yuet-tung-china-work/" aria-label="Yuet Tung China Work">
-          <img class="media-hover-zoom-target" src="https://i.vimeocdn.com/video/778144200-90e77d3d72bcdc679a5cfb05a55677e38a51aa4c1430f02b4b998e4906b65d2f-d_1280?region=us" alt="Yuet Tung China Work film preview" loading="lazy" decoding="async">
+          <img class="media-hover-zoom-target" width="16" height="9" data-aspect-ratio="1.777778" src="https://i.vimeocdn.com/video/778144200-90e77d3d72bcdc679a5cfb05a55677e38a51aa4c1430f02b4b998e4906b65d2f-d_1280?region=us" alt="Yuet Tung China Work film preview" loading="eager" decoding="async">
           <span class="works-grid-title">
             <span class="works-grid-title-text">Yuet Tung China Work</span>
             <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
