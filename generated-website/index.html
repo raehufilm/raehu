@@ -263,6 +263,7 @@
       --section-divider-dot-delay: calc(
         var(--section-divider-reveal-duration) + var(--section-divider-reveal-delay)
       );
+      --section-divider-suffix-reveal-padding: 0.45em;
       padding: 3.5rem var(--page-padding);
       font-family: var(--sans);
       font-size: 0.782rem;
@@ -301,6 +302,8 @@
       align-items: center;
       justify-content: center;
       gap: 0.7rem;
+      max-width: 100%;
+      min-width: 0;
     }
 
     .section-divider-dot {
@@ -333,6 +336,8 @@
     .section-divider-text--segmented {
       display: inline-flex;
       align-items: center;
+      max-width: 100%;
+      min-width: 0;
       clip-path: none;
     }
 
@@ -344,8 +349,7 @@
 
     .section-divider-segment--camera-suffix,
     .section-divider-segment--suffix {
-      padding-right: 0.28em;
-      margin-right: -0.28em;
+      padding-right: var(--section-divider-suffix-reveal-padding);
     }
 
     .section-divider-segment--prefix {
@@ -363,7 +367,7 @@
     .section-divider-segment--camera-suffix {
       --section-divider-segment-duration: var(--section-divider-camera-suffix-duration);
       --section-divider-segment-delay: var(--section-divider-camera-suffix-delay);
-      --section-divider-segment-steps: 8;
+      --section-divider-segment-steps: 9;
     }
 
     .section-divider-segment--ellipsis {

@@ -1,7 +1,9 @@
 import contextlib
+import html
 import io
 import itertools
 import json
+import re
 import subprocess
 import tempfile
 import unittest
@@ -271,6 +273,135 @@ class GeneratePagesTests(unittest.TestCase):
         )
         self.assertNotIn("section-divider-dot-fade-out", template)
         self.assertNotIn("......", template)
+
+    def test_home_template_divider_typewriter_steps_cover_every_character(self):
+        template = generate_pages.read_text(generate_pages.HOME_TEMPLATE)
+        step_rules = {
+            f"section-divider-segment--{name}": int(steps)
+            for name, steps in re.findall(
+                r"\.section-divider-segment--([a-z-]+)\s*{[^}]*"
+                r"--section-divider-segment-steps:\s*(\d+);",
+                template,
+                re.DOTALL,
+            )
+        }
+        divider_blocks = re.findall(
+            r'<div class="section-divider [^"]+">(?P<body>.*?)</div>',
+            template,
+            re.DOTALL,
+        )
+
+        self.assertEqual(len(divider_blocks), 3)
+        for block_html in divider_blocks:
+            aria_label_match = re.search(
+                r'<span class="section-divider-text section-divider-text--segmented" aria-label="([^"]+)">',
+                block_html,
+            )
+            self.assertIsNotNone(aria_label_match)
+            aria_label = aria_label_match.group(1)
+            segments = re.findall(
+                r'<span class="section-divider-segment ([^"]+)" aria-hidden="true">'
+                r"(.*?)</span>",
+                block_html,
+            )
+            visible_parts = [
+                html.unescape(raw_text).replace("\xa0", " ")
+                for _, raw_text in segments
+            ]
+
+            self.assertTrue(segments)
+            self.assertEqual("".join(visible_parts), aria_label)
+            self.assertIn(aria_label[-1], {",", "!", "."})
+
+            for (class_names, _), visible_text in zip(segments, visible_parts):
+                segment_class = next(
+                    name
+                    for name in class_names.split()
+                    if name.startswith("section-divider-segment--")
+                )
+
+                self.assertIn(segment_class, step_rules)
+                self.assertGreaterEqual(
+                    step_rules[segment_class],
+                    len(visible_text),
+                    f"{segment_class} should reveal all of {visible_text!r}",
+                )
+
+    def test_home_template_all_terminal_divider_punctuation_is_in_safe_suffix_spans(self):
+        template = generate_pages.read_text(generate_pages.HOME_TEMPLATE)
+        suffix_segments = re.findall(
+            r'<span class="section-divider-segment ([^"]*section-divider-segment--(?:camera-suffix|suffix)[^"]*)" '
+            r'aria-hidden="true">(.*?)</span>',
+            template,
+        )
+
+        self.assertEqual(
+            [
+                html.unescape(text).replace("\xa0", " ")
+                for _, text in suffix_segments
+            ],
+            [" rolling!", " action!", "AND CUT!"],
+        )
+        for class_names, raw_text in suffix_segments:
+            visible_text = html.unescape(raw_text).replace("\xa0", " ")
+            self.assertTrue(
+                visible_text.endswith("!"),
+                f"{class_names} should keep terminal punctuation inside the padded suffix span",
+            )
+
+    def test_home_template_divider_suffixes_have_layout_safe_clip_padding(self):
+        template = generate_pages.read_text(generate_pages.HOME_TEMPLATE)
+        suffix_rule = re.search(
+            r"\.section-divider-segment--camera-suffix,\s*"
+            r"\.section-divider-segment--suffix\s*{(?P<body>[^}]+)}",
+            template,
+            re.DOTALL,
+        )
+        segmented_rule = re.search(
+            r"\.section-divider-text--segmented\s*{(?P<body>[^}]+)}",
+            template,
+            re.DOTALL,
+        )
+        inner_rule = re.search(
+            r"\.section-divider-inner\s*{(?P<body>[^}]+)}",
+            template,
+            re.DOTALL,
+        )
+
+        self.assertIsNotNone(suffix_rule)
+        self.assertIsNotNone(segmented_rule)
+        self.assertIsNotNone(inner_rule)
+        self.assertIn("--section-divider-suffix-reveal-padding: 0.45em;", template)
+        self.assertIn(
+            "padding-right: var(--section-divider-suffix-reveal-padding);",
+            suffix_rule.group("body"),
+        )
+        self.assertNotIn("margin-right", suffix_rule.group("body"))
+        self.assertIn("max-width: 100%;", segmented_rule.group("body"))
+        self.assertIn("min-width: 0;", segmented_rule.group("body"))
+        self.assertIn("max-width: 100%;", inner_rule.group("body"))
+        self.assertIn("min-width: 0;", inner_rule.group("body"))
+
+    def test_work_template_mobile_bts_stack_does_not_keep_desktop_min_height(self):
+        template = generate_pages.read_text(generate_pages.WORK_PAGE_TEMPLATE)
+
+        self.assertIn("@media (max-width: 700px)", template)
+        self.assertIn(
+            "      .work-page--bts {\n"
+            "        --page-padding-top: 2rem;\n"
+            "        min-height: 0;\n"
+            "      }",
+            template,
+        )
+        self.assertIn(
+            "      .bts-slideshow {\n"
+            "        width: 100%;\n"
+            "        height: auto;\n"
+            "        min-height: 0;\n"
+            "        aspect-ratio: 16 / 9;\n"
+            "      }",
+            template,
+        )
 
     def test_load_about_image_requires_numbered_prefix(self):
         with tempfile.TemporaryDirectory() as tmp:
