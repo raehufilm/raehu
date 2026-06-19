@@ -135,10 +135,10 @@ class WorkContent:
     title: str
     trailer_embed_url: str | None
     trailer_poster_url: str | None
-    note: NoteContent
-    note_media: MediaItem
+    note: NoteContent | None
+    note_media: MediaItem | None
     highlight_media: tuple[MediaItem, ...]
-    bts_text_html: str
+    bts_text_html: str | None
     bts_media: tuple[MediaItem, ...]
     category: str = ""
     trailer_media: MediaItem | None = None
@@ -217,7 +217,13 @@ def primary_link_file_for_section(section_name: str) -> str:
 
 
 def work_section_order(work: WorkContent) -> tuple[str, ...]:
-    return (primary_section_for_category(work.category), *COMMON_WORK_SECTION_ORDER)
+    sections = [primary_section_for_category(work.category)]
+    if work.note is not None:
+        sections.append("note")
+    sections.append("highlight")
+    if work.bts_text_html is not None:
+        sections.append("bts")
+    return tuple(sections)
 
 
 def load_primary_links(path: Path) -> tuple[PrimaryLink, ...]:
@@ -1509,12 +1515,16 @@ def load_work(
     )
     primary_links = load_primary_links(primary_dir / "additional_links.md")
     note_dir = work_dir / "note"
-    note = load_note_content(note_dir)
-    note_media = ordered_media(
-        note_dir,
-        write_assets=write_assets,
-        check_generated_assets=check_generated_assets,
-    )
+    note: NoteContent | None = None
+    note_media_item: MediaItem | None = None
+    if note_dir.is_dir():
+        note = load_note_content(note_dir)
+        note_media = ordered_media(
+            note_dir,
+            write_assets=write_assets,
+            check_generated_assets=check_generated_assets,
+        )
+        note_media_item = validate_note_content(note_dir, note, note_media)
     highlight_media = ordered_media(
         work_dir / "highlight",
         write_assets=write_assets,
@@ -1525,21 +1535,25 @@ def load_work(
         write_assets=write_assets,
         check_generated_assets=check_generated_assets,
     )
-    bts_text_html, bts_text_html_chinese, bts_text_html_spanish = load_localized_markdown_lines(
-        work_dir / "bts" / "text.md"
-    )
-    bts_media = ordered_media(
-        work_dir / "bts",
-        write_assets=write_assets,
-        check_generated_assets=check_generated_assets,
-    )
+    bts_dir = work_dir / "bts"
+    bts_text_html: str | None = None
+    bts_text_html_chinese: str | None = None
+    bts_text_html_spanish: str | None = None
+    bts_media: tuple[MediaItem, ...] = ()
+    if bts_dir.is_dir():
+        bts_text_html, bts_text_html_chinese, bts_text_html_spanish = load_localized_markdown_lines(
+            bts_dir / "text.md"
+        )
+        bts_media = ordered_media(
+            bts_dir,
+            write_assets=write_assets,
+            check_generated_assets=check_generated_assets,
+        )
     grid_display_media = grid_display_media_for(
         grid_preview_media or trailer_media,
         write_assets=write_assets,
         check_generated_assets=check_generated_assets,
     )
-
-    note_media_item = validate_note_content(note_dir, note, note_media)
 
     return WorkContent(
         slug=slug,
@@ -2001,12 +2015,12 @@ def apply_template_replacements(template: str, replacements: Mapping[str, str]) 
 
 
 def render_work(work: WorkContent, template: str, output_html: Path) -> str:
-    sections = [
-        render_trailer_section(work, output_html),
-        render_note_section(work, output_html),
-        render_highlight_section(work, output_html),
-        render_bts_section(work, output_html),
-    ]
+    sections = [render_trailer_section(work, output_html)]
+    if work.note is not None:
+        sections.append(render_note_section(work, output_html))
+    sections.append(render_highlight_section(work, output_html))
+    if work.bts_text_html is not None:
+        sections.append(render_bts_section(work, output_html))
 
     replacements = {
         "{{DOCUMENT_TITLE}}": html_escape(work.title),

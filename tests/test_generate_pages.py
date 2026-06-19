@@ -1227,6 +1227,42 @@ console.log(JSON.stringify(results));
             self.assertNotIn("draft-film", slugs)
             self.assertIn("ready-film", slugs)
 
+    def test_load_work_without_note_and_bts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "editable-content" / "work" / "films" / "minimal-work"
+            output_html = root / "generated-website" / "films" / "minimal-work" / "index.html"
+
+            (source / "trailer").mkdir(parents=True)
+            (source / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/123456789",
+                encoding="utf-8",
+            )
+            (source / "highlight").mkdir(parents=True)
+            (source / "highlight" / "1_highlight.webp").write_text(
+                "webp",
+                encoding="utf-8",
+            )
+
+            with mock.patch.object(generate_pages, "vimeo_thumbnail_url", return_value=None):
+                work = generate_pages.load_work(source)
+            rendered = generate_pages.render_work(
+                work,
+                "{{SECTION_TRACKER_LINKS}}{{WORK_SECTIONS}}",
+                output_html,
+            )
+
+            self.assertIsNone(work.note)
+            self.assertIsNone(work.note_media)
+            self.assertIsNone(work.bts_text_html)
+            self.assertEqual(work.bts_media, ())
+            self.assertIn('id="trailer"', rendered)
+            self.assertIn('id="highlight"', rendered)
+            self.assertNotIn('id="note"', rendered)
+            self.assertNotIn('id="bts"', rendered)
+            self.assertNotIn('data-section-link="note"', rendered)
+            self.assertNotIn('data-section-link="bts"', rendered)
+
     def test_generate_writes_category_source_to_public_work_page(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
