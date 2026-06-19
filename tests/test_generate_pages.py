@@ -626,13 +626,12 @@ class GeneratePagesTests(unittest.TestCase):
             raw.write_text("raw", encoding="utf-8")
             webp.write_text("web", encoding="utf-8")
 
-            newer_time = raw.stat().st_mtime + 10
-            webp.touch()
-            import os
-            os.utime(webp, (newer_time, newer_time))
+            generate_pages._source_hash_cache[raw] = generate_pages.source_content_hash(raw)
 
             with mock.patch.object(generate_pages, "convert_image_to_webp") as convert:
                 media = generate_pages.ordered_media(media_dir, write_assets=True)
+
+            generate_pages._source_hash_cache.pop(raw, None)
 
         convert.assert_not_called()
         self.assertEqual(len(media), 1)
@@ -653,12 +652,13 @@ class GeneratePagesTests(unittest.TestCase):
                 for target in generate_pages.responsive_image_variant_paths(source):
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_text("webp", encoding="utf-8")
-                    newer_time = source.stat().st_mtime + 10
-                    import os
-                    os.utime(target, (newer_time, newer_time))
+
+                generate_pages._source_hash_cache[source] = generate_pages.source_content_hash(source)
 
                 with mock.patch.object(generate_pages, "convert_image_to_webp") as convert:
                     generate_pages.ensure_responsive_image_variants(source, write_assets=True)
+
+            generate_pages._source_hash_cache.pop(source, None)
 
         convert.assert_not_called()
 
@@ -685,9 +685,8 @@ class GeneratePagesTests(unittest.TestCase):
                 target = generate_pages.optimized_grid_preview_video_path(source)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text("mp4", encoding="utf-8")
-                newer_time = source.stat().st_mtime + 10
-                import os
-                os.utime(target, (newer_time, newer_time))
+
+                generate_pages._source_hash_cache[source] = generate_pages.source_content_hash(source)
 
                 with mock.patch.object(generate_pages, "transcode_grid_preview_video") as transcode:
                     optimized = generate_pages.ensure_optimized_grid_preview_video(
@@ -695,8 +694,36 @@ class GeneratePagesTests(unittest.TestCase):
                         write_assets=True,
                     )
 
+            generate_pages._source_hash_cache.pop(source, None)
+
         transcode.assert_not_called()
         self.assertEqual(optimized.name, "1_preview-grid-preview-720p-v3.mp4")
+
+    def test_responsive_variants_reconvert_when_source_content_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "editable-content" / "work" / "films" / "sample" / "highlight" / "1_first.webp"
+            generated_site = root / "generated-website"
+            source.parent.mkdir(parents=True)
+            source.write_text("original content", encoding="utf-8")
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+            ):
+                for target in generate_pages.responsive_image_variant_paths(source):
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("webp", encoding="utf-8")
+
+                generate_pages._source_hash_cache[source] = "old_hash_from_different_content"
+
+                with mock.patch.object(generate_pages, "convert_image_to_webp") as convert:
+                    generate_pages.ensure_responsive_image_variants(source, write_assets=True)
+
+            generate_pages._source_hash_cache.pop(source, None)
+            generate_pages._current_hash_memo.clear()
+
+        self.assertEqual(convert.call_count, len(generate_pages.RESPONSIVE_IMAGE_WIDTHS))
 
     def test_grid_preview_video_check_mode_requires_generated_output(self):
         with tempfile.TemporaryDirectory() as tmp:

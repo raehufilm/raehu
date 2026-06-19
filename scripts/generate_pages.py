@@ -782,10 +782,64 @@ def converted_image_path(path: Path) -> Path:
     return path.with_suffix(WEB_IMAGE_EXTENSION)
 
 
+_current_hash_memo: dict[Path, str] = {}
+
+
+def source_content_hash(path: Path) -> str:
+    resolved = path.resolve()
+    cached = _current_hash_memo.get(resolved)
+    if cached is not None:
+        return cached
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(65536):
+            h.update(chunk)
+    digest = h.hexdigest()
+    _current_hash_memo[resolved] = digest
+    return digest
+
+
+_source_hash_cache: dict[Path, str] = {}
+
+
+def _source_hash_cache_path() -> Path:
+    return responsive_media_dir() / ".source-hashes.json"
+
+
+def load_source_hash_cache() -> None:
+    _source_hash_cache.clear()
+    _current_hash_memo.clear()
+    cache_path = _source_hash_cache_path()
+    if cache_path.exists():
+        try:
+            data = json.loads(cache_path.read_text(encoding="utf-8"))
+            _source_hash_cache.update(
+                {Path(k): v for k, v in data.items()}
+            )
+        except (json.JSONDecodeError, OSError):
+            pass
+
+
+def save_source_hash_cache() -> None:
+    cache_path = _source_hash_cache_path()
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    data = {str(k): v for k, v in sorted(_source_hash_cache.items())}
+    cache_path.write_text(
+        json.dumps(data, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
 def needs_conversion(source: Path, target: Path) -> bool:
     if not target.exists():
         return True
-    return source.stat().st_mtime_ns > target.stat().st_mtime_ns
+    current_hash = source_content_hash(source)
+    cached_hash = _source_hash_cache.get(source)
+    return current_hash != cached_hash
+
+
+def record_conversion(source: Path) -> None:
+    _source_hash_cache[source] = source_content_hash(source)
 
 
 def convert_image_to_webp(
@@ -884,14 +938,18 @@ def ensure_responsive_image_variants(
     if not is_repo_content_path(source):
         return
 
-    for width, target in zip(RESPONSIVE_IMAGE_WIDTHS, responsive_image_variant_paths(source)):
-        if needs_conversion(source, target):
+    targets = list(zip(RESPONSIVE_IMAGE_WIDTHS, responsive_image_variant_paths(source)))
+    stale = needs_conversion(source, targets[0][1])
+    for width, target in targets:
+        if stale or not target.exists():
             if not write_assets:
                 raise PageGenerationError(
                     f"Responsive image variant is missing or stale for {source}: {target}. "
                     "Run python3 scripts/generate_pages.py."
                 )
             convert_image_to_webp(source, target, max_width=width, quality=78)
+    if write_assets:
+        record_conversion(source)
 
 
 def optimized_grid_preview_video_path(source: Path) -> Path:
@@ -971,6 +1029,7 @@ def ensure_optimized_grid_preview_video(
             "Run python3 scripts/generate_pages.py."
         )
     transcode_grid_preview_video(source, target)
+    record_conversion(source)
     return target
 
 
@@ -1014,13 +1073,20 @@ def canonical_media_path(
         )
         return path
 
-    if needs_conversion(path, target):
+    if not write_assets and not check_generated_assets:
+        if not target.exists():
+            raise PageGenerationError(
+                f"Converted WebP is missing for {path}. "
+                "Run python3 scripts/generate_pages.py."
+            )
+    elif needs_conversion(path, target):
         if not write_assets:
             raise PageGenerationError(
                 f"Converted WebP is missing or stale for {path}. "
                 "Run python3 scripts/generate_pages.py."
             )
         convert_image_to_webp(path, target)
+        record_conversion(path)
     ensure_responsive_image_variants(
         target,
         write_assets=write_assets,
@@ -2404,6 +2470,7 @@ def generate(check: bool = False, selected_slug: str | None = None) -> int:
         raise PageGenerationError(f"No valid started work found for slug: {selected_slug}")
 
     failures = sync_static_assets(check)
+    load_source_hash_cache()
     if not selected_slug:
         failures += prune_stale_generated_media(check=check)
     works: list[WorkContent] = []
@@ -2431,8 +2498,10 @@ def generate(check: bool = False, selected_slug: str | None = None) -> int:
         home_rendered = render_home(tuple(works), about, home_template, HOME_OUTPUT_HTML)
         failures += write_or_check(HOME_OUTPUT_HTML, home_rendered, check)
 
-    if not check and vimeo_thumbnail_cache != original_vimeo_thumbnail_cache:
-        write_vimeo_thumbnail_cache(vimeo_thumbnail_cache)
+    if not check:
+        save_source_hash_cache()
+        if vimeo_thumbnail_cache != original_vimeo_thumbnail_cache:
+            write_vimeo_thumbnail_cache(vimeo_thumbnail_cache)
 
     return failures
 
