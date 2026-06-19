@@ -1371,7 +1371,7 @@ def media_tag(
 
 def valid_started_work(work_dir: Path) -> bool:
     for path in work_dir.rglob("*"):
-        if path.is_file() and path.name not in IGNORED_NAMES and not path.name.startswith("."):
+        if path.is_file() and path.name not in IGNORED_NAMES and not path.name.startswith(".") and is_media_path(path):
             return True
     return False
 

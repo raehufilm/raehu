@@ -1167,17 +1167,21 @@ console.log(JSON.stringify(results));
                 "https://vimeo.com/1",
                 encoding="utf-8",
             )
+            (commercial / "highlight").mkdir(parents=True)
+            (commercial / "highlight" / "1_img.jpg").write_bytes(b"\xff\xd8")
             (film / "trailer" / "trailer_link.md").write_text(
                 "https://vimeo.com/2",
                 encoding="utf-8",
             )
+            (film / "highlight").mkdir(parents=True)
+            (film / "highlight" / "1_img.jpg").write_bytes(b"\xff\xd8")
 
             work_dirs = generate_pages.discover_work_dirs(editable_work)
 
-        self.assertEqual(
-            [path.relative_to(editable_work).as_posix() for path in work_dirs],
-            ["films/sample-film", "commercials/sample-ad"],
-        )
+            self.assertEqual(
+                [path.relative_to(editable_work).as_posix() for path in work_dirs],
+                ["films/sample-film", "commercials/sample-ad"],
+            )
 
     def test_discover_work_dirs_rejects_duplicate_slugs_across_categories(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1190,13 +1194,38 @@ console.log(JSON.stringify(results));
                 "https://vimeo.com/1",
                 encoding="utf-8",
             )
+            (commercial / "highlight").mkdir(parents=True)
+            (commercial / "highlight" / "1_img.jpg").write_bytes(b"\xff\xd8")
             (film / "trailer" / "trailer_link.md").write_text(
                 "https://vimeo.com/2",
                 encoding="utf-8",
             )
+            (film / "highlight").mkdir(parents=True)
+            (film / "highlight" / "1_img.jpg").write_bytes(b"\xff\xd8")
 
             with self.assertRaises(generate_pages.PageGenerationError):
                 generate_pages.discover_work_dirs(editable_work)
+
+    def test_discover_work_dirs_skips_draft_with_no_media(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            editable_work = Path(tmp) / "editable-content" / "work"
+            draft = editable_work / "films" / "draft-film"
+            ready = editable_work / "films" / "ready-film"
+            (draft / "note").mkdir(parents=True)
+            (draft / "note" / "1_text.md").write_text("# Draft", encoding="utf-8")
+            (draft / "highlight").mkdir(parents=True)
+            (ready / "trailer").mkdir(parents=True)
+            (ready / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/1", encoding="utf-8"
+            )
+            (ready / "highlight").mkdir(parents=True)
+            (ready / "highlight" / "1_img.jpg").write_bytes(b"\xff\xd8")
+
+            work_dirs = generate_pages.discover_work_dirs(editable_work)
+
+            slugs = [d.name for d in work_dirs]
+            self.assertNotIn("draft-film", slugs)
+            self.assertIn("ready-film", slugs)
 
     def test_generate_writes_category_source_to_public_work_page(self):
         with tempfile.TemporaryDirectory() as tmp:
