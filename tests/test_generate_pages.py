@@ -751,7 +751,7 @@ class GeneratePagesTests(unittest.TestCase):
                     check_generated_assets=True,
                 )
 
-        self.assertIn("Optimized grid preview video is missing or stale", str(context.exception))
+        self.assertIn("Optimized grid preview video is missing", str(context.exception))
 
     def test_note_markdown_uses_heading_for_title_and_body_for_copy(self):
         with tempfile.TemporaryDirectory() as tmp:

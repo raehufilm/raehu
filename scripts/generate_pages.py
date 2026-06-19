@@ -939,17 +939,20 @@ def ensure_responsive_image_variants(
         return
 
     targets = list(zip(RESPONSIVE_IMAGE_WIDTHS, responsive_image_variant_paths(source)))
+    if check_generated_assets:
+        for _width, target in targets:
+            if not target.exists():
+                raise PageGenerationError(
+                    f"Responsive image variant is missing for {source}: {target}. "
+                    "Run python3 scripts/generate_pages.py."
+                )
+        return
+
     stale = needs_conversion(source, targets[0][1])
     for width, target in targets:
         if stale or not target.exists():
-            if not write_assets:
-                raise PageGenerationError(
-                    f"Responsive image variant is missing or stale for {source}: {target}. "
-                    "Run python3 scripts/generate_pages.py."
-                )
             convert_image_to_webp(source, target, max_width=width, quality=78)
-    if write_assets:
-        record_conversion(source)
+    record_conversion(source)
 
 
 def optimized_grid_preview_video_path(source: Path) -> Path:
@@ -1021,13 +1024,15 @@ def ensure_optimized_grid_preview_video(
         return target
     if not is_repo_content_path(source):
         return target
+    if check_generated_assets:
+        if not target.exists():
+            raise PageGenerationError(
+                f"Optimized grid preview video is missing for {source}: {target}. "
+                "Run python3 scripts/generate_pages.py."
+            )
+        return target
     if not needs_conversion(source, target):
         return target
-    if not write_assets:
-        raise PageGenerationError(
-            f"Optimized grid preview video is missing or stale for {source}: {target}. "
-            "Run python3 scripts/generate_pages.py."
-        )
     transcode_grid_preview_video(source, target)
     record_conversion(source)
     return target
@@ -1073,18 +1078,13 @@ def canonical_media_path(
         )
         return path
 
-    if not write_assets and not check_generated_assets:
+    if not write_assets:
         if not target.exists():
             raise PageGenerationError(
                 f"Converted WebP is missing for {path}. "
                 "Run python3 scripts/generate_pages.py."
             )
     elif needs_conversion(path, target):
-        if not write_assets:
-            raise PageGenerationError(
-                f"Converted WebP is missing or stale for {path}. "
-                "Run python3 scripts/generate_pages.py."
-            )
         convert_image_to_webp(path, target)
         record_conversion(path)
     ensure_responsive_image_variants(
