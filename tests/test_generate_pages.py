@@ -1716,5 +1716,202 @@ console.log(JSON.stringify(results));
         self.assertIn("js/local-preview-links.js", rendered)
         self.assertIn("<svg></svg>", rendered)
 
+    def test_prune_stale_generated_media_removes_orphaned_responsive_variants(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            editable_content = root / "editable-content"
+            editable_work = editable_content / "work"
+            generated_site = root / "generated-website"
+            media_dir = generated_site / "media"
+
+            highlight_dir = editable_work / "films" / "sample" / "highlight"
+            highlight_dir.mkdir(parents=True)
+            (highlight_dir / "1_still.webp").write_text("webp", encoding="utf-8")
+            trailer_dir = editable_work / "films" / "sample" / "trailer"
+            trailer_dir.mkdir(parents=True)
+            (trailer_dir / "trailer_link.md").write_text(
+                "https://vimeo.com/123", encoding="utf-8"
+            )
+
+            output_highlight = (
+                media_dir / "editable-content" / "work" / "films" / "sample" / "highlight"
+            )
+            output_highlight.mkdir(parents=True)
+            for width in generate_pages.RESPONSIVE_IMAGE_WIDTHS:
+                (output_highlight / f"1_still-{width}.webp").write_text("", encoding="utf-8")
+            for width in generate_pages.RESPONSIVE_IMAGE_WIDTHS:
+                (output_highlight / f"2_deleted-{width}.webp").write_text("", encoding="utf-8")
+
+            with (
+                contextlib.redirect_stdout(io.StringIO()),
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "EDITABLE_CONTENT_DIR", editable_content),
+                mock.patch.object(generate_pages, "EDITABLE_WORK_DIR", editable_work),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+            ):
+                failures = generate_pages.prune_stale_generated_media(
+                    editable_content_dir=editable_content,
+                    editable_work_dir=editable_work,
+                    repo_root=root,
+                    generated_website_dir=generated_site,
+                )
+
+            remaining = sorted(p.name for p in output_highlight.iterdir() if p.is_file())
+
+            self.assertEqual(failures, 0)
+            self.assertEqual(
+                remaining,
+                sorted(f"1_still-{w}.webp" for w in generate_pages.RESPONSIVE_IMAGE_WIDTHS),
+            )
+
+    def test_prune_stale_generated_media_check_mode_reports_without_deleting(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            editable_content = root / "editable-content"
+            editable_work = editable_content / "work"
+            generated_site = root / "generated-website"
+            media_dir = generated_site / "media"
+
+            (editable_work / "films").mkdir(parents=True)
+
+            stale_dir = media_dir / "editable-content" / "work" / "films" / "gone" / "highlight"
+            stale_dir.mkdir(parents=True)
+            stale_file = stale_dir / "1_old-480.webp"
+            stale_file.write_text("", encoding="utf-8")
+
+            stderr = io.StringIO()
+            with (
+                contextlib.redirect_stderr(stderr),
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "EDITABLE_CONTENT_DIR", editable_content),
+                mock.patch.object(generate_pages, "EDITABLE_WORK_DIR", editable_work),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+            ):
+                failures = generate_pages.prune_stale_generated_media(
+                    check=True,
+                    editable_content_dir=editable_content,
+                    editable_work_dir=editable_work,
+                    repo_root=root,
+                    generated_website_dir=generated_site,
+                )
+
+            self.assertEqual(failures, 1)
+            self.assertTrue(stale_file.exists())
+            self.assertIn("stale", stderr.getvalue())
+
+    def test_prune_stale_generated_media_removes_empty_directories(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            editable_content = root / "editable-content"
+            editable_work = editable_content / "work"
+            generated_site = root / "generated-website"
+            media_dir = generated_site / "media"
+
+            (editable_work / "films").mkdir(parents=True)
+
+            stale_dir = media_dir / "editable-content" / "work" / "films" / "gone" / "highlight"
+            stale_dir.mkdir(parents=True)
+            (stale_dir / "1_old-480.webp").write_text("", encoding="utf-8")
+
+            with (
+                contextlib.redirect_stdout(io.StringIO()),
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "EDITABLE_CONTENT_DIR", editable_content),
+                mock.patch.object(generate_pages, "EDITABLE_WORK_DIR", editable_work),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+            ):
+                generate_pages.prune_stale_generated_media(
+                    editable_content_dir=editable_content,
+                    editable_work_dir=editable_work,
+                    repo_root=root,
+                    generated_website_dir=generated_site,
+                )
+
+            self.assertFalse(stale_dir.exists())
+            self.assertFalse(stale_dir.parent.exists())
+
+    def test_prune_stale_generated_media_keeps_video_preview_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            editable_content = root / "editable-content"
+            editable_work = editable_content / "work"
+            generated_site = root / "generated-website"
+
+            preview_dir = editable_work / "commercials" / "sample" / "grid_preview"
+            preview_dir.mkdir(parents=True)
+            (preview_dir / "1_preview.mp4").write_text("mp4", encoding="utf-8")
+            film_dir = editable_work / "commercials" / "sample" / "film"
+            film_dir.mkdir(parents=True)
+            (film_dir / "film_link.md").write_text(
+                "https://vimeo.com/123", encoding="utf-8"
+            )
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "EDITABLE_CONTENT_DIR", editable_content),
+                mock.patch.object(generate_pages, "EDITABLE_WORK_DIR", editable_work),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+            ):
+                expected_video = generate_pages.optimized_grid_preview_video_path(
+                    preview_dir / "1_preview.mp4"
+                )
+                expected_video.parent.mkdir(parents=True, exist_ok=True)
+                expected_video.write_text("mp4", encoding="utf-8")
+
+                stale_video = expected_video.parent / "old_preview-grid-preview-720p-v3.mp4"
+                stale_video.write_text("mp4", encoding="utf-8")
+
+                stdout = io.StringIO()
+                with contextlib.redirect_stdout(stdout):
+                    failures = generate_pages.prune_stale_generated_media(
+                        editable_content_dir=editable_content,
+                        editable_work_dir=editable_work,
+                        repo_root=root,
+                        generated_website_dir=generated_site,
+                    )
+
+            self.assertEqual(failures, 0)
+            self.assertTrue(expected_video.exists())
+            self.assertFalse(stale_video.exists())
+
+    def test_prune_no_op_when_media_dir_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            generated_site = root / "generated-website"
+            generated_site.mkdir()
+
+            failures = generate_pages.prune_stale_generated_media(
+                editable_content_dir=root / "editable-content",
+                editable_work_dir=root / "editable-content" / "work",
+                repo_root=root,
+                generated_website_dir=generated_site,
+            )
+
+        self.assertEqual(failures, 0)
+
+    def test_expected_generated_media_includes_about_image_variants(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            editable_content = root / "editable-content"
+            about_dir = editable_content / "about"
+            about_dir.mkdir(parents=True)
+            (about_dir / "1_image.webp").write_text("webp", encoding="utf-8")
+            (editable_content / "work" / "films").mkdir(parents=True)
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", root / "generated-website"),
+            ):
+                expected = generate_pages.expected_generated_media(
+                    editable_content_dir=editable_content,
+                    editable_work_dir=editable_content / "work",
+                    repo_root=root,
+                    generated_website_dir=root / "generated-website",
+                )
+
+        self.assertEqual(len(expected), len(generate_pages.RESPONSIVE_IMAGE_WIDTHS))
+        self.assertTrue(all("1_image-" in str(p) for p in expected))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -2270,6 +2270,106 @@ def sync_static_assets(check: bool) -> int:
     return failures
 
 
+def expected_generated_media(
+    editable_content_dir: Path = EDITABLE_CONTENT_DIR,
+    editable_work_dir: Path = EDITABLE_WORK_DIR,
+    repo_root: Path = REPO_ROOT,
+    generated_website_dir: Path = GENERATED_WEBSITE_DIR,
+) -> set[Path]:
+    expected: set[Path] = set()
+
+    def add_image_outputs(source: Path) -> None:
+        if source.suffix.lower() == WEB_IMAGE_EXTENSION:
+            for width in RESPONSIVE_IMAGE_WIDTHS:
+                expected.add(responsive_image_variant_path(source, width))
+        else:
+            webp = converted_image_path(source)
+            for width in RESPONSIVE_IMAGE_WIDTHS:
+                expected.add(responsive_image_variant_path(webp, width))
+
+    def add_video_outputs(source: Path) -> None:
+        expected.add(optimized_grid_preview_video_path(source))
+
+    def scan_media_dir(section_dir: Path) -> None:
+        if not section_dir.is_dir():
+            return
+        for path in section_dir.iterdir():
+            if path.name in IGNORED_NAMES or path.name.startswith("."):
+                continue
+            if not path.is_file() or not is_media_path(path):
+                continue
+            suffix = path.suffix.lower()
+            if suffix in IMAGE_EXTENSIONS:
+                add_image_outputs(path)
+            elif suffix in VIDEO_EXTENSIONS:
+                add_video_outputs(path)
+
+    about_dir = editable_content_dir / "about"
+    scan_media_dir(about_dir)
+
+    for category in WORK_CATEGORIES:
+        category_dir = editable_work_dir / category
+        if not category_dir.is_dir():
+            continue
+        for work_dir in sorted(
+            path for path in category_dir.iterdir()
+            if path.is_dir() and not path.name.startswith(".")
+        ):
+            if not valid_started_work(work_dir):
+                continue
+            primary_section = primary_section_for_category(category)
+            for section in (primary_section,) + COMMON_WORK_SECTION_ORDER:
+                scan_media_dir(work_dir / section)
+            scan_media_dir(work_dir / "grid_preview")
+
+    return expected
+
+
+def prune_stale_generated_media(
+    check: bool = False,
+    editable_content_dir: Path = EDITABLE_CONTENT_DIR,
+    editable_work_dir: Path = EDITABLE_WORK_DIR,
+    repo_root: Path = REPO_ROOT,
+    generated_website_dir: Path = GENERATED_WEBSITE_DIR,
+) -> int:
+    media_dir = generated_website_dir / "media"
+    if not media_dir.exists():
+        return 0
+
+    expected = expected_generated_media(
+        editable_content_dir=editable_content_dir,
+        editable_work_dir=editable_work_dir,
+        repo_root=repo_root,
+        generated_website_dir=generated_website_dir,
+    )
+
+    actual = set(visible_files(media_dir))
+    stale = actual - expected
+
+    if not stale:
+        return 0
+
+    if check:
+        print(
+            f"Generated media directory has {len(stale)} stale file(s) "
+            "from deleted or renamed source media:",
+            file=sys.stderr,
+        )
+        for path in sorted(stale):
+            print(f"  {path}", file=sys.stderr)
+        return 1
+
+    for path in sorted(stale):
+        path.unlink()
+        print(f"removed stale: {path}")
+
+    for dirpath in sorted(media_dir.rglob("*"), reverse=True):
+        if dirpath.is_dir() and not any(dirpath.iterdir()):
+            dirpath.rmdir()
+
+    return 0
+
+
 def discover_work_dirs(editable_work_dir: Path, selected_slug: str | None = None) -> list[Path]:
     if not editable_work_dir.is_dir():
         raise PageGenerationError(f"Missing editable work folder: {editable_work_dir}")
@@ -2304,6 +2404,8 @@ def generate(check: bool = False, selected_slug: str | None = None) -> int:
         raise PageGenerationError(f"No valid started work found for slug: {selected_slug}")
 
     failures = sync_static_assets(check)
+    if not selected_slug:
+        failures += prune_stale_generated_media(check=check)
     works: list[WorkContent] = []
     vimeo_thumbnail_cache = read_vimeo_thumbnail_cache()
     original_vimeo_thumbnail_cache = dict(vimeo_thumbnail_cache)
