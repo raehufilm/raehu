@@ -1,5 +1,5 @@
-A commercial film by Rae Hu
+directed by rae hu 
 
-Trailer: https://vimeo.com/1119723756
-Source stills: Popsocket stills
-
+assitant of director: juno
+cinematographer: frank
+composer: hazel he
