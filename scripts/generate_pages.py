@@ -55,7 +55,7 @@ PRIMARY_LINK_FILE_BY_SECTION = {
 COMMON_WORK_SECTION_ORDER = ("note", "highlight", "bts")
 STATIC_ASSET_DIRS = ("css", "images", "js")
 IGNORED_NAMES = {".DS_Store"}
-IMAGE_EXTENSIONS = {".avif", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
+IMAGE_EXTENSIONS = {".avif", ".gif", ".heic", ".jpeg", ".jpg", ".png", ".webp"}
 VIDEO_EXTENSIONS = {".mp4"}
 WEB_IMAGE_EXTENSION = ".webp"
 RESPONSIVE_IMAGE_WIDTHS = (480, 960, 1440, 1920)
@@ -868,6 +868,11 @@ def convert_image_to_webp(
         )
 
     target.parent.mkdir(parents=True, exist_ok=True)
+    filter_spec = f"scale=w=min({max_width}\\,iw):h=-2"
+    if source.suffix.lower() == ".heic":
+        filter_option = ["-filter_complex", f"[0:v:0]{filter_spec}[out]", "-map", "[out]"]
+    else:
+        filter_option = ["-vf", filter_spec]
     command = [
         ffmpeg,
         "-y",
@@ -875,8 +880,7 @@ def convert_image_to_webp(
         "error",
         "-i",
         str(source),
-        "-vf",
-        f"scale=w=min({max_width}\\,iw):h=-2",
+        *filter_option,
         "-c:v",
         "libwebp",
         "-quality",
