@@ -870,7 +870,7 @@ def convert_image_to_webp(
     target.parent.mkdir(parents=True, exist_ok=True)
     filter_spec = f"scale=w=min({max_width}\\,iw):h=-2"
     if source.suffix.lower() == ".heic":
-        filter_option = ["-filter_complex", f"[0:v:0]{filter_spec}[out]", "-map", "[out]"]
+        filter_option = ["-filter_complex", filter_spec]
     else:
         filter_option = ["-vf", filter_spec]
     command = [
