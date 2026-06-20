@@ -355,6 +355,10 @@
       display: block;
     }
 
+    .bts-layout--text-only {
+      min-height: auto;
+    }
+
     /* --- Grid wrapper (insets the slideshow + stills from screen edges) --- */
     .grid-wrapper {
       padding: var(--page-padding) var(--page-padding) 0;
@@ -880,6 +884,10 @@
       <span class="red-dot section-tracker-dot" aria-hidden="true"></span>
       <span data-language-content="en">highlight</span><span data-language-content="cn">精选</span><span data-language-content="es">destacados</span>
     </a>
+    <a href="#bts" data-section-link="bts">
+      <span class="red-dot section-tracker-dot" aria-hidden="true"></span>
+      <span data-language-content="en">bts</span><span data-language-content="cn">幕后</span><span data-language-content="es">bts</span>
+    </a>
   </nav>
 
   <main class="work-pages" data-work="bose-global">
@@ -985,6 +993,23 @@
             </svg>
           </button>
         </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="work-page work-page--bts content-visibility-auto"
+             id="bts"
+             data-section-page="bts"
+             data-section-title="BTS"
+             data-page-padding
+             aria-label="Behind the scenes">
+      <div class="bts-layout bts-layout--text-only">
+        <div class="bts-spacer"></div>
+
+        <div class="bts-copy">
+          <p class="bts-text" data-language-content="en">directed by rae hu<br><br>cinematographer: frank<br>art director: kiki qi<br>composer: ricky<br>colorist: putong wang</p>
+          <p class="bts-text" data-language-content="cn">directed by rae hu<br><br>cinematographer: frank<br>art director: kiki qi<br>composer: ricky<br>colorist: putong wang</p>
+          <p class="bts-text" data-language-content="es">directed by rae hu<br><br>cinematographer: frank<br>art director: kiki qi<br>composer: ricky<br>colorist: putong wang</p>
         </div>
       </div>
     </section>

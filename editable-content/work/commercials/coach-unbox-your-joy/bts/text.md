@@ -1,5 +1,5 @@
-A commercial film by Rae Hu
+directed by rae hu 
 
-Trailer: https://vimeo.com/644256487
-Source stills: Coach stills
-Editorial copy pending
+cinematographer: marcus tang 
+sound design: rae hu
+colorist: putong wang 

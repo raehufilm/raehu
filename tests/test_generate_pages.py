@@ -1263,6 +1263,115 @@ console.log(JSON.stringify(results));
             self.assertNotIn('data-section-link="note"', rendered)
             self.assertNotIn('data-section-link="bts"', rendered)
 
+    def test_note_text_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "editable-content" / "work" / "films" / "text-note"
+            output_html = root / "generated-website" / "films" / "text-note" / "index.html"
+
+            (source / "trailer").mkdir(parents=True)
+            (source / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/123456789", encoding="utf-8"
+            )
+            (source / "highlight").mkdir(parents=True)
+            (source / "highlight" / "1_highlight.webp").write_text("webp", encoding="utf-8")
+            (source / "note").mkdir(parents=True)
+            (source / "note" / "1_text.md").write_text("# Title\n\nBody text.", encoding="utf-8")
+
+            with mock.patch.object(generate_pages, "vimeo_thumbnail_url", return_value=None):
+                work = generate_pages.load_work(source)
+            rendered = generate_pages.render_work(
+                work, "{{WORK_SECTIONS}}", output_html
+            )
+
+            self.assertIsNotNone(work.note)
+            self.assertIsNone(work.note_media)
+            self.assertIn('id="note"', rendered)
+            self.assertIn("work-header-spacer", rendered)
+            self.assertIn("Director's note", rendered)
+
+    def test_note_media_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "editable-content" / "work" / "films" / "media-note"
+            output_html = root / "generated-website" / "films" / "media-note" / "index.html"
+
+            (source / "trailer").mkdir(parents=True)
+            (source / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/123456789", encoding="utf-8"
+            )
+            (source / "highlight").mkdir(parents=True)
+            (source / "highlight" / "1_highlight.webp").write_text("webp", encoding="utf-8")
+            (source / "note").mkdir(parents=True)
+            (source / "note" / "1_image.webp").write_text("webp", encoding="utf-8")
+
+            with mock.patch.object(generate_pages, "vimeo_thumbnail_url", return_value=None):
+                work = generate_pages.load_work(source)
+            rendered = generate_pages.render_work(
+                work, "{{WORK_SECTIONS}}", output_html
+            )
+
+            self.assertIsNone(work.note)
+            self.assertIsNotNone(work.note_media)
+            self.assertIn('id="note"', rendered)
+            self.assertIn("work-header-spacer", rendered)
+
+    def test_bts_text_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "editable-content" / "work" / "films" / "text-bts"
+            output_html = root / "generated-website" / "films" / "text-bts" / "index.html"
+
+            (source / "trailer").mkdir(parents=True)
+            (source / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/123456789", encoding="utf-8"
+            )
+            (source / "highlight").mkdir(parents=True)
+            (source / "highlight" / "1_highlight.webp").write_text("webp", encoding="utf-8")
+            (source / "bts").mkdir(parents=True)
+            (source / "bts" / "text.md").write_text("Credits here", encoding="utf-8")
+
+            with mock.patch.object(generate_pages, "vimeo_thumbnail_url", return_value=None):
+                work = generate_pages.load_work(source)
+            rendered = generate_pages.render_work(
+                work, "{{WORK_SECTIONS}}", output_html
+            )
+
+            self.assertIsNotNone(work.bts_text_html)
+            self.assertEqual(work.bts_media, ())
+            self.assertIn('id="bts"', rendered)
+            self.assertIn("bts-layout--text-only", rendered)
+            self.assertIn("bts-spacer", rendered)
+            self.assertNotIn("bts-slideshow", rendered)
+
+    def test_bts_media_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "editable-content" / "work" / "films" / "media-bts"
+            output_html = root / "generated-website" / "films" / "media-bts" / "index.html"
+
+            (source / "trailer").mkdir(parents=True)
+            (source / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/123456789", encoding="utf-8"
+            )
+            (source / "highlight").mkdir(parents=True)
+            (source / "highlight" / "1_highlight.webp").write_text("webp", encoding="utf-8")
+            (source / "bts").mkdir(parents=True)
+            (source / "bts" / "1_bts.webp").write_text("webp", encoding="utf-8")
+
+            with mock.patch.object(generate_pages, "vimeo_thumbnail_url", return_value=None):
+                work = generate_pages.load_work(source)
+            rendered = generate_pages.render_work(
+                work, "{{WORK_SECTIONS}}", output_html
+            )
+
+            self.assertIsNone(work.bts_text_html)
+            self.assertGreater(len(work.bts_media), 0)
+            self.assertIn('id="bts"', rendered)
+            self.assertIn("bts-spacer", rendered)
+            self.assertIn("bts-slideshow", rendered)
+            self.assertNotIn("bts-copy", rendered)
+
     def test_generate_writes_category_source_to_public_work_page(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

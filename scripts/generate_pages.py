@@ -216,12 +216,20 @@ def primary_link_file_for_section(section_name: str) -> str:
     return PRIMARY_LINK_FILE_BY_SECTION.get(section_name, f"{section_name}_link.md")
 
 
+def has_note_section(work: WorkContent) -> bool:
+    return work.note is not None or work.note_media is not None
+
+
+def has_bts_section(work: WorkContent) -> bool:
+    return work.bts_text_html is not None or len(work.bts_media) > 0
+
+
 def work_section_order(work: WorkContent) -> tuple[str, ...]:
     sections = [primary_section_for_category(work.category)]
-    if work.note is not None:
+    if has_note_section(work):
         sections.append("note")
     sections.append("highlight")
-    if work.bts_text_html is not None:
+    if has_bts_section(work):
         sections.append("bts")
     return tuple(sections)
 
@@ -349,12 +357,10 @@ def parse_note_text(path: Path, index: int = 1) -> NoteContent:
 
     body_lines = lines[title_index + 1 :]
     body_html = render_markdown_lines(body_lines)
-    if not body_html:
-        raise PageGenerationError(f"{path} must include body text after the heading")
 
     return NoteContent(
         title_html=render_markdown_lines([title]),
-        body_html=body_html,
+        body_html=body_html or "",
         index=index,
     )
 
@@ -1145,14 +1151,11 @@ def load_localized_note_content(path: Path, index: int) -> NoteContent:
     )
 
 
-def load_note_content(note_dir: Path) -> NoteContent:
+def load_note_content(note_dir: Path) -> NoteContent | None:
     paths = note_text_files(note_dir)
-    if len(paths) != 1:
-        if not paths:
-            raise PageGenerationError(
-                f"{note_dir} must contain exactly one numbered note text file. "
-                "Add 1_text.md for text on the left, or 2_text.md for text on the right."
-            )
+    if not paths:
+        return None
+    if len(paths) > 1:
         raise PageGenerationError(
             f"{note_dir} has multiple note text files: {', '.join(str(path) for path in paths)}. "
             "Keep exactly one: either 1_text.md or 2_text.md."
@@ -1170,30 +1173,29 @@ def load_note_content(note_dir: Path) -> NoteContent:
 
 def validate_note_content(
     note_dir: Path,
-    note: NoteContent,
+    note: NoteContent | None,
     note_media: tuple[MediaItem, ...],
-) -> MediaItem:
-    if len(note_media) != 1:
-        if not note_media:
-            raise PageGenerationError(
-                f"{note_dir} must contain exactly one numbered note media file. "
-                "Add 1_image.jpg for media on the left, or 2_image.jpg for media on the right."
-            )
+) -> MediaItem | None:
+    if len(note_media) > 1:
         raise PageGenerationError(
             f"{note_dir} has multiple note media files. Keep exactly one numbered image/video file."
         )
 
+    if not note_media:
+        return None
+
     media = note_media[0]
-    if media.index not in {1, 2}:
-        raise PageGenerationError(
-            f"{media.path} uses position {media.index}. Note media must use 1_ for the left column "
-            "or 2_ for the right column."
-        )
-    if media.index == note.index:
-        raise PageGenerationError(
-            f"{note_dir} has note text and media both using {note.index}_. "
-            "Use 1_ for the left column and 2_ for the right column so each position is used once."
-        )
+    if note is not None:
+        if media.index not in {1, 2}:
+            raise PageGenerationError(
+                f"{media.path} uses position {media.index}. Note media must use 1_ for the left column "
+                "or 2_ for the right column."
+            )
+        if media.index == note.index:
+            raise PageGenerationError(
+                f"{note_dir} has note text and media both using {note.index}_. "
+                "Use 1_ for the left column and 2_ for the right column so each position is used once."
+            )
     return media
 
 
@@ -1522,6 +1524,7 @@ def load_work(
         note_media = ordered_media(
             note_dir,
             write_assets=write_assets,
+            require_media=False,
             check_generated_assets=check_generated_assets,
         )
         note_media_item = validate_note_content(note_dir, note, note_media)
@@ -1541,12 +1544,15 @@ def load_work(
     bts_text_html_spanish: str | None = None
     bts_media: tuple[MediaItem, ...] = ()
     if bts_dir.is_dir():
-        bts_text_html, bts_text_html_chinese, bts_text_html_spanish = load_localized_markdown_lines(
-            bts_dir / "text.md"
-        )
+        bts_text_path = bts_dir / "text.md"
+        if bts_text_path.exists():
+            bts_text_html, bts_text_html_chinese, bts_text_html_spanish = load_localized_markdown_lines(
+                bts_text_path
+            )
         bts_media = ordered_media(
             bts_dir,
             write_assets=write_assets,
+            require_media=False,
             check_generated_assets=check_generated_assets,
         )
     grid_display_media = grid_display_media_for(
@@ -1796,41 +1802,69 @@ def render_trailer_section(work: WorkContent, output_html: Path) -> str:
     </section>"""
 
 
-def render_note_section(work: WorkContent, output_html: Path) -> str:
-    media_html = media_tag(work.note_media, output_html, work.title, class_name="work-header-image")
-    media_position = "left" if work.note_media.index == 1 else "right"
-    note_title_chinese = work.note.title_html_chinese or work.note.title_html
-    note_body_chinese = work.note.body_html_chinese or work.note.body_html
-    note_title_spanish = work.note.title_html_spanish or work.note.title_html
-    note_body_spanish = work.note.body_html_spanish or work.note.body_html
-    text_html = f"""        <div class="work-header-text" data-language-content="en">
-          <h1 class="work-title">{work.note.title_html}</h1>
-          <p class="work-subtext">{work.note.body_html}</p>
+def _note_body_tag(body_html: str) -> str:
+    if not body_html:
+        return ""
+    return f'\n          <p class="work-subtext">{body_html}</p>'
+
+
+def render_note_text_block(note: NoteContent) -> str:
+    note_title_chinese = note.title_html_chinese or note.title_html
+    note_body_chinese = note.body_html_chinese or note.body_html
+    note_title_spanish = note.title_html_spanish or note.title_html
+    note_body_spanish = note.body_html_spanish or note.body_html
+    return f"""        <div class="work-header-text" data-language-content="en">
+          <h1 class="work-title">{note.title_html}</h1>{_note_body_tag(note.body_html)}
           <div class="work-label"><div class="red-dot"></div> Director's note</div>
         </div>
         <div class="work-header-text" data-language-content="cn">
-          <h1 class="work-title">{note_title_chinese}</h1>
-          <p class="work-subtext">{note_body_chinese}</p>
+          <h1 class="work-title">{note_title_chinese}</h1>{_note_body_tag(note_body_chinese)}
           <div class="work-label"><div class="red-dot"></div> Director's note</div>
         </div>
         <div class="work-header-text" data-language-content="es">
-          <h1 class="work-title">{note_title_spanish}</h1>
-          <p class="work-subtext">{note_body_spanish}</p>
+          <h1 class="work-title">{note_title_spanish}</h1>{_note_body_tag(note_body_spanish)}
           <div class="work-label"><div class="red-dot"></div> Director's note</div>
         </div>"""
-    media_block_html = f"""        <div class="work-header-image-wrap work-header-piece--{media_position}">
+
+
+def render_note_section(work: WorkContent, output_html: Path) -> str:
+    has_text = work.note is not None
+    has_media = work.note_media is not None
+    empty_column = '        <div class="work-header-spacer"></div>'
+
+    if has_text and has_media:
+        media_html = media_tag(work.note_media, output_html, work.title, class_name="work-header-image")
+        media_position = "left" if work.note_media.index == 1 else "right"
+        text_html = render_note_text_block(work.note)
+        media_block_html = f"""        <div class="work-header-image-wrap work-header-piece--{media_position}">
           {media_html}
         </div>"""
-    note_columns = "\n".join(
-        html_block
-        for _, html_block in sorted(
-            (
-                (work.note.index, text_html),
-                (work.note_media.index, media_block_html),
-            ),
-            key=lambda item: item[0],
+        note_columns = "\n".join(
+            html_block
+            for _, html_block in sorted(
+                (
+                    (work.note.index, text_html),
+                    (work.note_media.index, media_block_html),
+                ),
+                key=lambda item: item[0],
+            )
         )
-    )
+    elif has_text:
+        text_position = work.note.index
+        if text_position == 1:
+            note_columns = render_note_text_block(work.note) + "\n" + empty_column
+        else:
+            note_columns = empty_column + "\n" + render_note_text_block(work.note)
+    else:
+        media_html = media_tag(work.note_media, output_html, work.title, class_name="work-header-image")
+        media_block_html = f"""        <div class="work-header-image-wrap">
+          {media_html}
+        </div>"""
+        if work.note_media.index == 1:
+            note_columns = media_block_html + "\n" + empty_column
+        else:
+            note_columns = empty_column + "\n" + media_block_html
+
     return f"""    <section class="work-page work-page--note content-visibility-auto"
              id="note"
              data-section-page="note"
@@ -1895,7 +1929,7 @@ def render_highlight_tile(item: MediaItem, output_html: Path, title: str) -> str
         </figure>"""
 
 
-def render_bts_section(work: WorkContent, output_html: Path) -> str:
+def render_bts_slideshow(work: WorkContent, output_html: Path) -> str:
     slide_lines = [
         "          "
         + media_tag(
@@ -1926,6 +1960,39 @@ def render_bts_section(work: WorkContent, output_html: Path) -> str:
               <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
             </svg>
           </button>"""
+    return f"""        <div class="bts-slideshow" aria-label="Behind the scenes slideshow">
+{chr(10).join(slide_lines)}{controls}
+        </div>"""
+
+
+def render_bts_copy(work: WorkContent) -> str:
+    return f"""        <div class="bts-copy">
+          <p class="bts-text" data-language-content="en">{work.bts_text_html}</p>
+          <p class="bts-text" data-language-content="cn">{work.bts_text_html_chinese or work.bts_text_html}</p>
+          <p class="bts-text" data-language-content="es">{work.bts_text_html_spanish or work.bts_text_html}</p>
+        </div>"""
+
+
+def render_bts_section(work: WorkContent, output_html: Path) -> str:
+    has_media = len(work.bts_media) > 0
+    has_text = work.bts_text_html is not None
+    empty_column = '        <div class="bts-spacer"></div>'
+
+    if has_media and has_text:
+        layout_class = "bts-layout"
+        inner = f"""{render_bts_slideshow(work, output_html)}
+
+{render_bts_copy(work)}"""
+    elif has_media:
+        layout_class = "bts-layout"
+        inner = f"""{render_bts_slideshow(work, output_html)}
+
+{empty_column}"""
+    else:
+        layout_class = "bts-layout bts-layout--text-only"
+        inner = f"""{empty_column}
+
+{render_bts_copy(work)}"""
 
     return f"""    <section class="work-page work-page--bts content-visibility-auto"
              id="bts"
@@ -1933,16 +2000,8 @@ def render_bts_section(work: WorkContent, output_html: Path) -> str:
              data-section-title="BTS"
              data-page-padding
              aria-label="Behind the scenes">
-      <div class="bts-layout">
-        <div class="bts-slideshow" aria-label="Behind the scenes slideshow">
-{chr(10).join(slide_lines)}{controls}
-        </div>
-
-        <div class="bts-copy">
-          <p class="bts-text" data-language-content="en">{work.bts_text_html}</p>
-          <p class="bts-text" data-language-content="cn">{work.bts_text_html_chinese or work.bts_text_html}</p>
-          <p class="bts-text" data-language-content="es">{work.bts_text_html_spanish or work.bts_text_html}</p>
-        </div>
+      <div class="{layout_class}">
+{inner}
       </div>
     </section>"""
 
@@ -2016,10 +2075,10 @@ def apply_template_replacements(template: str, replacements: Mapping[str, str]) 
 
 def render_work(work: WorkContent, template: str, output_html: Path) -> str:
     sections = [render_trailer_section(work, output_html)]
-    if work.note is not None:
+    if has_note_section(work):
         sections.append(render_note_section(work, output_html))
     sections.append(render_highlight_section(work, output_html))
-    if work.bts_text_html is not None:
+    if has_bts_section(work):
         sections.append(render_bts_section(work, output_html))
 
     replacements = {
