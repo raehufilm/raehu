@@ -1355,6 +1355,7 @@ def media_tag(
     image_loading: str = "lazy",
     video_lazy: bool = True,
     video_preload: str = "none",
+    video_controls: bool = False,
 ) -> str:
     class_attr = ""
     if class_name:
@@ -1378,6 +1379,7 @@ def media_tag(
         autoplay=True,
         lazy=video_lazy,
         preload=video_preload,
+        controls=video_controls,
     )
 
 
@@ -1837,7 +1839,7 @@ def render_note_section(work: WorkContent, output_html: Path) -> str:
     empty_column = '        <div class="work-header-spacer"></div>'
 
     if has_text and has_media:
-        media_html = media_tag(work.note_media, output_html, work.title, class_name="work-header-image")
+        media_html = media_tag(work.note_media, output_html, work.title, class_name="work-header-image", video_controls=True)
         media_position = "left" if work.note_media.index == 1 else "right"
         text_html = render_note_text_block(work.note)
         media_block_html = f"""        <div class="work-header-image-wrap work-header-piece--{media_position}">
@@ -1860,7 +1862,7 @@ def render_note_section(work: WorkContent, output_html: Path) -> str:
         else:
             note_columns = empty_column + "\n" + render_note_text_block(work.note)
     else:
-        media_html = media_tag(work.note_media, output_html, work.title, class_name="work-header-image")
+        media_html = media_tag(work.note_media, output_html, work.title, class_name="work-header-image", video_controls=True)
         media_block_html = f"""        <div class="work-header-image-wrap">
           {media_html}
         </div>"""
@@ -1942,6 +1944,7 @@ def render_bts_slideshow(work: WorkContent, output_html: Path) -> str:
             f"{work.title} behind the scenes",
             class_name="bts-slide",
             active=index == 0,
+            video_controls=True,
         )
         for index, item in enumerate(work.bts_media)
     ]
