@@ -496,12 +496,14 @@ def load_about_image(
     about_dir: Path = EDITABLE_ABOUT_DIR,
     write_assets: bool = False,
     check_generated_assets: bool = False,
+    resolve_assets: bool = True,
 ) -> MediaItem | None:
     media = ordered_media(
         about_dir,
         write_assets=write_assets,
         require_media=False,
         check_generated_assets=check_generated_assets,
+        resolve_assets=resolve_assets,
     )
     if not media:
         return None
@@ -524,6 +526,7 @@ def load_about_content(
     output_html: Path = HOME_OUTPUT_HTML,
     write_assets: bool = False,
     check_generated_assets: bool = False,
+    resolve_assets: bool = True,
 ) -> AboutContent:
     title_html, body_html, contact_html = parse_about_text(text_path)
     chinese_text_path = alternate_language_path(text_path, "chinese")
@@ -549,6 +552,7 @@ def load_about_content(
         about_dir,
         write_assets=write_assets,
         check_generated_assets=check_generated_assets,
+        resolve_assets=resolve_assets,
     )
     return AboutContent(
         title_html=title_html,
@@ -1362,6 +1366,7 @@ def ordered_media(
     write_assets: bool = False,
     require_media: bool = True,
     check_generated_assets: bool = False,
+    resolve_assets: bool = True,
 ) -> tuple[MediaItem, ...]:
     if not section_dir.is_dir():
         raise PageGenerationError(f"Missing required section folder: {section_dir}")
@@ -1406,12 +1411,17 @@ def ordered_media(
         ),
         key=lambda item: item[0],
     ):
-        canonical_path = canonical_media_path(
-            source_path,
-            write_assets=write_assets,
-            check_generated_assets=check_generated_assets,
-        )
-        width, height = media_dimensions(canonical_path)
+        if resolve_assets:
+            canonical_path = canonical_media_path(
+                source_path,
+                write_assets=write_assets,
+                check_generated_assets=check_generated_assets,
+            )
+            dimension_path = canonical_path
+        else:
+            canonical_path = media_canonical_identity_path(source_path)
+            dimension_path = source_path
+        width, height = media_dimensions(dimension_path)
         media.append(
             MediaItem(
                 index=index,
@@ -1756,6 +1766,7 @@ def load_primary_media_source(
     check_generated_assets: bool = False,
     vimeo_thumbnail_cache: dict[str, str] | None = None,
     fetch_vimeo_thumbnails: bool = True,
+    resolve_assets: bool = True,
 ) -> tuple[str | None, str | None, MediaItem | None]:
     if not source_dir.is_dir():
         raise PageGenerationError(f"Missing required {section_name} folder: {source_dir}")
@@ -1767,6 +1778,7 @@ def load_primary_media_source(
         write_assets=write_assets,
         require_media=False,
         check_generated_assets=check_generated_assets,
+        resolve_assets=resolve_assets,
     )
 
     sources = []
@@ -1829,6 +1841,7 @@ def load_optional_grid_preview_media(
     work_dir: Path,
     write_assets: bool = False,
     check_generated_assets: bool = False,
+    resolve_assets: bool = True,
 ) -> MediaItem | None:
     preview_dir = work_dir / "grid_preview"
     if not preview_dir.exists():
@@ -1844,6 +1857,7 @@ def load_optional_grid_preview_media(
         write_assets=write_assets,
         require_media=False,
         check_generated_assets=check_generated_assets,
+        resolve_assets=resolve_assets,
     )
     if len(preview_media) != 1:
         if not preview_media:
@@ -1865,6 +1879,7 @@ def load_work(
     check_generated_assets: bool = False,
     vimeo_thumbnail_cache: dict[str, str] | None = None,
     fetch_vimeo_thumbnails: bool = True,
+    resolve_assets: bool = True,
 ) -> WorkContent:
     slug = work_dir.name
     category = work_dir.parent.name
@@ -1878,6 +1893,7 @@ def load_work(
         check_generated_assets=check_generated_assets,
         vimeo_thumbnail_cache=vimeo_thumbnail_cache,
         fetch_vimeo_thumbnails=fetch_vimeo_thumbnails,
+        resolve_assets=resolve_assets,
     )
     primary_links = load_primary_links(primary_dir / "additional_links.md")
     note_dir = work_dir / "note"
@@ -1890,12 +1906,14 @@ def load_work(
             write_assets=write_assets,
             require_media=False,
             check_generated_assets=check_generated_assets,
+            resolve_assets=resolve_assets,
         )
         note_media_item = validate_note_content(note_dir, note, note_media)
     highlight_media = ordered_media(
         work_dir / "highlight",
         write_assets=write_assets,
         check_generated_assets=check_generated_assets,
+        resolve_assets=resolve_assets,
     )
     ensure_highlight_video_outputs(
         highlight_media,
@@ -1906,6 +1924,7 @@ def load_work(
         work_dir,
         write_assets=write_assets,
         check_generated_assets=check_generated_assets,
+        resolve_assets=resolve_assets,
     )
     bts_dir = work_dir / "bts"
     bts_text_html: str | None = None
@@ -1923,6 +1942,7 @@ def load_work(
             write_assets=write_assets,
             require_media=False,
             check_generated_assets=check_generated_assets,
+            resolve_assets=resolve_assets,
         )
     grid_display_media = grid_display_media_for(
         grid_preview_media or trailer_media,
@@ -2940,11 +2960,32 @@ def discover_work_dirs(editable_work_dir: Path, selected_slug: str | None = None
     return work_dirs
 
 
+def preflight_generation_inputs(work_dirs: Iterable[Path], include_home: bool) -> None:
+    for work_dir in work_dirs:
+        load_work(
+            work_dir,
+            write_assets=False,
+            check_generated_assets=False,
+            fetch_vimeo_thumbnails=False,
+            resolve_assets=False,
+        )
+
+    if include_home:
+        load_about_content(
+            write_assets=False,
+            check_generated_assets=False,
+            resolve_assets=False,
+        )
+
+
 def generate(check: bool = False, selected_slug: str | None = None) -> int:
     work_template = read_text(WORK_PAGE_TEMPLATE)
     work_dirs = discover_work_dirs(EDITABLE_WORK_DIR, selected_slug)
     if selected_slug and not work_dirs:
         raise PageGenerationError(f"No valid started work found for slug: {selected_slug}")
+
+    if not check:
+        preflight_generation_inputs(work_dirs, include_home=not selected_slug)
 
     failures = sync_static_assets(check)
     load_source_hash_cache()

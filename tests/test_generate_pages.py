@@ -1922,6 +1922,75 @@ console.log(JSON.stringify(results));
             self.assertIn("../../js/language-toggle.js", generated)
             self.assertIn("../../js/lazy-media.js", generated)
 
+    def test_generate_preflights_all_work_before_writing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            editable_work = root / "editable-content" / "work"
+            generated_site = root / "generated-website"
+            template = root / "generator-templates" / "work-page.html"
+            valid = editable_work / "films" / "aaa-valid"
+            invalid = editable_work / "commercials" / "bbb-invalid"
+
+            template.parent.mkdir(parents=True)
+            template.write_text("{{WORK_SECTIONS}}", encoding="utf-8")
+
+            (valid / "trailer").mkdir(parents=True)
+            (valid / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/123456789",
+                encoding="utf-8",
+            )
+            (valid / "highlight").mkdir()
+            (valid / "highlight" / "1_highlight.webp").write_text(
+                "webp",
+                encoding="utf-8",
+            )
+
+            (invalid / "film").mkdir(parents=True)
+            (invalid / "film" / "film_link.md").write_text(
+                "https://vimeo.com/987654321",
+                encoding="utf-8",
+            )
+            (invalid / "highlight").mkdir()
+            (invalid / "highlight" / "1_still.png").write_text(
+                "png",
+                encoding="utf-8",
+            )
+            (invalid / "highlight" / "1_clip.mp4").write_text(
+                "mp4",
+                encoding="utf-8",
+            )
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "EDITABLE_WORK_DIR", editable_work),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+                mock.patch.object(generate_pages, "WORK_PAGE_TEMPLATE", template),
+                mock.patch.object(generate_pages, "sync_static_assets") as sync_static_assets,
+                mock.patch.object(generate_pages, "load_source_hash_cache") as load_cache,
+                mock.patch.object(generate_pages, "prune_stale_generated_media") as prune_media,
+                mock.patch.object(generate_pages, "write_or_check") as write_or_check,
+                mock.patch.object(generate_pages, "convert_image_to_webp") as convert_image,
+                mock.patch.object(
+                    generate_pages,
+                    "transcode_highlight_tile_video",
+                ) as transcode_video,
+            ):
+                with self.assertRaises(generate_pages.PageGenerationError) as context:
+                    generate_pages.generate()
+                generated_site_exists = generated_site.exists()
+
+        message = str(context.exception)
+        self.assertIn("same section use the same order number", message)
+        self.assertIn("1_still.png", message)
+        self.assertIn("1_clip.mp4", message)
+        sync_static_assets.assert_not_called()
+        load_cache.assert_not_called()
+        prune_media.assert_not_called()
+        write_or_check.assert_not_called()
+        convert_image.assert_not_called()
+        transcode_video.assert_not_called()
+        self.assertFalse(generated_site_exists)
+
     def test_commercial_loads_film_folder_and_renders_film_tracker(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
