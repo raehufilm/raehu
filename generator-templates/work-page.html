@@ -934,7 +934,13 @@
         clone.removeAttribute('id');
 
         if (clone.tagName === 'VIDEO') {
-          if (!clone.getAttribute('src') && clone.getAttribute('data-src')) {
+          var fullSource = clone.getAttribute('data-full-src');
+          if (fullSource) {
+            if (clone.getAttribute('src') !== fullSource) {
+              clone.setAttribute('src', fullSource);
+              clone.load();
+            }
+          } else if (!clone.getAttribute('src') && clone.getAttribute('data-src')) {
             clone.setAttribute('src', clone.getAttribute('data-src'));
             clone.load();
           }

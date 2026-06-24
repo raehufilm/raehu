@@ -955,7 +955,7 @@
              data-justify-max-items="3"
              data-justify-mobile-max-items="2">
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <video class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/miumiu-2022-cny/highlight/1_shot01_0m04s.mp4" muted playsinline autoplay loop preload="metadata" aria-label="Miumiu 2022 Cny highlight"></video>
+          <video class="highlight-media media-hover-zoom-target" data-src="../../media/editable-content/work/commercials/miumiu-2022-cny/highlight/1_shot01_0m04s-tile-720p-v1.mp4" data-src-480="../../media/editable-content/work/commercials/miumiu-2022-cny/highlight/1_shot01_0m04s-tile-480p-v1.mp4" data-src-720="../../media/editable-content/work/commercials/miumiu-2022-cny/highlight/1_shot01_0m04s-tile-720p-v1.mp4" data-full-src="../../../editable-content/work/commercials/miumiu-2022-cny/highlight/1_shot01_0m04s.mp4" data-lazy-video muted playsinline loop preload="none" data-autoplay="true" aria-label="Miumiu 2022 Cny highlight"></video>
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -967,7 +967,7 @@
           </button>
         </figure>
         <figure class="highlight-tile media-hover-zoom" data-highlight-tile>
-          <video class="highlight-media media-hover-zoom-target" src="../../../editable-content/work/commercials/miumiu-2022-cny/highlight/2_shot00_0m00s.mp4" muted playsinline autoplay loop preload="metadata" aria-label="Miumiu 2022 Cny highlight"></video>
+          <video class="highlight-media media-hover-zoom-target" data-src="../../media/editable-content/work/commercials/miumiu-2022-cny/highlight/2_shot00_0m00s-tile-720p-v1.mp4" data-src-480="../../media/editable-content/work/commercials/miumiu-2022-cny/highlight/2_shot00_0m00s-tile-480p-v1.mp4" data-src-720="../../media/editable-content/work/commercials/miumiu-2022-cny/highlight/2_shot00_0m00s-tile-720p-v1.mp4" data-full-src="../../../editable-content/work/commercials/miumiu-2022-cny/highlight/2_shot00_0m00s.mp4" data-lazy-video muted playsinline loop preload="none" data-autoplay="true" aria-label="Miumiu 2022 Cny highlight"></video>
           <button class="highlight-expand-button"
                   type="button"
                   data-highlight-expand
@@ -1102,7 +1102,13 @@
         clone.removeAttribute('id');
 
         if (clone.tagName === 'VIDEO') {
-          if (!clone.getAttribute('src') && clone.getAttribute('data-src')) {
+          var fullSource = clone.getAttribute('data-full-src');
+          if (fullSource) {
+            if (clone.getAttribute('src') !== fullSource) {
+              clone.setAttribute('src', fullSource);
+              clone.load();
+            }
+          } else if (!clone.getAttribute('src') && clone.getAttribute('data-src')) {
             clone.setAttribute('src', clone.getAttribute('data-src'));
             clone.load();
           }

@@ -822,6 +822,126 @@ class GeneratePagesTests(unittest.TestCase):
 
         self.assertIn("Optimized grid preview video is missing", str(context.exception))
 
+    def test_highlight_video_variants_skip_up_to_date_outputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = (
+                root
+                / "editable-content"
+                / "work"
+                / "commercials"
+                / "sample"
+                / "highlight"
+                / "1_clip.mp4"
+            )
+            generated_site = root / "generated-website"
+            source.parent.mkdir(parents=True)
+            source.write_text("mp4", encoding="utf-8")
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+            ):
+                targets = generate_pages.highlight_tile_video_variant_paths(source)
+                for target in targets:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("mp4", encoding="utf-8")
+
+                generate_pages._source_hash_cache[source] = generate_pages.source_content_hash(source)
+
+                with mock.patch.object(generate_pages, "transcode_highlight_tile_video") as transcode:
+                    variants = generate_pages.ensure_highlight_tile_video_variants(
+                        source,
+                        write_assets=True,
+                    )
+
+            generate_pages._source_hash_cache.pop(source, None)
+
+        transcode.assert_not_called()
+        self.assertEqual(
+            [variant.name for variant in variants],
+            ["1_clip-tile-480p-v1.mp4", "1_clip-tile-720p-v1.mp4"],
+        )
+
+    def test_highlight_video_variants_regenerate_when_source_content_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = (
+                root
+                / "editable-content"
+                / "work"
+                / "commercials"
+                / "sample"
+                / "highlight"
+                / "1_clip.mp4"
+            )
+            generated_site = root / "generated-website"
+            source.parent.mkdir(parents=True)
+            source.write_text("new mp4", encoding="utf-8")
+
+            def fake_transcode(_source_path, target_path, _width):
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                target_path.write_text("mp4", encoding="utf-8")
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+            ):
+                for target in generate_pages.highlight_tile_video_variant_paths(source):
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("old mp4", encoding="utf-8")
+
+                generate_pages._source_hash_cache[source] = "old_hash_from_different_content"
+
+                with mock.patch.object(
+                    generate_pages,
+                    "transcode_highlight_tile_video",
+                    side_effect=fake_transcode,
+                ) as transcode:
+                    generate_pages.ensure_highlight_tile_video_variants(
+                        source,
+                        write_assets=True,
+                    )
+
+            generate_pages._source_hash_cache.pop(source, None)
+            generate_pages._current_hash_memo.clear()
+
+        self.assertEqual(
+            [call.args[2] for call in transcode.call_args_list],
+            list(generate_pages.HIGHLIGHT_TILE_VIDEO_WIDTHS),
+        )
+
+    def test_highlight_video_check_mode_requires_generated_outputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = (
+                root
+                / "editable-content"
+                / "work"
+                / "commercials"
+                / "sample"
+                / "highlight"
+                / "1_clip.mp4"
+            )
+            source.parent.mkdir(parents=True)
+            source.write_text("mp4", encoding="utf-8")
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", root / "generated-website"),
+                self.assertRaises(generate_pages.PageGenerationError) as context,
+            ):
+                generate_pages.ensure_highlight_tile_video_variants(
+                    source,
+                    write_assets=False,
+                    check_generated_assets=True,
+                )
+
+        message = str(context.exception)
+        self.assertIn("Responsive highlight video variant is missing", message)
+        self.assertIn("1_clip-tile-480p-v1.mp4", message)
+        self.assertIn("1_clip-tile-720p-v1.mp4", message)
+
     def test_note_markdown_uses_heading_for_title_and_body_for_copy(self):
         with tempfile.TemporaryDirectory() as tmp:
             note_file = Path(tmp) / "1_text.md"
@@ -982,6 +1102,80 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertIn("interactive-chevron--expand-sw", rendered)
         self.assertIn("data-highlight-expand", rendered)
         self.assertIn("Expand highlight media", rendered)
+
+    def test_render_highlight_video_uses_generated_tile_variants_and_original_full_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            generated_site = root / "generated-website"
+            output_html = generated_site / "commercials" / "sample-work" / "index.html"
+            media_path = (
+                root
+                / "editable-content"
+                / "work"
+                / "commercials"
+                / "sample-work"
+                / "highlight"
+                / "1_clip.mp4"
+            )
+            work = generate_pages.WorkContent(
+                slug="sample-work",
+                title="Sample Work",
+                trailer_embed_url="https://player.vimeo.com/video/123",
+                trailer_poster_url=None,
+                note=None,
+                note_media=None,
+                highlight_media=(
+                    generate_pages.MediaItem(1, media_path, "video"),
+                ),
+                bts_text_html=None,
+                bts_media=(),
+                category="commercials",
+            )
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+            ):
+                rendered = generate_pages.render_highlight_section(work, output_html)
+                variant_480 = generate_pages.output_relative_url(
+                    output_html,
+                    generate_pages.highlight_tile_video_variant_path(media_path, 480),
+                )
+                variant_720 = generate_pages.output_relative_url(
+                    output_html,
+                    generate_pages.highlight_tile_video_variant_path(media_path, 720),
+                )
+                full_src = generate_pages.output_relative_url(output_html, media_path)
+
+        self.assertIn('<video class="highlight-media media-hover-zoom-target"', rendered)
+        self.assertIn("data-lazy-video", rendered)
+        self.assertIn(f'data-src-480="{variant_480}"', rendered)
+        self.assertIn(f'data-src-720="{variant_720}"', rendered)
+        self.assertIn(f'data-full-src="{full_src}"', rendered)
+        self.assertIn('preload="none"', rendered)
+        self.assertNotIn(f' src="{full_src}"', rendered)
+
+    def test_lazy_media_script_selects_responsive_video_sources(self):
+        script = (
+            Path(__file__).resolve().parents[1]
+            / "site-source-assets"
+            / "js"
+            / "lazy-media.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("responsiveVideoSource", script)
+        self.assertIn("data-src-(\\d+)", script)
+        self.assertIn("devicePixelRatio", script)
+
+    def test_highlight_lightbox_uses_original_video_source_when_expanded(self):
+        template = (
+            Path(__file__).resolve().parents[1]
+            / "generator-templates"
+            / "work-page.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("data-full-src", template)
+        self.assertIn("clone.setAttribute('src', fullSource)", template)
 
     def test_portfolio_grid_justify_mode_uses_explicit_row_wrappers(self):
         script = (
@@ -1949,6 +2143,35 @@ console.log(JSON.stringify(results));
         self.assertEqual(work.grid_preview_media.path.name, "1_preview.mp4")
         self.assertEqual(work.grid_display_media.path.name, "1_preview-grid-preview-720p-v3.mp4")
 
+    def test_load_work_generates_highlight_video_variants(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "editable-content" / "work" / "commercials" / "sample-work"
+            highlight_video = source / "highlight" / "1_highlight.mp4"
+
+            (source / "film").mkdir(parents=True)
+            (source / "film" / "film_link.md").write_text(
+                "https://vimeo.com/123456789",
+                encoding="utf-8",
+            )
+            highlight_video.parent.mkdir()
+            highlight_video.write_text("mp4", encoding="utf-8")
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", root / "generated-website"),
+                mock.patch.object(generate_pages, "vimeo_thumbnail_url", return_value=None),
+                mock.patch.object(generate_pages, "ensure_highlight_tile_video_variants") as ensure_variants,
+            ):
+                work = generate_pages.load_work(source, write_assets=True)
+
+        ensure_variants.assert_called_once_with(
+            highlight_video,
+            write_assets=True,
+            check_generated_assets=False,
+        )
+        self.assertEqual(work.highlight_media[0].kind, "video")
+
     def test_render_home_uses_category_sections_and_trailer_posters(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -2234,6 +2457,63 @@ console.log(JSON.stringify(results));
             self.assertTrue(expected_video.exists())
             self.assertFalse(stale_video.exists())
 
+    def test_prune_stale_generated_media_removes_deleted_highlight_video_variants(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            editable_content = root / "editable-content"
+            editable_work = editable_content / "work"
+            generated_site = root / "generated-website"
+            media_dir = generated_site / "media"
+
+            highlight_dir = editable_work / "commercials" / "sample" / "highlight"
+            highlight_dir.mkdir(parents=True)
+            highlight_video = highlight_dir / "1_clip.mp4"
+            highlight_video.write_text("mp4", encoding="utf-8")
+            film_dir = editable_work / "commercials" / "sample" / "film"
+            film_dir.mkdir(parents=True)
+            (film_dir / "film_link.md").write_text(
+                "https://vimeo.com/123",
+                encoding="utf-8",
+            )
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "EDITABLE_CONTENT_DIR", editable_content),
+                mock.patch.object(generate_pages, "EDITABLE_WORK_DIR", editable_work),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+            ):
+                expected_variants = generate_pages.highlight_tile_video_variant_paths(highlight_video)
+                for target in expected_variants:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("mp4", encoding="utf-8")
+
+                stale_dir = (
+                    media_dir
+                    / "editable-content"
+                    / "work"
+                    / "commercials"
+                    / "sample"
+                    / "highlight"
+                )
+                stale_480 = stale_dir / "2_deleted-tile-480p-v1.mp4"
+                stale_720 = stale_dir / "2_deleted-tile-720p-v1.mp4"
+                stale_480.write_text("mp4", encoding="utf-8")
+                stale_720.write_text("mp4", encoding="utf-8")
+
+                stdout = io.StringIO()
+                with contextlib.redirect_stdout(stdout):
+                    failures = generate_pages.prune_stale_generated_media(
+                        editable_content_dir=editable_content,
+                        editable_work_dir=editable_work,
+                        repo_root=root,
+                        generated_website_dir=generated_site,
+                    )
+
+            self.assertEqual(failures, 0)
+            self.assertTrue(all(target.exists() for target in expected_variants))
+            self.assertFalse(stale_480.exists())
+            self.assertFalse(stale_720.exists())
+
     def test_prune_no_op_when_media_dir_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -2271,6 +2551,44 @@ console.log(JSON.stringify(results));
 
         self.assertEqual(len(expected), len(generate_pages.RESPONSIVE_IMAGE_WIDTHS))
         self.assertTrue(all("1_image-" in str(p) for p in expected))
+
+    def test_expected_generated_media_includes_highlight_video_variants(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            editable_content = root / "editable-content"
+            editable_work = editable_content / "work"
+            generated_site = root / "generated-website"
+
+            highlight_dir = editable_work / "films" / "sample" / "highlight"
+            highlight_dir.mkdir(parents=True)
+            highlight_video = highlight_dir / "1_clip.mp4"
+            highlight_video.write_text("mp4", encoding="utf-8")
+            trailer_dir = editable_work / "films" / "sample" / "trailer"
+            trailer_dir.mkdir(parents=True)
+            (trailer_dir / "trailer_link.md").write_text(
+                "https://vimeo.com/123",
+                encoding="utf-8",
+            )
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+            ):
+                expected = generate_pages.expected_generated_media(
+                    editable_content_dir=editable_content,
+                    editable_work_dir=editable_work,
+                    repo_root=root,
+                    generated_website_dir=generated_site,
+                )
+                expected_variants = set(
+                    generate_pages.highlight_tile_video_variant_paths(highlight_video)
+                )
+                unexpected_grid_preview = generate_pages.optimized_grid_preview_video_path(
+                    highlight_video
+                )
+
+        self.assertTrue(expected_variants.issubset(expected))
+        self.assertNotIn(unexpected_grid_preview, expected)
 
 
 if __name__ == "__main__":

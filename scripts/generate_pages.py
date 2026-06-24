@@ -19,7 +19,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Callable, Iterable, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 from urllib.request import Request, urlopen
@@ -66,6 +66,21 @@ GRID_PREVIEW_VIDEO_MAX_WIDTH = 720
 GRID_PREVIEW_VIDEO_BITRATE = "1200k"
 GRID_PREVIEW_VIDEO_MAXRATE = "1400k"
 GRID_PREVIEW_VIDEO_BUFSIZE = "2400k"
+HIGHLIGHT_TILE_VIDEO_EXTENSION = ".mp4"
+HIGHLIGHT_TILE_VIDEO_VERSION = "v1"
+HIGHLIGHT_TILE_VIDEO_WIDTHS = (480, 720)
+HIGHLIGHT_TILE_VIDEO_BITRATES = {
+    480: "700k",
+    720: "1400k",
+}
+HIGHLIGHT_TILE_VIDEO_MAXRATES = {
+    480: "900k",
+    720: "1800k",
+}
+HIGHLIGHT_TILE_VIDEO_BUFSIZES = {
+    480: "1400k",
+    720: "2800k",
+}
 GRID_SPANS_BY_ROW_SIZE = {
     1: ((12,),),
     2: ((7, 5), (5, 7), (8, 4), (4, 8)),
@@ -1054,6 +1069,118 @@ def ensure_optimized_grid_preview_video(
     return target
 
 
+def highlight_tile_video_variant_path(source: Path, width: int) -> Path:
+    filename = (
+        f"{source.stem}-tile-{width}p-"
+        f"{HIGHLIGHT_TILE_VIDEO_VERSION}{HIGHLIGHT_TILE_VIDEO_EXTENSION}"
+    )
+    return generated_media_path(source, filename)
+
+
+def highlight_tile_video_variant_paths(source: Path) -> tuple[Path, ...]:
+    return tuple(
+        highlight_tile_video_variant_path(source, width)
+        for width in HIGHLIGHT_TILE_VIDEO_WIDTHS
+    )
+
+
+def transcode_highlight_tile_video(source: Path, target: Path, width: int) -> None:
+    ffmpeg = require_ffmpeg()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    command = [
+        ffmpeg,
+        "-y",
+        "-loglevel",
+        "error",
+        "-i",
+        str(source),
+        "-map",
+        "0:v:0",
+        "-vf",
+        f"scale=w=min({width}\\,iw):h=-2",
+        "-an",
+        "-dn",
+        "-map_metadata",
+        "-1",
+        "-map_chapters",
+        "-1",
+        "-c:v",
+        "libx264",
+        "-profile:v",
+        "main",
+        "-pix_fmt",
+        "yuv420p",
+        "-preset",
+        "medium",
+        "-b:v",
+        HIGHLIGHT_TILE_VIDEO_BITRATES[width],
+        "-maxrate",
+        HIGHLIGHT_TILE_VIDEO_MAXRATES[width],
+        "-bufsize",
+        HIGHLIGHT_TILE_VIDEO_BUFSIZES[width],
+        "-movflags",
+        "+faststart",
+        "-write_tmcd",
+        "0",
+        str(target),
+    ]
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as exc:
+        raise PageGenerationError(
+            f"ffmpeg failed to create highlight video tile variant {source} to {target}. "
+            "Make sure ffmpeg includes the libx264 encoder."
+        ) from exc
+
+
+def ensure_highlight_tile_video_variants(
+    source: Path,
+    write_assets: bool,
+    check_generated_assets: bool = False,
+) -> tuple[Path, ...]:
+    targets = list(
+        zip(
+            HIGHLIGHT_TILE_VIDEO_WIDTHS,
+            highlight_tile_video_variant_paths(source),
+        )
+    )
+    if not write_assets and not check_generated_assets:
+        return tuple(target for _width, target in targets)
+    if not is_repo_content_path(source):
+        return tuple(target for _width, target in targets)
+
+    if check_generated_assets:
+        missing = [target for _width, target in targets if not target.exists()]
+        if missing:
+            missing_text = ", ".join(str(target) for target in missing)
+            raise PageGenerationError(
+                f"Responsive highlight video variant is missing for {source}: {missing_text}. "
+                "Run python3 scripts/generate_pages.py."
+            )
+        return tuple(target for _width, target in targets)
+
+    stale = needs_conversion(source, targets[0][1])
+    for width, target in targets:
+        if stale or not target.exists():
+            transcode_highlight_tile_video(source, target, width)
+    record_conversion(source)
+    return tuple(target for _width, target in targets)
+
+
+def ensure_highlight_video_outputs(
+    media: tuple[MediaItem, ...],
+    write_assets: bool,
+    check_generated_assets: bool = False,
+) -> None:
+    for item in media:
+        if item.kind == "video":
+            ensure_highlight_tile_video_variants(
+                item.path,
+                write_assets=write_assets,
+                check_generated_assets=check_generated_assets,
+            )
+
+
 def grid_display_media_for(
     item: MediaItem | None,
     write_assets: bool,
@@ -1744,6 +1871,11 @@ def load_work(
         write_assets=write_assets,
         check_generated_assets=check_generated_assets,
     )
+    ensure_highlight_video_outputs(
+        highlight_media,
+        write_assets=write_assets,
+        check_generated_assets=check_generated_assets,
+    )
     grid_preview_media = load_optional_grid_preview_media(
         work_dir,
         write_assets=write_assets,
@@ -2117,15 +2249,20 @@ def render_highlight_section(work: WorkContent, output_html: Path) -> str:
 
 
 def render_highlight_tile(item: MediaItem, output_html: Path, title: str) -> str:
-    media_html = media_tag(
-        item,
-        output_html,
-        f"{title} highlight",
-        class_name="highlight-media media-hover-zoom-target",
-        image_loading="eager",
-        video_lazy=False,
-        video_preload="metadata",
-    )
+    if item.kind == "video":
+        media_html = highlight_video_tag(
+            item,
+            output_html,
+            f"{title} highlight",
+        )
+    else:
+        media_html = media_tag(
+            item,
+            output_html,
+            f"{title} highlight",
+            class_name="highlight-media media-hover-zoom-target",
+            image_loading="eager",
+        )
     return f"""<figure class="highlight-tile media-hover-zoom" data-highlight-tile>
           {media_html}
           <button class="highlight-expand-button"
@@ -2138,6 +2275,28 @@ def render_highlight_tile(item: MediaItem, output_html: Path, title: str) -> str
             </svg>
           </button>
         </figure>"""
+
+
+def highlight_video_tag(item: MediaItem, output_html: Path, label: str) -> str:
+    variant_attrs = " ".join(
+        f'data-src-{width}="{output_relative_url(output_html, target)}"'
+        for width, target in zip(
+            HIGHLIGHT_TILE_VIDEO_WIDTHS,
+            highlight_tile_video_variant_paths(item.path),
+        )
+    )
+    fallback_src = output_relative_url(
+        output_html,
+        highlight_tile_video_variant_path(item.path, HIGHLIGHT_TILE_VIDEO_WIDTHS[-1]),
+    )
+    full_src = output_relative_url(output_html, item.path)
+    dimension_attrs = media_dimension_attrs(item)
+    return (
+        f'<video class="highlight-media media-hover-zoom-target"{dimension_attrs} '
+        f'data-src="{fallback_src}" {variant_attrs} data-full-src="{full_src}" '
+        'data-lazy-video muted playsinline loop preload="none" data-autoplay="true" '
+        f'aria-label="{html_escape(label)}"></video>'
+    )
 
 
 def render_bts_slideshow(work: WorkContent, output_html: Path) -> str:
@@ -2638,10 +2797,16 @@ def expected_generated_media(
             for width in RESPONSIVE_IMAGE_WIDTHS:
                 expected.add(responsive_image_variant_path(webp, width))
 
-    def add_video_outputs(source: Path) -> None:
+    def add_grid_preview_video_outputs(source: Path) -> None:
         expected.add(optimized_grid_preview_video_path(source))
 
-    def scan_media_dir(section_dir: Path) -> None:
+    def add_highlight_video_outputs(source: Path) -> None:
+        expected.update(highlight_tile_video_variant_paths(source))
+
+    def scan_media_dir(
+        section_dir: Path,
+        video_outputs: Callable[[Path], None] | None = None,
+    ) -> None:
         if not section_dir.is_dir():
             return
         for path in section_dir.iterdir():
@@ -2652,8 +2817,8 @@ def expected_generated_media(
             suffix = path.suffix.lower()
             if suffix in IMAGE_EXTENSIONS:
                 add_image_outputs(path)
-            elif suffix in VIDEO_EXTENSIONS:
-                add_video_outputs(path)
+            elif suffix in VIDEO_EXTENSIONS and video_outputs is not None:
+                video_outputs(path)
 
     about_dir = editable_content_dir / "about"
     scan_media_dir(about_dir)
@@ -2669,9 +2834,15 @@ def expected_generated_media(
             if not valid_started_work(work_dir):
                 continue
             primary_section = primary_section_for_category(category)
-            for section in (primary_section,) + COMMON_WORK_SECTION_ORDER:
-                scan_media_dir(work_dir / section)
-            scan_media_dir(work_dir / "grid_preview")
+            grid_preview_dir = work_dir / "grid_preview"
+            primary_video_outputs = None
+            if not has_section_media(grid_preview_dir):
+                primary_video_outputs = add_grid_preview_video_outputs
+            scan_media_dir(work_dir / primary_section, primary_video_outputs)
+            scan_media_dir(work_dir / "note")
+            scan_media_dir(work_dir / "highlight", add_highlight_video_outputs)
+            scan_media_dir(work_dir / "bts")
+            scan_media_dir(grid_preview_dir, add_grid_preview_video_outputs)
 
     return expected
 
