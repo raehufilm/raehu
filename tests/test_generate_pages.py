@@ -2202,6 +2202,9 @@ console.log(JSON.stringify(results));
             (film_dir / "film_link.md").write_text(
                 "https://vimeo.com/123", encoding="utf-8"
             )
+            highlight_dir = editable_work / "commercials" / "sample" / "highlight"
+            highlight_dir.mkdir(parents=True)
+            (highlight_dir / "1_highlight.webp").write_text("webp", encoding="utf-8")
 
             with (
                 mock.patch.object(generate_pages, "REPO_ROOT", root),
