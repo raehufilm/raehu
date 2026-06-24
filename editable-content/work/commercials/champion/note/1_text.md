@@ -1,4 +1,6 @@
-# Had a blast working on this quirky, wired project a year ago for a Dragon Year campaign. Back then, I was experimenting with baby AI—and yes, as creatives, we do fear getting replaced. But let’s be real, AI can’t replicate the chaos of my sloppy storyboards! 😅
+# champion cny 2024
+
+Had a blast working on this quirky, wired project a year ago for a Dragon Year campaign. Back then, I was experimenting with baby AI—and yes, as creatives, we do fear getting replaced. But let’s be real, AI can’t replicate the chaos of my sloppy storyboards! 😅
 
 去年做了个蛮怪的项目，一直拖着没发出来。一年后回看，越看越喜欢它的怪。这片子杂糅了AI视频，埃姆斯房间，簇绒道具、蛇皮纸袋直播间，怎么也没办法定义它到底是个什么样的片子，但此刻内心非常感恩，那时候还有机会能做一些不一样的东西。
 
