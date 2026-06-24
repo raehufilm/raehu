@@ -36,6 +36,8 @@
       return fallback ? { width: 0, src: fallback } : null;
     }
 
+    if (isWaitingForGridLayout(video)) return null;
+
     var rect = video.getBoundingClientRect();
     var cssWidth = rect.width || video.clientWidth || 0;
 
@@ -46,6 +48,15 @@
     }
 
     return variants[variants.length - 1];
+  }
+
+  function isWaitingForGridLayout(video) {
+    if (!video.closest) return false;
+
+    var grid = video.closest('.portfolio-grid[data-grid-mode="justify"]');
+    if (!grid) return false;
+
+    return !video.closest('.portfolio-grid-row');
   }
 
   function responsiveVideoSource(video) {

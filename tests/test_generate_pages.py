@@ -1537,6 +1537,109 @@ console.log(JSON.stringify({{
         self.assertEqual(state["smallLoadCount"], 1)
         self.assertEqual(state["smallPlayCount"], 0)
 
+    def test_responsive_highlight_video_waits_for_grid_layout_before_selecting_source(self):
+        script_path = (
+            Path(__file__).resolve().parents[1]
+            / "site-source-assets"
+            / "js"
+            / "lazy-media.js"
+        )
+        node_script = f"""
+const fs = require('fs');
+const attrs = new Map([
+  ['data-responsive-video', ''],
+  ['data-src', 'clip-1080.mp4'],
+  ['data-src-480', 'clip-480.mp4'],
+  ['data-src-720', 'clip-720.mp4'],
+  ['data-src-1080', 'clip-1080.mp4'],
+  ['autoplay', '']
+]);
+const documentListeners = {{}};
+let gridLaidOut = false;
+const video = {{
+  attributes: Array.from(attrs, ([name, value]) => ({{ name, value }})),
+  dataset: {{}},
+  clientWidth: 1400,
+  getBoundingClientRect() {{
+    return {{ top: 20, bottom: 220, width: gridLaidOut ? 640 : 1400, height: 200 }};
+  }},
+  getAttribute(name) {{
+    return attrs.has(name) ? attrs.get(name) : null;
+  }},
+  setAttribute(name, value) {{
+    attrs.set(name, String(value));
+    this.attributes = Array.from(attrs, ([attrName, attrValue]) => ({{
+      name: attrName,
+      value: attrValue
+    }}));
+  }},
+  closest(selector) {{
+    if (selector === '.portfolio-grid[data-grid-mode="justify"]') return {{}};
+    if (selector === '.portfolio-grid-row') return gridLaidOut ? {{}} : null;
+    return null;
+  }},
+  addEventListener() {{}},
+  load() {{
+    this.loadCount = (this.loadCount || 0) + 1;
+  }},
+  play() {{
+    this.playCount = (this.playCount || 0) + 1;
+    return {{ catch() {{}} }};
+  }}
+}};
+global.window = {{
+  requestAnimationFrame(callback) {{ callback(); }},
+  setTimeout(callback) {{ callback(); }},
+  addEventListener() {{}}
+}};
+global.document = {{
+  readyState: 'complete',
+  documentElement: {{ clientHeight: 800 }},
+  querySelectorAll(selector) {{
+    if (selector === 'video[data-lazy-video]') return [];
+    if (selector === 'video[data-responsive-video]') return [video];
+    return [];
+  }},
+  addEventListener(name, callback) {{
+    documentListeners[name] = callback;
+  }}
+}};
+eval(fs.readFileSync({json.dumps(str(script_path))}, 'utf8'));
+const beforeLayout = {{
+  src: video.getAttribute('src'),
+  width: video.dataset.responsiveWidth || '',
+  loadCount: video.loadCount || 0,
+  playCount: video.playCount || 0
+}};
+gridLaidOut = true;
+documentListeners['portfolio-grid:layout']();
+console.log(JSON.stringify({{
+  beforeLayout,
+  afterLayout: {{
+    src: video.getAttribute('src'),
+    width: video.dataset.responsiveWidth || '',
+    loadCount: video.loadCount || 0,
+    playCount: video.playCount || 0
+  }}
+}}));
+"""
+        result = subprocess.run(
+            ["node", "-e", node_script],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        state = json.loads(result.stdout)
+
+        self.assertIsNone(state["beforeLayout"]["src"])
+        self.assertEqual(state["beforeLayout"]["width"], "")
+        self.assertEqual(state["beforeLayout"]["loadCount"], 0)
+        self.assertEqual(state["beforeLayout"]["playCount"], 0)
+        self.assertEqual(state["afterLayout"]["src"], "clip-720.mp4")
+        self.assertEqual(state["afterLayout"]["width"], "720")
+        self.assertEqual(state["afterLayout"]["loadCount"], 1)
+        self.assertEqual(state["afterLayout"]["playCount"], 0)
+
     def test_lazy_video_tag_does_not_use_js_autoplay(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
