@@ -592,11 +592,65 @@ class GeneratePagesTests(unittest.TestCase):
     def test_ordered_media_rejects_duplicate_prefixes(self):
         with tempfile.TemporaryDirectory() as tmp:
             media_dir = Path(tmp)
-            (media_dir / "1_first.png").write_text("", encoding="utf-8")
-            (media_dir / "1_second.png").write_text("", encoding="utf-8")
+            (media_dir / "1_first.webp").write_text("", encoding="utf-8")
+            (media_dir / "1_second.mp4").write_text("", encoding="utf-8")
 
-            with self.assertRaises(generate_pages.PageGenerationError):
+            with self.assertRaises(generate_pages.PageGenerationError) as context:
                 generate_pages.ordered_media(media_dir)
+
+        message = str(context.exception)
+        self.assertIn("STOP: Two or more files in the same section use the same order number.", message)
+        self.assertIn("Folder:", message)
+        self.assertIn(str(media_dir), message)
+        self.assertIn("Number 1:", message)
+        self.assertIn("  1_first.webp", message)
+        self.assertIn("  1_second.mp4", message)
+        self.assertIn("If you want ALL of these files to appear on the website:", message)
+        self.assertIn("Rename files so each one starts with a different unused number.", message)
+        self.assertIn("If one file replaced another and only ONE should appear:", message)
+        self.assertIn("Delete the file you no longer want.", message)
+        self.assertIn("Then run generate_website again.", message)
+        self.assertIn("No commit, push, or publish was performed.", message)
+
+    def test_ordered_media_reports_all_duplicate_prefixes_at_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            media_dir = Path(tmp)
+            (media_dir / "1_ok.webp").write_text("", encoding="utf-8")
+            (media_dir / "5_first.webp").write_text("", encoding="utf-8")
+            (media_dir / "5_second.mp4").write_text("", encoding="utf-8")
+            (media_dir / "5_third.webp").write_text("", encoding="utf-8")
+            (media_dir / "8_fourth.mp4").write_text("", encoding="utf-8")
+            (media_dir / "8_fifth.webp").write_text("", encoding="utf-8")
+
+            with self.assertRaises(generate_pages.PageGenerationError) as context:
+                generate_pages.ordered_media(media_dir)
+
+        message = str(context.exception)
+        self.assertIn("Number 5:", message)
+        self.assertIn("  5_first.webp", message)
+        self.assertIn("  5_second.mp4", message)
+        self.assertIn("  5_third.webp", message)
+        self.assertIn("Number 8:", message)
+        self.assertIn("  8_fourth.mp4", message)
+        self.assertIn("  8_fifth.webp", message)
+
+    def test_ordered_media_check_mode_reports_duplicate_prefix_before_missing_webp(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            media_dir = Path(tmp)
+            (media_dir / "5_still.png").write_text("raw", encoding="utf-8")
+            (media_dir / "5_clip.mp4").write_text("", encoding="utf-8")
+
+            with self.assertRaises(generate_pages.PageGenerationError) as context:
+                generate_pages.ordered_media(
+                    media_dir,
+                    check_generated_assets=True,
+                )
+
+        message = str(context.exception)
+        self.assertIn("Number 5:", message)
+        self.assertIn("  5_clip.mp4", message)
+        self.assertIn("  5_still.png", message)
+        self.assertNotIn("Converted WebP is missing", message)
 
     def test_ordered_media_accepts_raw_image_when_matching_webp_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1221,11 +1275,98 @@ console.log(JSON.stringify(results));
             (ready / "highlight").mkdir(parents=True)
             (ready / "highlight" / "1_img.jpg").write_bytes(b"\xff\xd8")
 
-            work_dirs = generate_pages.discover_work_dirs(editable_work)
+            warning = io.StringIO()
+            with contextlib.redirect_stderr(warning):
+                work_dirs = generate_pages.discover_work_dirs(editable_work)
 
             slugs = [d.name for d in work_dirs]
             self.assertNotIn("draft-film", slugs)
             self.assertIn("ready-film", slugs)
+            warning_text = warning.getvalue()
+            self.assertIn("WARNING: A work folder was skipped because it is not ready to publish.", warning_text)
+            self.assertIn("editable-content/work/films/draft-film", warning_text)
+            self.assertIn("Missing trailer/.", warning_text)
+            self.assertIn("Missing highlight media.", warning_text)
+            self.assertIn("Exactly one trailer source in trailer/", warning_text)
+            self.assertIn("At least one numbered image or MP4 in highlight/.", warning_text)
+
+    def test_discover_work_dirs_skips_draft_without_primary_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            editable_work = Path(tmp) / "editable-content" / "work"
+            draft = editable_work / "commercials" / "draft-commercial"
+            ready = editable_work / "commercials" / "ready-commercial"
+            (draft / "highlight").mkdir(parents=True)
+            (draft / "highlight" / "1_img.jpg").write_bytes(b"\xff\xd8")
+            (ready / "film").mkdir(parents=True)
+            (ready / "film" / "film_link.md").write_text(
+                "https://vimeo.com/1", encoding="utf-8"
+            )
+            (ready / "highlight").mkdir(parents=True)
+            (ready / "highlight" / "1_img.jpg").write_bytes(b"\xff\xd8")
+
+            warning = io.StringIO()
+            with contextlib.redirect_stderr(warning):
+                work_dirs = generate_pages.discover_work_dirs(editable_work)
+
+            slugs = [d.name for d in work_dirs]
+            self.assertNotIn("draft-commercial", slugs)
+            self.assertIn("ready-commercial", slugs)
+            warning_text = warning.getvalue()
+            self.assertIn("editable-content/work/commercials/draft-commercial", warning_text)
+            self.assertIn("Missing film/.", warning_text)
+            self.assertIn("Exactly one film source in film/", warning_text)
+            self.assertNotIn("Missing highlight", warning_text)
+
+    def test_discover_work_dirs_skips_draft_without_highlight_media(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            editable_work = Path(tmp) / "editable-content" / "work"
+            draft = editable_work / "films" / "draft-film"
+            ready = editable_work / "films" / "ready-film"
+            (draft / "trailer").mkdir(parents=True)
+            (draft / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/1", encoding="utf-8"
+            )
+            (ready / "trailer").mkdir(parents=True)
+            (ready / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/2", encoding="utf-8"
+            )
+            (ready / "highlight").mkdir(parents=True)
+            (ready / "highlight" / "1_img.jpg").write_bytes(b"\xff\xd8")
+
+            warning = io.StringIO()
+            with contextlib.redirect_stderr(warning):
+                work_dirs = generate_pages.discover_work_dirs(editable_work)
+
+            slugs = [d.name for d in work_dirs]
+            self.assertNotIn("draft-film", slugs)
+            self.assertIn("ready-film", slugs)
+            warning_text = warning.getvalue()
+            self.assertIn("editable-content/work/films/draft-film", warning_text)
+            self.assertIn("Missing highlight/.", warning_text)
+            self.assertIn("Exactly one trailer source in trailer/", warning_text)
+            self.assertNotIn("Missing trailer", warning_text)
+
+    def test_discover_work_dirs_empty_placeholder_has_no_warning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            editable_work = Path(tmp) / "editable-content" / "work"
+            draft = editable_work / "films" / "empty-draft"
+            ready = editable_work / "films" / "ready-film"
+            draft.mkdir(parents=True)
+            (ready / "trailer").mkdir(parents=True)
+            (ready / "trailer" / "trailer_link.md").write_text(
+                "https://vimeo.com/1", encoding="utf-8"
+            )
+            (ready / "highlight").mkdir(parents=True)
+            (ready / "highlight" / "1_img.jpg").write_bytes(b"\xff\xd8")
+
+            warning = io.StringIO()
+            with contextlib.redirect_stderr(warning):
+                work_dirs = generate_pages.discover_work_dirs(editable_work)
+
+            slugs = [d.name for d in work_dirs]
+            self.assertNotIn("empty-draft", slugs)
+            self.assertIn("ready-film", slugs)
+            self.assertEqual(warning.getvalue(), "")
 
     def test_load_work_without_note_and_bts(self):
         with tempfile.TemporaryDirectory() as tmp:

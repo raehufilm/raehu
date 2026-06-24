@@ -1212,10 +1212,10 @@ def ordered_media(
     if not section_dir.is_dir():
         raise PageGenerationError(f"Missing required section folder: {section_dir}")
 
-    media: list[MediaItem] = []
-    seen_indexes: dict[int, Path] = {}
-    seen_paths: set[Path] = set()
-    for path in section_dir.iterdir():
+    sources_by_index: dict[int, list[Path]] = {}
+    first_source_by_canonical_path: dict[Path, Path] = {}
+    used_indexes: set[int] = set()
+    for path in sorted(section_dir.iterdir()):
         if path.name in IGNORED_NAMES or path.name.startswith("."):
             continue
         if not path.is_file():
@@ -1223,19 +1223,40 @@ def ordered_media(
         if not is_media_path(path):
             continue
         index = media_index(path)
+        used_indexes.add(index)
+        canonical_path = media_canonical_identity_path(path)
+        if canonical_path in first_source_by_canonical_path:
+            continue
+        first_source_by_canonical_path[canonical_path] = path
+        sources_by_index.setdefault(index, []).append(path)
+
+    duplicate_indexes = {
+        index: tuple(paths)
+        for index, paths in sources_by_index.items()
+        if len(paths) > 1
+    }
+    if duplicate_indexes:
+        raise PageGenerationError(
+            duplicate_media_numbers_message(
+                section_dir,
+                duplicate_indexes,
+                used_indexes,
+            )
+        )
+
+    media: list[MediaItem] = []
+    for index, source_path in sorted(
+        (
+            (index, paths[0])
+            for index, paths in sources_by_index.items()
+        ),
+        key=lambda item: item[0],
+    ):
         canonical_path = canonical_media_path(
-            path,
+            source_path,
             write_assets=write_assets,
             check_generated_assets=check_generated_assets,
         )
-        if canonical_path in seen_paths:
-            continue
-        if index in seen_indexes:
-            raise PageGenerationError(
-                f"Duplicate media number {index}: {seen_indexes[index]} and {canonical_path}"
-            )
-        seen_indexes[index] = canonical_path
-        seen_paths.add(canonical_path)
         width, height = media_dimensions(canonical_path)
         media.append(
             MediaItem(
@@ -1251,6 +1272,74 @@ def ordered_media(
         raise PageGenerationError(f"No media found in: {section_dir}")
 
     return tuple(sorted(media, key=lambda item: item.index))
+
+
+def media_canonical_identity_path(path: Path) -> Path:
+    if media_kind(path) == "image":
+        return converted_image_path(path)
+    return path
+
+
+def display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def filename_with_replaced_index(filename: str, index: int) -> str:
+    return re.sub(r"^\d+_", f"{index}_", filename, count=1)
+
+
+def duplicate_media_numbers_message(
+    section_dir: Path,
+    duplicate_indexes: Mapping[int, tuple[Path, ...]],
+    used_indexes: Iterable[int],
+) -> str:
+    used = set(used_indexes)
+    example_index = (max(used) + 1) if used else 1
+    first_duplicate_index = min(duplicate_indexes)
+    example_source = sorted(
+        duplicate_indexes[first_duplicate_index],
+        key=lambda path: path.name,
+    )[-1]
+    example_target = filename_with_replaced_index(example_source.name, example_index)
+
+    conflict_lines: list[str] = []
+    for index in sorted(duplicate_indexes):
+        conflict_lines.append(f"Number {index}:")
+        conflict_lines.extend(
+            f"  {path.name}"
+            for path in sorted(duplicate_indexes[index], key=lambda item: item.name)
+        )
+        conflict_lines.append("")
+
+    return (
+        "STOP: Two or more files in the same section use the same order number.\n"
+        "\n"
+        "Folder:\n"
+        f"{display_path(section_dir)}\n"
+        "\n"
+        "The website uses the number at the start of each filename to decide the display order.\n"
+        "Each number can only be used once in the same folder.\n"
+        "\n"
+        "Conflicts found:\n"
+        "\n"
+        f"{chr(10).join(conflict_lines).rstrip()}\n"
+        "\n"
+        "What to do:\n"
+        "\n"
+        "If you want ALL of these files to appear on the website:\n"
+        "  Rename files so each one starts with a different unused number.\n"
+        f"  Example: {example_source.name} -> {example_target}\n"
+        "\n"
+        "If one file replaced another and only ONE should appear:\n"
+        "  Delete the file you no longer want.\n"
+        "\n"
+        "Then run generate_website again.\n"
+        "\n"
+        "No commit, push, or publish was performed."
+    )
 
 
 def output_relative_url(output_html: Path, target: Path) -> str:
@@ -1383,11 +1472,127 @@ def media_tag(
     )
 
 
-def valid_started_work(work_dir: Path) -> bool:
-    for path in work_dir.rglob("*"):
-        if path.is_file() and path.name not in IGNORED_NAMES and not path.name.startswith(".") and is_media_path(path):
+def has_primary_source(work_dir: Path) -> bool:
+    primary_section = primary_section_for_category(work_dir.parent.name)
+    primary_dir = work_dir / primary_section
+    if not primary_dir.is_dir():
+        return False
+
+    link_path = primary_dir / primary_link_file_for_section(primary_section)
+    if read_optional_first_non_empty_line(link_path):
+        return True
+
+    for path in primary_dir.iterdir():
+        if path.name in IGNORED_NAMES or path.name.startswith("."):
+            continue
+        if path.is_file() and is_media_path(path):
             return True
     return False
+
+
+def has_publishable_content(work_dir: Path) -> bool:
+    for path in work_dir.rglob("*"):
+        if path.name in IGNORED_NAMES or path.name.startswith("."):
+            continue
+        if path.is_file():
+            return True
+    return False
+
+
+def primary_source_count(work_dir: Path) -> int:
+    primary_section = primary_section_for_category(work_dir.parent.name)
+    primary_dir = work_dir / primary_section
+    if not primary_dir.is_dir():
+        return 0
+
+    sources = 0
+    link_path = primary_dir / primary_link_file_for_section(primary_section)
+    if read_optional_first_non_empty_line(link_path):
+        sources += 1
+
+    seen_media: set[Path] = set()
+    for path in primary_dir.iterdir():
+        if path.name in IGNORED_NAMES or path.name.startswith("."):
+            continue
+        if not path.is_file() or not is_media_path(path):
+            continue
+        canonical_path = media_canonical_identity_path(path)
+        if canonical_path in seen_media:
+            continue
+        seen_media.add(canonical_path)
+        sources += 1
+    return sources
+
+
+def has_section_media(section_dir: Path) -> bool:
+    if not section_dir.is_dir():
+        return False
+    for path in section_dir.iterdir():
+        if path.name in IGNORED_NAMES or path.name.startswith("."):
+            continue
+        if path.is_file() and is_media_path(path):
+            return True
+    return False
+
+
+def valid_started_work(work_dir: Path) -> bool:
+    return has_primary_source(work_dir) and has_section_media(work_dir / "highlight")
+
+
+def work_completion_issues(work_dir: Path) -> tuple[str, ...]:
+    issues: list[str] = []
+    primary_section = primary_section_for_category(work_dir.parent.name)
+    primary_dir = work_dir / primary_section
+    primary_link_file = primary_link_file_for_section(primary_section)
+
+    if not primary_dir.is_dir():
+        issues.append(
+            f"Missing {primary_section}/. Add {primary_section}/{primary_link_file} "
+            f"with one Vimeo URL, or add exactly one numbered image or MP4 in {primary_section}/."
+        )
+    elif primary_source_count(work_dir) == 0:
+        issues.append(
+            f"Missing {primary_section} source. Add {primary_section}/{primary_link_file} "
+            f"with one Vimeo URL, or add exactly one numbered image or MP4 in {primary_section}/."
+        )
+
+    highlight_dir = work_dir / "highlight"
+    if not highlight_dir.is_dir():
+        issues.append(
+            "Missing highlight/. Add at least one numbered image or MP4 in highlight/."
+        )
+    elif not has_section_media(highlight_dir):
+        issues.append(
+            "Missing highlight media. Add at least one numbered image or MP4 in highlight/."
+        )
+
+    return tuple(issues)
+
+
+def warn_incomplete_work(work_dir: Path, issues: tuple[str, ...]) -> None:
+    if not issues:
+        return
+
+    primary_section = primary_section_for_category(work_dir.parent.name)
+    primary_link_file = primary_link_file_for_section(primary_section)
+    issue_lines = "\n".join(f"  - {issue}" for issue in issues)
+    print(
+        "WARNING: A work folder was skipped because it is not ready to publish.\n"
+        "\n"
+        "Folder:\n"
+        f"{display_path(work_dir)}\n"
+        "\n"
+        "Missing required pieces:\n"
+        f"{issue_lines}\n"
+        "\n"
+        "For the generator to publish this page, the folder needs:\n"
+        f"  - Exactly one {primary_section} source in {primary_section}/: "
+        f"either {primary_link_file} with one Vimeo URL, or one numbered image or MP4.\n"
+        "  - At least one numbered image or MP4 in highlight/.\n"
+        "\n"
+        "This draft was skipped. Complete the missing pieces when you want it to appear on the website.",
+        file=sys.stderr,
+    )
 
 
 def load_primary_media_source(
@@ -2532,6 +2737,8 @@ def discover_work_dirs(editable_work_dir: Path, selected_slug: str | None = None
             if selected_slug and work_dir.name != selected_slug:
                 continue
             if not valid_started_work(work_dir):
+                if has_publishable_content(work_dir):
+                    warn_incomplete_work(work_dir, work_completion_issues(work_dir))
                 continue
             existing = seen_slugs.get(work_dir.name)
             if existing:
