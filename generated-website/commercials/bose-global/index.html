@@ -335,6 +335,8 @@
       display: flex;
       align-items: center;
       justify-content: flex-end;
+      max-height: 100svh;
+      overflow: hidden;
     }
 
     .work-header-image-wrap.work-header-piece--left {
@@ -349,8 +351,7 @@
 
     .work-header-image {
       max-width: 100%;
-      max-height: 100svh;
-      width: 100%;
+      max-height: calc(100svh - 6.5rem - 3.25rem);
       height: auto;
       object-fit: contain;
       display: block;
