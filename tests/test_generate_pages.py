@@ -933,7 +933,11 @@ class GeneratePagesTests(unittest.TestCase):
         transcode.assert_not_called()
         self.assertEqual(
             [variant.name for variant in variants],
-            ["1_clip-tile-480p-v1.mp4", "1_clip-tile-720p-v1.mp4"],
+            [
+                "1_clip-tile-480p-v1.mp4",
+                "1_clip-tile-720p-v1.mp4",
+                "1_clip-tile-1080p-v1.mp4",
+            ],
         )
 
     def test_highlight_video_variants_regenerate_when_source_content_changes(self):
@@ -985,6 +989,78 @@ class GeneratePagesTests(unittest.TestCase):
             list(generate_pages.HIGHLIGHT_TILE_VIDEO_WIDTHS),
         )
 
+    def test_highlight_video_variants_skip_widths_larger_than_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = (
+                root
+                / "editable-content"
+                / "work"
+                / "commercials"
+                / "sample"
+                / "highlight"
+                / "1_clip.mp4"
+            )
+            generated_site = root / "generated-website"
+            source.parent.mkdir(parents=True)
+            source.write_text("mp4", encoding="utf-8")
+
+            def fake_transcode(_source_path, target_path, _width):
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                target_path.write_text("mp4", encoding="utf-8")
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+                mock.patch.object(generate_pages, "source_video_width", return_value=720),
+                mock.patch.object(
+                    generate_pages,
+                    "transcode_highlight_tile_video",
+                    side_effect=fake_transcode,
+                ) as transcode,
+            ):
+                variants = generate_pages.ensure_highlight_tile_video_variants(
+                    source,
+                    write_assets=True,
+                )
+                cache_key = generate_pages.source_hash_cache_key(source)
+
+            generate_pages._source_hash_cache.pop(cache_key, None)
+            generate_pages._current_hash_memo.clear()
+
+        self.assertEqual(
+            [variant.name for variant in variants],
+            ["1_clip-tile-480p-v1.mp4", "1_clip-tile-720p-v1.mp4"],
+        )
+        self.assertEqual([call.args[2] for call in transcode.call_args_list], [480, 720])
+
+    def test_highlight_video_variants_keep_smallest_fallback_for_tiny_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = (
+                root
+                / "editable-content"
+                / "work"
+                / "commercials"
+                / "sample"
+                / "highlight"
+                / "1_clip.mp4"
+            )
+            source.parent.mkdir(parents=True)
+            source.write_text("mp4", encoding="utf-8")
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", root / "generated-website"),
+                mock.patch.object(generate_pages, "source_video_width", return_value=320),
+            ):
+                variants = generate_pages.highlight_tile_video_variant_paths(source)
+
+        self.assertEqual(
+            [variant.name for variant in variants],
+            ["1_clip-tile-480p-v1.mp4"],
+        )
+
     def test_highlight_video_check_mode_requires_generated_outputs(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1015,6 +1091,29 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertIn("Responsive highlight video variant is missing", message)
         self.assertIn("1_clip-tile-480p-v1.mp4", message)
         self.assertIn("1_clip-tile-720p-v1.mp4", message)
+        self.assertIn("1_clip-tile-1080p-v1.mp4", message)
+
+    def test_media_transcode_filters_do_not_upscale_sources(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "editable-content" / "work" / "commercials" / "sample" / "highlight" / "1_clip.mp4"
+            image = root / "editable-content" / "work" / "commercials" / "sample" / "highlight" / "1_still.jpg"
+            source.parent.mkdir(parents=True)
+            source.write_text("mp4", encoding="utf-8")
+            image.write_text("jpg", encoding="utf-8")
+
+            with (
+                mock.patch.object(generate_pages.shutil, "which", return_value="ffmpeg"),
+                mock.patch.object(generate_pages.subprocess, "run") as run,
+            ):
+                generate_pages.convert_image_to_webp(image, image.with_suffix(".webp"), max_width=1920)
+                generate_pages.transcode_grid_preview_video(source, root / "grid.mp4")
+                generate_pages.transcode_highlight_tile_video(source, root / "tile.mp4", 1080)
+
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertIn("scale=w=min(1920\\,iw):h=-2", commands[0])
+        self.assertIn("scale=w=min(720\\,iw):h=-2", commands[1])
+        self.assertIn("scale=w=min(1080\\,iw):h=-2", commands[2])
 
     def test_note_markdown_uses_heading_for_title_and_body_for_copy(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1177,7 +1276,7 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertIn("data-highlight-expand", rendered)
         self.assertIn("Expand highlight media", rendered)
 
-    def test_render_highlight_video_uses_generated_tile_source_and_original_full_source(self):
+    def test_render_highlight_video_uses_responsive_tile_sources_and_original_full_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             generated_site = root / "generated-website"
@@ -1211,21 +1310,69 @@ class GeneratePagesTests(unittest.TestCase):
                 mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
             ):
                 rendered = generate_pages.render_highlight_section(work, output_html)
+                variant_480 = generate_pages.output_relative_url(
+                    output_html,
+                    generate_pages.highlight_tile_video_variant_path(media_path, 480),
+                )
                 variant_720 = generate_pages.output_relative_url(
                     output_html,
                     generate_pages.highlight_tile_video_variant_path(media_path, 720),
                 )
+                variant_1080 = generate_pages.output_relative_url(
+                    output_html,
+                    generate_pages.highlight_tile_video_variant_path(media_path, 1080),
+                )
                 full_src = generate_pages.output_relative_url(output_html, media_path)
 
         self.assertIn('<video class="highlight-media media-hover-zoom-target"', rendered)
-        self.assertIn(f'src="{variant_720}"', rendered)
+        self.assertIn(f'data-src="{variant_1080}"', rendered)
+        self.assertIn(f'data-src-480="{variant_480}"', rendered)
+        self.assertIn(f'data-src-720="{variant_720}"', rendered)
+        self.assertIn(f'data-src-1080="{variant_1080}"', rendered)
         self.assertIn(f'data-full-src="{full_src}"', rendered)
+        self.assertIn("data-responsive-video", rendered)
         self.assertIn(" autoplay", rendered)
         self.assertIn('preload="metadata"', rendered)
         self.assertNotIn("data-lazy-video", rendered)
-        self.assertNotIn("data-src-480", rendered)
-        self.assertNotIn("data-src-720", rendered)
         self.assertNotIn(f' src="{full_src}"', rendered)
+        self.assertNotIn(f' src="{variant_1080}"', rendered)
+
+    def test_render_highlight_video_omits_unavailable_large_tile_sources(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            generated_site = root / "generated-website"
+            output_html = generated_site / "commercials" / "sample-work" / "index.html"
+            media_path = (
+                root
+                / "editable-content"
+                / "work"
+                / "commercials"
+                / "sample-work"
+                / "highlight"
+                / "1_clip.mp4"
+            )
+            item = generate_pages.MediaItem(1, media_path, "video")
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+                mock.patch.object(generate_pages, "source_video_width", return_value=720),
+            ):
+                rendered = generate_pages.highlight_video_tag(
+                    item,
+                    output_html,
+                    "Sample Work highlight",
+                )
+                variant_720 = generate_pages.output_relative_url(
+                    output_html,
+                    generate_pages.highlight_tile_video_variant_path(media_path, 720),
+                )
+
+        self.assertIn(f'data-src="{variant_720}"', rendered)
+        self.assertIn("data-src-480", rendered)
+        self.assertIn("data-src-720", rendered)
+        self.assertNotIn("data-src-1080", rendered)
+        self.assertNotIn("tile-1080p", rendered)
 
     def test_lazy_media_script_selects_responsive_video_sources(self):
         script = (
@@ -1237,12 +1384,158 @@ class GeneratePagesTests(unittest.TestCase):
 
         self.assertIn("responsiveVideoSource", script)
         self.assertIn("data-src-(\\d+)", script)
-        self.assertIn("devicePixelRatio", script)
+        self.assertIn("data-responsive-video", script)
         self.assertIn("activateVisibleVideos", script)
+        self.assertIn("activateResponsiveVideos", script)
         self.assertIn("requestVisibleCheck", script)
         self.assertNotIn("setAttribute('autoplay'", script)
         self.assertNotIn("data-autoplay", script)
         self.assertNotIn(".play()", script)
+
+    def test_responsive_highlight_video_selects_source_without_js_autoplay(self):
+        script_path = (
+            Path(__file__).resolve().parents[1]
+            / "site-source-assets"
+            / "js"
+            / "lazy-media.js"
+        )
+        node_script = f"""
+const fs = require('fs');
+const attrs = new Map([
+  ['data-responsive-video', ''],
+  ['data-src', 'clip-1080.mp4'],
+  ['data-src-480', 'clip-480.mp4'],
+  ['data-src-720', 'clip-720.mp4'],
+  ['data-src-1080', 'clip-1080.mp4'],
+  ['autoplay', '']
+]);
+const documentListeners = {{}};
+const windowListeners = {{}};
+let tileWidth = 320;
+function makeVideo(attrs, widthGetter) {{
+  return {{
+    attributes: Array.from(attrs, ([name, value]) => ({{ name, value }})),
+    dataset: {{}},
+    get clientWidth() {{
+      return widthGetter();
+    }},
+    getBoundingClientRect() {{
+      return {{ top: 20, bottom: 220, width: widthGetter(), height: 200 }};
+    }},
+    getAttribute(name) {{
+      return attrs.has(name) ? attrs.get(name) : null;
+    }},
+    setAttribute(name, value) {{
+      attrs.set(name, String(value));
+      this.attributes = Array.from(attrs, ([attrName, attrValue]) => ({{
+        name: attrName,
+        value: attrValue
+      }}));
+    }},
+    addEventListener() {{}},
+    load() {{
+      this.loadCount = (this.loadCount || 0) + 1;
+    }},
+    play() {{
+      this.playCount = (this.playCount || 0) + 1;
+      return {{ catch() {{}} }};
+    }}
+  }};
+}}
+const video = makeVideo(attrs, () => tileWidth);
+const smallAttrs = new Map([
+  ['data-responsive-video', ''],
+  ['data-src', 'small-480.mp4'],
+  ['data-src-480', 'small-480.mp4'],
+  ['autoplay', '']
+]);
+const smallVideo = makeVideo(smallAttrs, () => 900);
+global.window = {{
+  requestAnimationFrame(callback) {{ callback(); }},
+  setTimeout(callback) {{ callback(); }},
+  addEventListener(name, callback) {{
+    windowListeners[name] = callback;
+  }}
+}};
+global.document = {{
+  readyState: 'complete',
+  documentElement: {{ clientHeight: 800 }},
+  querySelectorAll(selector) {{
+    if (selector === 'video[data-lazy-video]') return [];
+    if (selector === 'video[data-responsive-video]') return [video, smallVideo];
+    return [];
+  }},
+  addEventListener(name, callback) {{
+    documentListeners[name] = callback;
+  }}
+}};
+eval(fs.readFileSync({json.dumps(str(script_path))}, 'utf8'));
+const initial = {{
+  src: video.getAttribute('src'),
+  width: video.dataset.responsiveWidth,
+  loadCount: video.loadCount || 0,
+  playCount: video.playCount || 0
+}};
+tileWidth = 640;
+documentListeners['portfolio-grid:layout']();
+const upgraded = {{
+  src: video.getAttribute('src'),
+  width: video.dataset.responsiveWidth,
+  loadCount: video.loadCount || 0,
+  playCount: video.playCount || 0
+}};
+tileWidth = 900;
+documentListeners['portfolio-grid:layout']();
+const upgradedLarge = {{
+  src: video.getAttribute('src'),
+  width: video.dataset.responsiveWidth,
+  loadCount: video.loadCount || 0,
+  playCount: video.playCount || 0
+}};
+tileWidth = 320;
+documentListeners['portfolio-grid:layout']();
+console.log(JSON.stringify({{
+  initial,
+  upgraded,
+  upgradedLarge,
+  finalSrc: video.getAttribute('src'),
+  finalWidth: video.dataset.responsiveWidth,
+  finalLoadCount: video.loadCount || 0,
+  finalPlayCount: video.playCount || 0,
+  smallSrc: smallVideo.getAttribute('src'),
+  smallWidth: smallVideo.dataset.responsiveWidth,
+  smallLoadCount: smallVideo.loadCount || 0,
+  smallPlayCount: smallVideo.playCount || 0
+}}));
+"""
+        result = subprocess.run(
+            ["node", "-e", node_script],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        state = json.loads(result.stdout)
+
+        self.assertEqual(state["initial"]["src"], "clip-480.mp4")
+        self.assertEqual(state["initial"]["width"], "480")
+        self.assertEqual(state["initial"]["loadCount"], 1)
+        self.assertEqual(state["initial"]["playCount"], 0)
+        self.assertEqual(state["upgraded"]["src"], "clip-720.mp4")
+        self.assertEqual(state["upgraded"]["width"], "720")
+        self.assertEqual(state["upgraded"]["loadCount"], 2)
+        self.assertEqual(state["upgraded"]["playCount"], 0)
+        self.assertEqual(state["upgradedLarge"]["src"], "clip-1080.mp4")
+        self.assertEqual(state["upgradedLarge"]["width"], "1080")
+        self.assertEqual(state["upgradedLarge"]["loadCount"], 3)
+        self.assertEqual(state["upgradedLarge"]["playCount"], 0)
+        self.assertEqual(state["finalSrc"], "clip-1080.mp4")
+        self.assertEqual(state["finalWidth"], "1080")
+        self.assertEqual(state["finalLoadCount"], 3)
+        self.assertEqual(state["finalPlayCount"], 0)
+        self.assertEqual(state["smallSrc"], "small-480.mp4")
+        self.assertEqual(state["smallWidth"], "480")
+        self.assertEqual(state["smallLoadCount"], 1)
+        self.assertEqual(state["smallPlayCount"], 0)
 
     def test_lazy_video_tag_does_not_use_js_autoplay(self):
         with tempfile.TemporaryDirectory() as tmp:

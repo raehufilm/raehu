@@ -2,14 +2,16 @@
   'use strict';
 
   var lazyVideos = Array.prototype.slice.call(document.querySelectorAll('video[data-lazy-video]'));
-  if (!lazyVideos.length) return;
+  var responsiveVideos = Array.prototype.slice.call(document.querySelectorAll('video[data-responsive-video]'));
+  if (!lazyVideos.length && !responsiveVideos.length) return;
   var viewportMargin = 400;
   var ticking = false;
+  var responsiveTicking = false;
   var scheduleFrame = window.requestAnimationFrame || function (callback) {
     return window.setTimeout(callback, 16);
   };
 
-  function responsiveVideoSource(video) {
+  function responsiveVideoVariants(video) {
     var variants = [];
     Array.prototype.slice.call(video.attributes).forEach(function (attribute) {
       var match = attribute.name.match(/^data-src-(\d+)$/);
@@ -20,33 +22,71 @@
       });
     });
 
-    if (!variants.length) return video.getAttribute('data-src');
-
     variants.sort(function (a, b) {
       return a.width - b.width;
     });
 
-    var rect = video.getBoundingClientRect();
-    var cssWidth = rect.width || video.clientWidth || 0;
-    var targetWidth = cssWidth * (window.devicePixelRatio || 1);
+    return variants;
+  }
 
-    if (!targetWidth) return null;
-
-    for (var i = 0; i < variants.length; i++) {
-      if (variants[i].width >= targetWidth) return variants[i].src;
+  function responsiveVideoChoice(video) {
+    var variants = responsiveVideoVariants(video);
+    if (!variants.length) {
+      var fallback = video.getAttribute('data-src');
+      return fallback ? { width: 0, src: fallback } : null;
     }
 
-    return variants[variants.length - 1].src;
+    var rect = video.getBoundingClientRect();
+    var cssWidth = rect.width || video.clientWidth || 0;
+
+    if (!cssWidth) return null;
+
+    for (var i = 0; i < variants.length; i++) {
+      if (variants[i].width >= cssWidth) return variants[i];
+    }
+
+    return variants[variants.length - 1];
+  }
+
+  function responsiveVideoSource(video) {
+    var choice = responsiveVideoChoice(video);
+    return choice && choice.src;
+  }
+
+  function setVideoSource(video, source, variantWidth, allowDowngrade) {
+    var currentSrc = video.getAttribute('src');
+    var currentWidth = parseInt(video.dataset.responsiveWidth || '0', 10) || 0;
+
+    if (!source || currentSrc === source) return false;
+    if (
+      currentSrc &&
+      currentWidth &&
+      variantWidth &&
+      variantWidth <= currentWidth &&
+      !allowDowngrade
+    ) {
+      return false;
+    }
+
+    video.setAttribute('src', source);
+    if (variantWidth) video.dataset.responsiveWidth = String(variantWidth);
+    video.load();
+    return true;
+  }
+
+  function activateResponsiveVideo(video) {
+    var choice = responsiveVideoChoice(video);
+    if (!choice) return false;
+    return setVideoSource(video, choice.src, choice.width, false);
   }
 
   function activateVideo(video) {
     if (video.dataset.lazyLoaded === 'true') return true;
 
-    var source = responsiveVideoSource(video);
-    if (!source) return false;
-    if (source && !video.getAttribute('src')) {
-      video.setAttribute('src', source);
-      video.load();
+    var choice = responsiveVideoChoice(video);
+    if (!choice) return false;
+    if (!video.getAttribute('src')) {
+      setVideoSource(video, choice.src, choice.width, true);
     }
 
     video.dataset.lazyLoaded = 'true';
@@ -72,6 +112,31 @@
     ticking = true;
     scheduleFrame(activateVisibleVideos);
   }
+
+  function activateResponsiveVideos() {
+    responsiveVideos.forEach(activateResponsiveVideo);
+    responsiveTicking = false;
+  }
+
+  function requestResponsiveVideoCheck() {
+    if (responsiveTicking) return;
+    responsiveTicking = true;
+    scheduleFrame(activateResponsiveVideos);
+  }
+
+  if (responsiveVideos.length) {
+    requestResponsiveVideoCheck();
+    window.addEventListener('resize', function () {
+      requestResponsiveVideoCheck();
+      window.setTimeout(requestResponsiveVideoCheck, 150);
+    });
+    window.addEventListener('load', requestResponsiveVideoCheck);
+    document.addEventListener('portfolio-grid:layout', requestResponsiveVideoCheck);
+    window.setTimeout(requestResponsiveVideoCheck, 100);
+    window.setTimeout(requestResponsiveVideoCheck, 500);
+  }
+
+  if (!lazyVideos.length) return;
 
   if (!('IntersectionObserver' in window)) {
     activateVisibleVideos();

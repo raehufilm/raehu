@@ -68,18 +68,21 @@ GRID_PREVIEW_VIDEO_MAXRATE = "1400k"
 GRID_PREVIEW_VIDEO_BUFSIZE = "2400k"
 HIGHLIGHT_TILE_VIDEO_EXTENSION = ".mp4"
 HIGHLIGHT_TILE_VIDEO_VERSION = "v1"
-HIGHLIGHT_TILE_VIDEO_WIDTHS = (480, 720)
+HIGHLIGHT_TILE_VIDEO_WIDTHS = (480, 720, 1080)
 HIGHLIGHT_TILE_VIDEO_BITRATES = {
     480: "700k",
     720: "1400k",
+    1080: "2600k",
 }
 HIGHLIGHT_TILE_VIDEO_MAXRATES = {
     480: "900k",
     720: "1800k",
+    1080: "3200k",
 }
 HIGHLIGHT_TILE_VIDEO_BUFSIZES = {
     480: "1400k",
     720: "2800k",
+    1080: "5200k",
 }
 GRID_SPANS_BY_ROW_SIZE = {
     1: ((12,),),
@@ -814,6 +817,7 @@ def converted_image_path(path: Path) -> Path:
 
 
 _current_hash_memo: dict[Path, str] = {}
+_video_width_memo: dict[Path, int | None] = {}
 
 
 def source_content_hash(path: Path) -> str:
@@ -864,6 +868,7 @@ def normalize_source_hash_cache_key(raw_key: str) -> Path:
 def load_source_hash_cache() -> None:
     _source_hash_cache.clear()
     _current_hash_memo.clear()
+    _video_width_memo.clear()
     cache_path = _source_hash_cache_path()
     if cache_path.exists():
         try:
@@ -1100,6 +1105,42 @@ def ensure_optimized_grid_preview_video(
     return target
 
 
+def source_video_width(source: Path) -> int | None:
+    resolved = source.resolve()
+    if resolved in _video_width_memo:
+        return _video_width_memo[resolved]
+
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        _video_width_memo[resolved] = None
+        return None
+
+    result = subprocess.run(
+        [ffmpeg, "-hide_banner", "-i", str(source)],
+        capture_output=True,
+        text=True,
+    )
+    output = f"{result.stdout}\n{result.stderr}"
+    match = re.search(
+        r"Video:.*?,\s*(\d{2,5})x(\d{2,5})(?:\s|\[|,)",
+        output,
+    )
+    width = int(match.group(1)) if match else None
+    _video_width_memo[resolved] = width
+    return width
+
+
+def highlight_tile_video_widths(source: Path) -> tuple[int, ...]:
+    source_width = source_video_width(source)
+    if source_width is None:
+        return HIGHLIGHT_TILE_VIDEO_WIDTHS
+
+    widths = tuple(width for width in HIGHLIGHT_TILE_VIDEO_WIDTHS if width <= source_width)
+    if widths:
+        return widths
+    return (HIGHLIGHT_TILE_VIDEO_WIDTHS[0],)
+
+
 def highlight_tile_video_variant_path(source: Path, width: int) -> Path:
     filename = (
         f"{source.stem}-tile-{width}p-"
@@ -1111,7 +1152,7 @@ def highlight_tile_video_variant_path(source: Path, width: int) -> Path:
 def highlight_tile_video_variant_paths(source: Path) -> tuple[Path, ...]:
     return tuple(
         highlight_tile_video_variant_path(source, width)
-        for width in HIGHLIGHT_TILE_VIDEO_WIDTHS
+        for width in highlight_tile_video_widths(source)
     )
 
 
@@ -1171,7 +1212,7 @@ def ensure_highlight_tile_video_variants(
 ) -> tuple[Path, ...]:
     targets = list(
         zip(
-            HIGHLIGHT_TILE_VIDEO_WIDTHS,
+            highlight_tile_video_widths(source),
             highlight_tile_video_variant_paths(source),
         )
     )
@@ -2324,15 +2365,25 @@ def render_highlight_tile(item: MediaItem, output_html: Path, title: str) -> str
 
 
 def highlight_video_tag(item: MediaItem, output_html: Path, label: str) -> str:
-    tile_src = output_relative_url(
+    variant_widths = highlight_tile_video_widths(item.path)
+    variant_paths = highlight_tile_video_variant_paths(item.path)
+    variant_attrs = " ".join(
+        f'data-src-{width}="{output_relative_url(output_html, target)}"'
+        for width, target in zip(
+            variant_widths,
+            variant_paths,
+        )
+    )
+    fallback_src = output_relative_url(
         output_html,
-        highlight_tile_video_variant_path(item.path, HIGHLIGHT_TILE_VIDEO_WIDTHS[-1]),
+        variant_paths[-1],
     )
     full_src = output_relative_url(output_html, item.path)
     dimension_attrs = media_dimension_attrs(item)
     return (
         f'<video class="highlight-media media-hover-zoom-target"{dimension_attrs} '
-        f'src="{tile_src}" data-full-src="{full_src}" '
+        f'data-src="{fallback_src}" {variant_attrs} data-full-src="{full_src}" '
+        'data-responsive-video '
         'muted playsinline autoplay loop preload="metadata" '
         f'aria-label="{html_escape(label)}"></video>'
     )

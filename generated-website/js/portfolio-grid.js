@@ -762,6 +762,18 @@
     }
 
     container.appendChild(fragment);
+    notifyGridLayout(container);
+  }
+
+  function notifyGridLayout(container) {
+    var event;
+    if (typeof CustomEvent === 'function') {
+      event = new CustomEvent('portfolio-grid:layout', { bubbles: true });
+    } else {
+      event = document.createEvent('CustomEvent');
+      event.initCustomEvent('portfolio-grid:layout', true, false, null);
+    }
+    container.dispatchEvent(event);
   }
 
   // --- Main layout function ---
@@ -853,6 +865,7 @@
     });
 
     container.style.gridTemplateRows = rowHeights.join(' ');
+    notifyGridLayout(container);
   }
 
   // --- Initialization and resize handling ---
