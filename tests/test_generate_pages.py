@@ -1166,6 +1166,117 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertIn("responsiveVideoSource", script)
         self.assertIn("data-src-(\\d+)", script)
         self.assertIn("devicePixelRatio", script)
+        self.assertIn("activateVisibleVideos", script)
+        self.assertIn("setAttribute('autoplay', '')", script)
+        self.assertIn("loadedmetadata", script)
+        self.assertIn("canplay", script)
+        self.assertIn("requestVisibleCheck", script)
+
+    def test_lazy_media_script_activates_near_viewport_video_after_layout(self):
+        script_path = (
+            Path(__file__).resolve().parents[1]
+            / "site-source-assets"
+            / "js"
+            / "lazy-media.js"
+        )
+        node_script = f"""
+const fs = require('fs');
+const attrs = new Map([
+  ['data-lazy-video', ''],
+  ['data-autoplay', 'true'],
+  ['data-src', 'clip-720.mp4'],
+  ['data-src-480', 'clip-480.mp4'],
+  ['data-src-720', 'clip-720.mp4']
+]);
+const listeners = {{}};
+const windowListeners = {{}};
+let tileWidth = 0;
+const video = {{
+  attributes: Array.from(attrs, ([name, value]) => ({{ name, value }})),
+  dataset: {{}},
+  get clientWidth() {{
+    return tileWidth;
+  }},
+  getBoundingClientRect() {{
+    return {{ top: 20, bottom: 220, width: tileWidth, height: 200 }};
+  }},
+  getAttribute(name) {{
+    return attrs.has(name) ? attrs.get(name) : null;
+  }},
+  setAttribute(name, value) {{
+    attrs.set(name, String(value));
+    this.attributes = Array.from(attrs, ([attrName, attrValue]) => ({{
+      name: attrName,
+      value: attrValue
+    }}));
+  }},
+  hasAttribute(name) {{
+    return attrs.has(name);
+  }},
+  addEventListener(name, callback) {{
+    listeners[name] = callback;
+  }},
+  load() {{
+    this.loadCount = (this.loadCount || 0) + 1;
+  }},
+  play() {{
+    this.playCount = (this.playCount || 0) + 1;
+    return {{ catch() {{}} }};
+  }}
+}};
+function FakeIntersectionObserver() {{}}
+FakeIntersectionObserver.prototype.observe = function () {{}};
+FakeIntersectionObserver.prototype.unobserve = function () {{}};
+global.window = {{
+  innerHeight: 800,
+  devicePixelRatio: 1,
+  IntersectionObserver: FakeIntersectionObserver,
+  requestAnimationFrame(callback) {{ callback(); }},
+  setTimeout(callback) {{ callback(); }},
+  addEventListener(name, callback) {{
+    windowListeners[name] = callback;
+  }}
+}};
+global.IntersectionObserver = FakeIntersectionObserver;
+global.document = {{
+  readyState: 'complete',
+  documentElement: {{ clientHeight: 800 }},
+  querySelectorAll(selector) {{
+    return selector === 'video[data-lazy-video]' ? [video] : [];
+  }}
+}};
+eval(fs.readFileSync({json.dumps(str(script_path))}, 'utf8'));
+const preLayout = {{
+  src: video.getAttribute('src'),
+  lazyLoaded: video.dataset.lazyLoaded || ''
+}};
+tileWidth = 320;
+windowListeners.resize();
+listeners.canplay();
+console.log(JSON.stringify({{
+  preLayout,
+  src: video.getAttribute('src'),
+  lazyLoaded: video.dataset.lazyLoaded,
+  autoplay: video.hasAttribute('autoplay'),
+  loadCount: video.loadCount,
+  playCount: video.playCount
+}}));
+"""
+        result = subprocess.run(
+            ["node", "-e", node_script],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        state = json.loads(result.stdout)
+
+        self.assertIsNone(state["preLayout"]["src"])
+        self.assertEqual(state["preLayout"]["lazyLoaded"], "")
+        self.assertEqual(state["src"], "clip-480.mp4")
+        self.assertEqual(state["lazyLoaded"], "true")
+        self.assertTrue(state["autoplay"])
+        self.assertEqual(state["loadCount"], 1)
+        self.assertGreaterEqual(state["playCount"], 2)
 
     def test_highlight_lightbox_uses_original_video_source_when_expanded(self):
         template = (
