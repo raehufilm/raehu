@@ -59,31 +59,29 @@ IMAGE_EXTENSIONS = {".avif", ".gif", ".heic", ".jpeg", ".jpg", ".png", ".webp"}
 VIDEO_EXTENSIONS = {".mp4"}
 WEB_IMAGE_EXTENSION = ".webp"
 RESPONSIVE_IMAGE_WIDTHS = (480, 960, 1440, 1920)
-GRID_PREVIEW_VIDEO_EXTENSION = ".mp4"
-GRID_PREVIEW_VIDEO_VERSION = "v3"
-GRID_PREVIEW_VIDEO_DURATION_SECONDS = 6
-GRID_PREVIEW_VIDEO_MAX_WIDTH = 720
-GRID_PREVIEW_VIDEO_BITRATE = "1200k"
-GRID_PREVIEW_VIDEO_MAXRATE = "1400k"
-GRID_PREVIEW_VIDEO_BUFSIZE = "2400k"
-HIGHLIGHT_TILE_VIDEO_EXTENSION = ".mp4"
-HIGHLIGHT_TILE_VIDEO_VERSION = "v1"
-HIGHLIGHT_TILE_VIDEO_WIDTHS = (480, 720, 1080)
-HIGHLIGHT_TILE_VIDEO_BITRATES = {
+RESPONSIVE_VIDEO_WIDTHS = (480, 720, 1080)
+RESPONSIVE_VIDEO_BITRATES = {
     480: "700k",
     720: "1400k",
     1080: "2600k",
 }
-HIGHLIGHT_TILE_VIDEO_MAXRATES = {
+RESPONSIVE_VIDEO_MAXRATES = {
     480: "900k",
     720: "1800k",
     1080: "3200k",
 }
-HIGHLIGHT_TILE_VIDEO_BUFSIZES = {
+RESPONSIVE_VIDEO_BUFSIZES = {
     480: "1400k",
     720: "2800k",
     1080: "5200k",
 }
+GRID_PREVIEW_VIDEO_EXTENSION = ".mp4"
+GRID_PREVIEW_VIDEO_VERSION = "v4"
+GRID_PREVIEW_VIDEO_DURATION_SECONDS = 6
+GRID_PREVIEW_VIDEO_WIDTHS = RESPONSIVE_VIDEO_WIDTHS
+HIGHLIGHT_TILE_VIDEO_EXTENSION = ".mp4"
+HIGHLIGHT_TILE_VIDEO_VERSION = "v1"
+HIGHLIGHT_TILE_VIDEO_WIDTHS = RESPONSIVE_VIDEO_WIDTHS
 GRID_SPANS_BY_ROW_SIZE = {
     1: ((12,),),
     2: ((7, 5), (5, 7), (8, 4), (4, 8)),
@@ -1022,89 +1020,6 @@ def ensure_responsive_image_variants(
     record_conversion(source)
 
 
-def optimized_grid_preview_video_path(source: Path) -> Path:
-    filename = (
-        f"{source.stem}-grid-preview-{GRID_PREVIEW_VIDEO_MAX_WIDTH}p-"
-        f"{GRID_PREVIEW_VIDEO_VERSION}{GRID_PREVIEW_VIDEO_EXTENSION}"
-    )
-    return generated_media_path(source, filename)
-
-
-def transcode_grid_preview_video(source: Path, target: Path) -> None:
-    ffmpeg = require_ffmpeg()
-    target.parent.mkdir(parents=True, exist_ok=True)
-    command = [
-        ffmpeg,
-        "-y",
-        "-loglevel",
-        "error",
-        "-i",
-        str(source),
-        "-map",
-        "0:v:0",
-        "-t",
-        str(GRID_PREVIEW_VIDEO_DURATION_SECONDS),
-        "-vf",
-        f"scale=w=min({GRID_PREVIEW_VIDEO_MAX_WIDTH}\\,iw):h=-2",
-        "-an",
-        "-dn",
-        "-map_metadata",
-        "-1",
-        "-map_chapters",
-        "-1",
-        "-c:v",
-        "libx264",
-        "-profile:v",
-        "main",
-        "-pix_fmt",
-        "yuv420p",
-        "-preset",
-        "medium",
-        "-b:v",
-        GRID_PREVIEW_VIDEO_BITRATE,
-        "-maxrate",
-        GRID_PREVIEW_VIDEO_MAXRATE,
-        "-bufsize",
-        GRID_PREVIEW_VIDEO_BUFSIZE,
-        "-movflags",
-        "+faststart",
-        "-write_tmcd",
-        "0",
-        str(target),
-    ]
-    try:
-        subprocess.run(command, check=True)
-    except subprocess.CalledProcessError as exc:
-        raise PageGenerationError(
-            f"ffmpeg failed to optimize grid preview video {source} to {target}. "
-            "Make sure ffmpeg includes the libx264 encoder."
-        ) from exc
-
-
-def ensure_optimized_grid_preview_video(
-    source: Path,
-    write_assets: bool,
-    check_generated_assets: bool = False,
-) -> Path:
-    target = optimized_grid_preview_video_path(source)
-    if not write_assets and not check_generated_assets:
-        return target
-    if not is_repo_content_path(source):
-        return target
-    if check_generated_assets:
-        if not target.exists():
-            raise PageGenerationError(
-                f"Optimized grid preview video is missing for {source}: {target}. "
-                "Run python3 scripts/generate_pages.py."
-            )
-        return target
-    if not needs_conversion(source, target):
-        return target
-    transcode_grid_preview_video(source, target)
-    record_conversion(source)
-    return target
-
-
 def source_video_width(source: Path) -> int | None:
     resolved = source.resolve()
     if resolved in _video_width_memo:
@@ -1130,15 +1045,199 @@ def source_video_width(source: Path) -> int | None:
     return width
 
 
-def highlight_tile_video_widths(source: Path) -> tuple[int, ...]:
+def responsive_video_widths(
+    source: Path,
+    available_widths: tuple[int, ...] = RESPONSIVE_VIDEO_WIDTHS,
+) -> tuple[int, ...]:
     source_width = source_video_width(source)
     if source_width is None:
-        return HIGHLIGHT_TILE_VIDEO_WIDTHS
+        return available_widths
 
-    widths = tuple(width for width in HIGHLIGHT_TILE_VIDEO_WIDTHS if width <= source_width)
+    widths = tuple(width for width in available_widths if width <= source_width)
     if widths:
         return widths
-    return (HIGHLIGHT_TILE_VIDEO_WIDTHS[0],)
+    return (available_widths[0],)
+
+
+def transcode_responsive_video(
+    source: Path,
+    target: Path,
+    width: int,
+    *,
+    duration_seconds: int | None = None,
+    description: str,
+) -> None:
+    ffmpeg = require_ffmpeg()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    command = [
+        ffmpeg,
+        "-y",
+        "-loglevel",
+        "error",
+        "-i",
+        str(source),
+        "-map",
+        "0:v:0",
+    ]
+    if duration_seconds is not None:
+        command.extend(["-t", str(duration_seconds)])
+    command.extend(
+        [
+            "-vf",
+            f"scale=w=min({width}\\,iw):h=-2",
+            "-an",
+            "-dn",
+            "-map_metadata",
+            "-1",
+            "-map_chapters",
+            "-1",
+            "-c:v",
+            "libx264",
+            "-profile:v",
+            "main",
+            "-pix_fmt",
+            "yuv420p",
+            "-preset",
+            "medium",
+            "-b:v",
+            RESPONSIVE_VIDEO_BITRATES[width],
+            "-maxrate",
+            RESPONSIVE_VIDEO_MAXRATES[width],
+            "-bufsize",
+            RESPONSIVE_VIDEO_BUFSIZES[width],
+            "-movflags",
+            "+faststart",
+            "-write_tmcd",
+            "0",
+            str(target),
+        ]
+    )
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as exc:
+        raise PageGenerationError(
+            f"ffmpeg failed to create {description} {source} to {target}. "
+            "Make sure ffmpeg includes the libx264 encoder."
+        ) from exc
+
+
+def ensure_responsive_video_variants(
+    source: Path,
+    targets: list[tuple[int, Path]],
+    write_assets: bool,
+    check_generated_assets: bool,
+    *,
+    missing_label: str,
+    transcode: Callable[[Path, Path, int], None],
+) -> tuple[Path, ...]:
+    if not write_assets and not check_generated_assets:
+        return tuple(target for _width, target in targets)
+    if not is_repo_content_path(source):
+        return tuple(target for _width, target in targets)
+
+    if check_generated_assets:
+        missing = [target for _width, target in targets if not target.exists()]
+        if missing:
+            missing_text = ", ".join(str(target) for target in missing)
+            raise PageGenerationError(
+                f"{missing_label} is missing for {source}: {missing_text}. "
+                "Run python3 scripts/generate_pages.py."
+            )
+        return tuple(target for _width, target in targets)
+
+    stale = needs_conversion(source, targets[0][1])
+    for width, target in targets:
+        if stale or not target.exists():
+            transcode(source, target, width)
+    record_conversion(source)
+    return tuple(target for _width, target in targets)
+
+
+def responsive_video_source_attrs(
+    output_html: Path,
+    widths: tuple[int, ...],
+    paths: tuple[Path, ...],
+    extra_attrs: str = "",
+) -> str:
+    variant_attrs = " ".join(
+        f'data-src-{width}="{output_relative_url(output_html, target)}"'
+        for width, target in zip(widths, paths)
+    )
+    fallback_src = output_relative_url(output_html, paths[-1])
+    attrs = f'data-src="{fallback_src}" {variant_attrs}'
+    if extra_attrs:
+        attrs = f"{attrs} {extra_attrs}"
+    return f"{attrs} data-responsive-video"
+
+
+def grid_preview_video_widths(source: Path) -> tuple[int, ...]:
+    return responsive_video_widths(source, GRID_PREVIEW_VIDEO_WIDTHS)
+
+
+def grid_preview_video_variant_path(source: Path, width: int) -> Path:
+    filename = (
+        f"{source.stem}-grid-preview-{width}p-"
+        f"{GRID_PREVIEW_VIDEO_VERSION}{GRID_PREVIEW_VIDEO_EXTENSION}"
+    )
+    return generated_media_path(source, filename)
+
+
+def grid_preview_video_variant_paths(source: Path) -> tuple[Path, ...]:
+    return tuple(
+        grid_preview_video_variant_path(source, width)
+        for width in grid_preview_video_widths(source)
+    )
+
+
+def optimized_grid_preview_video_path(source: Path) -> Path:
+    return grid_preview_video_variant_paths(source)[-1]
+
+
+def transcode_grid_preview_video(source: Path, target: Path, width: int) -> None:
+    transcode_responsive_video(
+        source,
+        target,
+        width,
+        duration_seconds=GRID_PREVIEW_VIDEO_DURATION_SECONDS,
+        description="grid preview video variant",
+    )
+
+
+def ensure_grid_preview_video_variants(
+    source: Path,
+    write_assets: bool,
+    check_generated_assets: bool = False,
+) -> tuple[Path, ...]:
+    targets = list(
+        zip(
+            grid_preview_video_widths(source),
+            grid_preview_video_variant_paths(source),
+        )
+    )
+    return ensure_responsive_video_variants(
+        source,
+        targets,
+        write_assets,
+        check_generated_assets,
+        missing_label="Responsive grid preview video variant",
+        transcode=transcode_grid_preview_video,
+    )
+
+
+def ensure_optimized_grid_preview_video(
+    source: Path,
+    write_assets: bool,
+    check_generated_assets: bool = False,
+) -> Path:
+    return ensure_grid_preview_video_variants(
+        source,
+        write_assets=write_assets,
+        check_generated_assets=check_generated_assets,
+    )[-1]
+
+
+def highlight_tile_video_widths(source: Path) -> tuple[int, ...]:
+    return responsive_video_widths(source, HIGHLIGHT_TILE_VIDEO_WIDTHS)
 
 
 def highlight_tile_video_variant_path(source: Path, width: int) -> Path:
@@ -1157,52 +1256,12 @@ def highlight_tile_video_variant_paths(source: Path) -> tuple[Path, ...]:
 
 
 def transcode_highlight_tile_video(source: Path, target: Path, width: int) -> None:
-    ffmpeg = require_ffmpeg()
-    target.parent.mkdir(parents=True, exist_ok=True)
-    command = [
-        ffmpeg,
-        "-y",
-        "-loglevel",
-        "error",
-        "-i",
-        str(source),
-        "-map",
-        "0:v:0",
-        "-vf",
-        f"scale=w=min({width}\\,iw):h=-2",
-        "-an",
-        "-dn",
-        "-map_metadata",
-        "-1",
-        "-map_chapters",
-        "-1",
-        "-c:v",
-        "libx264",
-        "-profile:v",
-        "main",
-        "-pix_fmt",
-        "yuv420p",
-        "-preset",
-        "medium",
-        "-b:v",
-        HIGHLIGHT_TILE_VIDEO_BITRATES[width],
-        "-maxrate",
-        HIGHLIGHT_TILE_VIDEO_MAXRATES[width],
-        "-bufsize",
-        HIGHLIGHT_TILE_VIDEO_BUFSIZES[width],
-        "-movflags",
-        "+faststart",
-        "-write_tmcd",
-        "0",
-        str(target),
-    ]
-    try:
-        subprocess.run(command, check=True)
-    except subprocess.CalledProcessError as exc:
-        raise PageGenerationError(
-            f"ffmpeg failed to create highlight video tile variant {source} to {target}. "
-            "Make sure ffmpeg includes the libx264 encoder."
-        ) from exc
+    transcode_responsive_video(
+        source,
+        target,
+        width,
+        description="highlight video tile variant",
+    )
 
 
 def ensure_highlight_tile_video_variants(
@@ -1216,27 +1275,14 @@ def ensure_highlight_tile_video_variants(
             highlight_tile_video_variant_paths(source),
         )
     )
-    if not write_assets and not check_generated_assets:
-        return tuple(target for _width, target in targets)
-    if not is_repo_content_path(source):
-        return tuple(target for _width, target in targets)
-
-    if check_generated_assets:
-        missing = [target for _width, target in targets if not target.exists()]
-        if missing:
-            missing_text = ", ".join(str(target) for target in missing)
-            raise PageGenerationError(
-                f"Responsive highlight video variant is missing for {source}: {missing_text}. "
-                "Run python3 scripts/generate_pages.py."
-            )
-        return tuple(target for _width, target in targets)
-
-    stale = needs_conversion(source, targets[0][1])
-    for width, target in targets:
-        if stale or not target.exists():
-            transcode_highlight_tile_video(source, target, width)
-    record_conversion(source)
-    return tuple(target for _width, target in targets)
+    return ensure_responsive_video_variants(
+        source,
+        targets,
+        write_assets,
+        check_generated_assets,
+        missing_label="Responsive highlight video variant",
+        transcode=transcode_highlight_tile_video,
+    )
 
 
 def ensure_highlight_video_outputs(
@@ -2367,24 +2413,34 @@ def render_highlight_tile(item: MediaItem, output_html: Path, title: str) -> str
 def highlight_video_tag(item: MediaItem, output_html: Path, label: str) -> str:
     variant_widths = highlight_tile_video_widths(item.path)
     variant_paths = highlight_tile_video_variant_paths(item.path)
-    variant_attrs = " ".join(
-        f'data-src-{width}="{output_relative_url(output_html, target)}"'
-        for width, target in zip(
-            variant_widths,
-            variant_paths,
-        )
-    )
-    fallback_src = output_relative_url(
-        output_html,
-        variant_paths[-1],
-    )
     full_src = output_relative_url(output_html, item.path)
+    source_attrs = responsive_video_source_attrs(
+        output_html,
+        variant_widths,
+        variant_paths,
+        extra_attrs=f'data-full-src="{full_src}"',
+    )
     dimension_attrs = media_dimension_attrs(item)
     return (
         f'<video class="highlight-media media-hover-zoom-target"{dimension_attrs} '
-        f'data-src="{fallback_src}" {variant_attrs} data-full-src="{full_src}" '
-        'data-responsive-video '
+        f'{source_attrs} '
         'muted playsinline autoplay loop preload="metadata" '
+        f'aria-label="{html_escape(label)}"></video>'
+    )
+
+
+def grid_preview_video_tag(item: MediaItem, output_html: Path, label: str) -> str:
+    variant_widths = grid_preview_video_widths(item.path)
+    variant_paths = grid_preview_video_variant_paths(item.path)
+    source_attrs = responsive_video_source_attrs(
+        output_html,
+        variant_widths,
+        variant_paths,
+    )
+    dimension_attrs = media_dimension_attrs(item)
+    return (
+        f'<video class="media-hover-zoom-target"{dimension_attrs} '
+        f'{source_attrs} muted playsinline autoplay loop preload="metadata" '
         f'aria-label="{html_escape(label)}"></video>'
     )
 
@@ -2612,6 +2668,7 @@ def render_work(work: WorkContent, template: str, output_html: Path) -> str:
 def render_works_index_grid_item(work: WorkContent, output_html: Path) -> str:
     href = work_public_url_from(output_html, work)
     title = html_escape(work.title)
+    preview_source_media = work.grid_preview_media or work.trailer_media
     preview_media = work.grid_display_media or work.grid_preview_media or work.trailer_media
     if work.grid_preview_media:
         preview_label = html_escape("grid preview")
@@ -2619,15 +2676,22 @@ def render_works_index_grid_item(work: WorkContent, output_html: Path) -> str:
         preview_label = html_escape(f"{primary_section_for_category(work.category)} preview")
     if preview_media:
         if preview_media.kind == "video":
-            preview_html = video_tag(
-                preview_media,
-                output_html,
-                f"{work.title} {preview_label}",
-                class_name="media-hover-zoom-target",
-                autoplay=True,
-                lazy=False,
-                preload="metadata",
-            )
+            if preview_source_media and preview_source_media.kind == "video":
+                preview_html = grid_preview_video_tag(
+                    preview_source_media,
+                    output_html,
+                    f"{work.title} {preview_label}",
+                )
+            else:
+                preview_html = video_tag(
+                    preview_media,
+                    output_html,
+                    f"{work.title} {preview_label}",
+                    class_name="media-hover-zoom-target",
+                    autoplay=True,
+                    lazy=False,
+                    preload="metadata",
+                )
         else:
             preview_html = image_tag(
                 preview_media,
@@ -2888,7 +2952,7 @@ def expected_generated_media(
                 expected.add(responsive_image_variant_path(webp, width))
 
     def add_grid_preview_video_outputs(source: Path) -> None:
-        expected.add(optimized_grid_preview_video_path(source))
+        expected.update(grid_preview_video_variant_paths(source))
 
     def add_highlight_video_outputs(source: Path) -> None:
         expected.update(highlight_tile_video_variant_paths(source))

@@ -821,9 +821,10 @@ class GeneratePagesTests(unittest.TestCase):
                 mock.patch.object(generate_pages, "REPO_ROOT", root),
                 mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
             ):
-                target = generate_pages.optimized_grid_preview_video_path(source)
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text("mp4", encoding="utf-8")
+                targets = generate_pages.grid_preview_video_variant_paths(source)
+                for target in targets:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("mp4", encoding="utf-8")
 
                 cache_key = generate_pages.source_hash_cache_key(source)
                 generate_pages._source_hash_cache[cache_key] = generate_pages.source_content_hash(source)
@@ -837,7 +838,7 @@ class GeneratePagesTests(unittest.TestCase):
             generate_pages._source_hash_cache.pop(cache_key, None)
 
         transcode.assert_not_called()
-        self.assertEqual(optimized.name, "1_preview-grid-preview-720p-v3.mp4")
+        self.assertEqual(optimized.name, "1_preview-grid-preview-1080p-v4.mp4")
 
     def test_responsive_variants_reconvert_when_source_content_changes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -892,7 +893,59 @@ class GeneratePagesTests(unittest.TestCase):
                     check_generated_assets=True,
                 )
 
-        self.assertIn("Optimized grid preview video is missing", str(context.exception))
+        message = str(context.exception)
+        self.assertIn("Responsive grid preview video variant is missing", message)
+        self.assertIn("1_preview-grid-preview-480p-v4.mp4", message)
+        self.assertIn("1_preview-grid-preview-720p-v4.mp4", message)
+        self.assertIn("1_preview-grid-preview-1080p-v4.mp4", message)
+
+    def test_grid_preview_video_variants_skip_widths_larger_than_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = (
+                root
+                / "editable-content"
+                / "work"
+                / "commercials"
+                / "sample"
+                / "grid_preview"
+                / "1_preview.mp4"
+            )
+            generated_site = root / "generated-website"
+            source.parent.mkdir(parents=True)
+            source.write_text("mp4", encoding="utf-8")
+
+            def fake_transcode(_source_path, target_path, _width):
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                target_path.write_text("mp4", encoding="utf-8")
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+                mock.patch.object(generate_pages, "source_video_width", return_value=720),
+                mock.patch.object(
+                    generate_pages,
+                    "transcode_grid_preview_video",
+                    side_effect=fake_transcode,
+                ) as transcode,
+            ):
+                variants = generate_pages.ensure_grid_preview_video_variants(
+                    source,
+                    write_assets=True,
+                )
+                cache_key = generate_pages.source_hash_cache_key(source)
+
+            generate_pages._source_hash_cache.pop(cache_key, None)
+            generate_pages._current_hash_memo.clear()
+
+        self.assertEqual(
+            [variant.name for variant in variants],
+            [
+                "1_preview-grid-preview-480p-v4.mp4",
+                "1_preview-grid-preview-720p-v4.mp4",
+            ],
+        )
+        self.assertEqual([call.args[2] for call in transcode.call_args_list], [480, 720])
 
     def test_highlight_video_variants_skip_up_to_date_outputs(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1107,7 +1160,7 @@ class GeneratePagesTests(unittest.TestCase):
                 mock.patch.object(generate_pages.subprocess, "run") as run,
             ):
                 generate_pages.convert_image_to_webp(image, image.with_suffix(".webp"), max_width=1920)
-                generate_pages.transcode_grid_preview_video(source, root / "grid.mp4")
+                generate_pages.transcode_grid_preview_video(source, root / "grid.mp4", 720)
                 generate_pages.transcode_highlight_tile_video(source, root / "tile.mp4", 1080)
 
         commands = [call.args[0] for call in run.call_args_list]
@@ -2523,11 +2576,28 @@ console.log(JSON.stringify(results));
             )
 
             rendered = generate_pages.render_works_index_grid_item(work, output_html)
+            variant_480 = generate_pages.output_relative_url(
+                output_html,
+                generate_pages.grid_preview_video_variant_path(media, 480),
+            )
+            variant_720 = generate_pages.output_relative_url(
+                output_html,
+                generate_pages.grid_preview_video_variant_path(media, 720),
+            )
+            variant_1080 = generate_pages.output_relative_url(
+                output_html,
+                generate_pages.grid_preview_video_variant_path(media, 1080),
+            )
 
         self.assertIn("<video", rendered)
-        self.assertIn('src="../editable-content/work/films/sample-work/trailer/1_trailer.mp4"', rendered)
+        self.assertIn('data-responsive-video', rendered)
+        self.assertIn(f'data-src="{variant_1080}"', rendered)
+        self.assertIn(f'data-src-480="{variant_480}"', rendered)
+        self.assertIn(f'data-src-720="{variant_720}"', rendered)
+        self.assertIn(f'data-src-1080="{variant_1080}"', rendered)
         self.assertIn('preload="metadata"', rendered)
         self.assertNotIn("data-lazy-video", rendered)
+        self.assertNotIn('src="../editable-content/work/films/sample-work/trailer/1_trailer.mp4"', rendered)
 
     def test_works_index_grid_uses_generated_video_preview_when_available(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -2542,16 +2612,9 @@ console.log(JSON.stringify(results));
                 / "grid_preview"
                 / "1_preview.mp4"
             )
-            generated_media = (
-                root
-                / "generated-website"
-                / "media"
-                / "editable-content"
-                / "work"
-                / "commercials"
-                / "sample-work"
-                / "grid_preview"
-                / "1_preview-grid-preview-720p-v3.mp4"
+            generated_media = generate_pages.grid_preview_video_variant_path(
+                source_media,
+                1080,
             )
             work = generate_pages.WorkContent(
                 slug="sample-work",
@@ -2569,8 +2632,24 @@ console.log(JSON.stringify(results));
             )
 
             rendered = generate_pages.render_works_index_grid_item(work, output_html)
+            variant_480 = generate_pages.output_relative_url(
+                output_html,
+                generate_pages.grid_preview_video_variant_path(source_media, 480),
+            )
+            variant_720 = generate_pages.output_relative_url(
+                output_html,
+                generate_pages.grid_preview_video_variant_path(source_media, 720),
+            )
+            variant_1080 = generate_pages.output_relative_url(
+                output_html,
+                generate_pages.grid_preview_video_variant_path(source_media, 1080),
+            )
 
-        self.assertIn("media/editable-content/work/commercials/sample-work/grid_preview/1_preview-grid-preview-720p-v3.mp4", rendered)
+        self.assertIn('data-responsive-video', rendered)
+        self.assertIn(f'data-src="{variant_1080}"', rendered)
+        self.assertIn(f'data-src-480="{variant_480}"', rendered)
+        self.assertIn(f'data-src-720="{variant_720}"', rendered)
+        self.assertIn(f'data-src-1080="{variant_1080}"', rendered)
         self.assertNotIn("../editable-content/work/commercials/sample-work/grid_preview/1_preview.mp4", rendered)
 
     def test_works_index_grid_uses_optional_grid_preview_before_primary_preview(self):
@@ -2679,7 +2758,7 @@ console.log(JSON.stringify(results));
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 target_path.write_text("webp", encoding="utf-8")
 
-            def fake_transcode_grid_preview_video(_source_path, target_path):
+            def fake_transcode_grid_preview_video(_source_path, target_path, _width):
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 target_path.write_text("mp4", encoding="utf-8")
 
@@ -2700,11 +2779,14 @@ console.log(JSON.stringify(results));
             ):
                 work = generate_pages.load_work(source, write_assets=True)
 
-        transcode.assert_called_once()
+        self.assertEqual(
+            [call.args[2] for call in transcode.call_args_list],
+            list(generate_pages.GRID_PREVIEW_VIDEO_WIDTHS),
+        )
         self.assertIsNotNone(work.grid_preview_media)
         self.assertIsNotNone(work.grid_display_media)
         self.assertEqual(work.grid_preview_media.path.name, "1_preview.mp4")
-        self.assertEqual(work.grid_display_media.path.name, "1_preview-grid-preview-720p-v3.mp4")
+        self.assertEqual(work.grid_display_media.path.name, "1_preview-grid-preview-1080p-v4.mp4")
 
     def test_load_work_generates_highlight_video_variants(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -2998,13 +3080,14 @@ console.log(JSON.stringify(results));
                 mock.patch.object(generate_pages, "EDITABLE_WORK_DIR", editable_work),
                 mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
             ):
-                expected_video = generate_pages.optimized_grid_preview_video_path(
+                expected_videos = generate_pages.grid_preview_video_variant_paths(
                     preview_dir / "1_preview.mp4"
                 )
-                expected_video.parent.mkdir(parents=True, exist_ok=True)
-                expected_video.write_text("mp4", encoding="utf-8")
+                for target in expected_videos:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("mp4", encoding="utf-8")
 
-                stale_video = expected_video.parent / "old_preview-grid-preview-720p-v3.mp4"
+                stale_video = expected_videos[-1].parent / "old_preview-grid-preview-720p-v3.mp4"
                 stale_video.write_text("mp4", encoding="utf-8")
 
                 stdout = io.StringIO()
@@ -3017,7 +3100,7 @@ console.log(JSON.stringify(results));
                     )
 
             self.assertEqual(failures, 0)
-            self.assertTrue(expected_video.exists())
+            self.assertTrue(all(target.exists() for target in expected_videos))
             self.assertFalse(stale_video.exists())
 
     def test_prune_stale_generated_media_removes_deleted_highlight_video_variants(self):
@@ -3152,6 +3235,43 @@ console.log(JSON.stringify(results));
 
         self.assertTrue(expected_variants.issubset(expected))
         self.assertNotIn(unexpected_grid_preview, expected)
+
+    def test_expected_generated_media_includes_grid_preview_video_variants(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            editable_content = root / "editable-content"
+            editable_work = editable_content / "work"
+            generated_site = root / "generated-website"
+
+            grid_preview_dir = editable_work / "commercials" / "sample" / "grid_preview"
+            grid_preview_dir.mkdir(parents=True)
+            grid_preview_video = grid_preview_dir / "1_preview.mp4"
+            grid_preview_video.write_text("mp4", encoding="utf-8")
+            film_dir = editable_work / "commercials" / "sample" / "film"
+            film_dir.mkdir(parents=True)
+            (film_dir / "film_link.md").write_text(
+                "https://vimeo.com/123",
+                encoding="utf-8",
+            )
+            highlight_dir = editable_work / "commercials" / "sample" / "highlight"
+            highlight_dir.mkdir()
+            (highlight_dir / "1_highlight.webp").write_text("webp", encoding="utf-8")
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+            ):
+                expected = generate_pages.expected_generated_media(
+                    editable_content_dir=editable_content,
+                    editable_work_dir=editable_work,
+                    repo_root=root,
+                    generated_website_dir=generated_site,
+                )
+                expected_variants = set(
+                    generate_pages.grid_preview_video_variant_paths(grid_preview_video)
+                )
+
+        self.assertTrue(expected_variants.issubset(expected))
 
 
 if __name__ == "__main__":
