@@ -46,23 +46,11 @@
     if (!source) return false;
     if (source && !video.getAttribute('src')) {
       video.setAttribute('src', source);
-      if (video.getAttribute('data-autoplay') === 'true') {
-        video.autoplay = true;
-        video.setAttribute('autoplay', '');
-      }
       video.load();
     }
 
     video.dataset.lazyLoaded = 'true';
-    playVideo(video);
     return true;
-  }
-
-  function playVideo(video) {
-    if (video.getAttribute('data-autoplay') === 'true') {
-      var play = video.play && video.play();
-      if (play && play.catch) play.catch(function () {});
-    }
   }
 
   function isNearViewport(video) {
@@ -84,15 +72,6 @@
     ticking = true;
     scheduleFrame(activateVisibleVideos);
   }
-
-  lazyVideos.forEach(function (video) {
-    video.addEventListener('loadedmetadata', function () {
-      playVideo(video);
-    });
-    video.addEventListener('canplay', function () {
-      playVideo(video);
-    });
-  });
 
   if (!('IntersectionObserver' in window)) {
     activateVisibleVideos();

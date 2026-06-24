@@ -833,6 +833,30 @@ def _source_hash_cache_path() -> Path:
     return responsive_media_dir() / ".source-hashes.json"
 
 
+def source_hash_cache_key(path: Path) -> Path:
+    try:
+        return path.resolve().relative_to(REPO_ROOT.resolve())
+    except ValueError:
+        return path.resolve()
+
+
+def normalize_source_hash_cache_key(raw_key: str) -> Path:
+    path = Path(raw_key)
+    if not path.is_absolute():
+        return path
+
+    try:
+        return path.resolve().relative_to(REPO_ROOT.resolve())
+    except ValueError:
+        pass
+
+    parts = path.parts
+    for anchor in ("editable-content", "site-source-assets"):
+        if anchor in parts:
+            return Path(*parts[parts.index(anchor) :])
+    return path
+
+
 def load_source_hash_cache() -> None:
     _source_hash_cache.clear()
     _current_hash_memo.clear()
@@ -841,7 +865,7 @@ def load_source_hash_cache() -> None:
         try:
             data = json.loads(cache_path.read_text(encoding="utf-8"))
             _source_hash_cache.update(
-                {Path(k): v for k, v in data.items()}
+                {normalize_source_hash_cache_key(k): v for k, v in data.items()}
             )
         except (json.JSONDecodeError, OSError):
             pass
@@ -861,12 +885,15 @@ def needs_conversion(source: Path, target: Path) -> bool:
     if not target.exists():
         return True
     current_hash = source_content_hash(source)
-    cached_hash = _source_hash_cache.get(source)
+    cache_key = source_hash_cache_key(source)
+    cached_hash = _source_hash_cache.get(cache_key)
+    if cached_hash is None:
+        cached_hash = _source_hash_cache.get(source)
     return current_hash != cached_hash
 
 
 def record_conversion(source: Path) -> None:
-    _source_hash_cache[source] = source_content_hash(source)
+    _source_hash_cache[source_hash_cache_key(source)] = source_content_hash(source)
 
 
 def convert_image_to_webp(
@@ -1534,10 +1561,9 @@ def video_tag(
     muted_attr = " muted" if muted else ""
     autoplay_attr = " autoplay" if autoplay and not lazy else ""
     src_attr = f' data-src="{src}" data-lazy-video' if lazy else f' src="{src}"'
-    data_autoplay = ' data-autoplay="true"' if autoplay and lazy else ""
     return (
         f'<video{class_attr}{dimension_attrs}{src_attr}{muted_attr} playsinline{autoplay_attr} loop{controls_attr} '
-        f'preload="{html_escape(preload)}"{data_autoplay} '
+        f'preload="{html_escape(preload)}" '
         f'aria-label="{html_escape(label)}"></video>'
     )
 
@@ -2278,14 +2304,7 @@ def render_highlight_tile(item: MediaItem, output_html: Path, title: str) -> str
 
 
 def highlight_video_tag(item: MediaItem, output_html: Path, label: str) -> str:
-    variant_attrs = " ".join(
-        f'data-src-{width}="{output_relative_url(output_html, target)}"'
-        for width, target in zip(
-            HIGHLIGHT_TILE_VIDEO_WIDTHS,
-            highlight_tile_video_variant_paths(item.path),
-        )
-    )
-    fallback_src = output_relative_url(
+    tile_src = output_relative_url(
         output_html,
         highlight_tile_video_variant_path(item.path, HIGHLIGHT_TILE_VIDEO_WIDTHS[-1]),
     )
@@ -2293,8 +2312,8 @@ def highlight_video_tag(item: MediaItem, output_html: Path, label: str) -> str:
     dimension_attrs = media_dimension_attrs(item)
     return (
         f'<video class="highlight-media media-hover-zoom-target"{dimension_attrs} '
-        f'data-src="{fallback_src}" {variant_attrs} data-full-src="{full_src}" '
-        'data-lazy-video muted playsinline loop preload="none" data-autoplay="true" '
+        f'src="{tile_src}" data-full-src="{full_src}" '
+        'muted playsinline autoplay loop preload="metadata" '
         f'aria-label="{html_escape(label)}"></video>'
     )
 

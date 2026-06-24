@@ -695,12 +695,13 @@ class GeneratePagesTests(unittest.TestCase):
             raw.write_text("raw", encoding="utf-8")
             webp.write_text("web", encoding="utf-8")
 
-            generate_pages._source_hash_cache[raw] = generate_pages.source_content_hash(raw)
+            cache_key = generate_pages.source_hash_cache_key(raw)
+            generate_pages._source_hash_cache[cache_key] = generate_pages.source_content_hash(raw)
 
             with mock.patch.object(generate_pages, "convert_image_to_webp") as convert:
                 media = generate_pages.ordered_media(media_dir, write_assets=True)
 
-            generate_pages._source_hash_cache.pop(raw, None)
+            generate_pages._source_hash_cache.pop(cache_key, None)
 
         convert.assert_not_called()
         self.assertEqual(len(media), 1)
@@ -722,12 +723,81 @@ class GeneratePagesTests(unittest.TestCase):
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_text("webp", encoding="utf-8")
 
-                generate_pages._source_hash_cache[source] = generate_pages.source_content_hash(source)
+                cache_key = generate_pages.source_hash_cache_key(source)
+                generate_pages._source_hash_cache[cache_key] = generate_pages.source_content_hash(source)
 
                 with mock.patch.object(generate_pages, "convert_image_to_webp") as convert:
                     generate_pages.ensure_responsive_image_variants(source, write_assets=True)
 
-            generate_pages._source_hash_cache.pop(source, None)
+            generate_pages._source_hash_cache.pop(cache_key, None)
+
+        convert.assert_not_called()
+
+    def test_source_hash_cache_uses_repo_relative_keys(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "editable-content" / "work" / "films" / "sample" / "highlight" / "1_first.webp"
+            source.parent.mkdir(parents=True)
+            source.write_text("webp", encoding="utf-8")
+
+            with mock.patch.object(generate_pages, "REPO_ROOT", root):
+                generate_pages._source_hash_cache.clear()
+                generate_pages.record_conversion(source)
+
+            try:
+                self.assertEqual(
+                    generate_pages._source_hash_cache,
+                    {
+                        Path(
+                            "editable-content/work/films/sample/highlight/1_first.webp"
+                        ): generate_pages.source_content_hash(source)
+                    },
+                )
+            finally:
+                generate_pages._source_hash_cache.clear()
+                generate_pages._current_hash_memo.clear()
+
+    def test_source_hash_cache_normalizes_old_absolute_repo_paths(self):
+        raw_key = (
+            "/Users/rae/Documents/Rae/website 2026 /raehu/"
+            "editable-content/work/films/sample/highlight/1_first.webp"
+        )
+
+        self.assertEqual(
+            generate_pages.normalize_source_hash_cache_key(raw_key),
+            Path("editable-content/work/films/sample/highlight/1_first.webp"),
+        )
+
+    def test_existing_generated_output_is_not_reencoded_after_repo_moves(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "editable-content" / "work" / "films" / "sample" / "highlight" / "1_first.webp"
+            generated_site = root / "generated-website"
+            source.parent.mkdir(parents=True)
+            source.write_text("webp", encoding="utf-8")
+
+            with (
+                mock.patch.object(generate_pages, "REPO_ROOT", root),
+                mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
+            ):
+                for target in generate_pages.responsive_image_variant_paths(source):
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("webp", encoding="utf-8")
+
+                old_checkout_key = (
+                    "/Users/rae/Documents/Rae/website 2026 /raehu/"
+                    "editable-content/work/films/sample/highlight/1_first.webp"
+                )
+                generate_pages._source_hash_cache[
+                    generate_pages.normalize_source_hash_cache_key(old_checkout_key)
+                ] = generate_pages.source_content_hash(source)
+
+                try:
+                    with mock.patch.object(generate_pages, "convert_image_to_webp") as convert:
+                        generate_pages.ensure_responsive_image_variants(source, write_assets=True)
+                finally:
+                    generate_pages._source_hash_cache.clear()
+                    generate_pages._current_hash_memo.clear()
 
         convert.assert_not_called()
 
@@ -755,7 +825,8 @@ class GeneratePagesTests(unittest.TestCase):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text("mp4", encoding="utf-8")
 
-                generate_pages._source_hash_cache[source] = generate_pages.source_content_hash(source)
+                cache_key = generate_pages.source_hash_cache_key(source)
+                generate_pages._source_hash_cache[cache_key] = generate_pages.source_content_hash(source)
 
                 with mock.patch.object(generate_pages, "transcode_grid_preview_video") as transcode:
                     optimized = generate_pages.ensure_optimized_grid_preview_video(
@@ -763,7 +834,7 @@ class GeneratePagesTests(unittest.TestCase):
                         write_assets=True,
                     )
 
-            generate_pages._source_hash_cache.pop(source, None)
+            generate_pages._source_hash_cache.pop(cache_key, None)
 
         transcode.assert_not_called()
         self.assertEqual(optimized.name, "1_preview-grid-preview-720p-v3.mp4")
@@ -784,12 +855,13 @@ class GeneratePagesTests(unittest.TestCase):
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_text("webp", encoding="utf-8")
 
-                generate_pages._source_hash_cache[source] = "old_hash_from_different_content"
+                cache_key = generate_pages.source_hash_cache_key(source)
+                generate_pages._source_hash_cache[cache_key] = "old_hash_from_different_content"
 
                 with mock.patch.object(generate_pages, "convert_image_to_webp") as convert:
                     generate_pages.ensure_responsive_image_variants(source, write_assets=True)
 
-            generate_pages._source_hash_cache.pop(source, None)
+            generate_pages._source_hash_cache.pop(cache_key, None)
             generate_pages._current_hash_memo.clear()
 
         self.assertEqual(convert.call_count, len(generate_pages.RESPONSIVE_IMAGE_WIDTHS))
@@ -847,7 +919,8 @@ class GeneratePagesTests(unittest.TestCase):
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_text("mp4", encoding="utf-8")
 
-                generate_pages._source_hash_cache[source] = generate_pages.source_content_hash(source)
+                cache_key = generate_pages.source_hash_cache_key(source)
+                generate_pages._source_hash_cache[cache_key] = generate_pages.source_content_hash(source)
 
                 with mock.patch.object(generate_pages, "transcode_highlight_tile_video") as transcode:
                     variants = generate_pages.ensure_highlight_tile_video_variants(
@@ -855,7 +928,7 @@ class GeneratePagesTests(unittest.TestCase):
                         write_assets=True,
                     )
 
-            generate_pages._source_hash_cache.pop(source, None)
+            generate_pages._source_hash_cache.pop(cache_key, None)
 
         transcode.assert_not_called()
         self.assertEqual(
@@ -891,7 +964,8 @@ class GeneratePagesTests(unittest.TestCase):
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_text("old mp4", encoding="utf-8")
 
-                generate_pages._source_hash_cache[source] = "old_hash_from_different_content"
+                cache_key = generate_pages.source_hash_cache_key(source)
+                generate_pages._source_hash_cache[cache_key] = "old_hash_from_different_content"
 
                 with mock.patch.object(
                     generate_pages,
@@ -903,7 +977,7 @@ class GeneratePagesTests(unittest.TestCase):
                         write_assets=True,
                     )
 
-            generate_pages._source_hash_cache.pop(source, None)
+            generate_pages._source_hash_cache.pop(cache_key, None)
             generate_pages._current_hash_memo.clear()
 
         self.assertEqual(
@@ -1103,7 +1177,7 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertIn("data-highlight-expand", rendered)
         self.assertIn("Expand highlight media", rendered)
 
-    def test_render_highlight_video_uses_generated_tile_variants_and_original_full_source(self):
+    def test_render_highlight_video_uses_generated_tile_source_and_original_full_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             generated_site = root / "generated-website"
@@ -1137,10 +1211,6 @@ class GeneratePagesTests(unittest.TestCase):
                 mock.patch.object(generate_pages, "GENERATED_WEBSITE_DIR", generated_site),
             ):
                 rendered = generate_pages.render_highlight_section(work, output_html)
-                variant_480 = generate_pages.output_relative_url(
-                    output_html,
-                    generate_pages.highlight_tile_video_variant_path(media_path, 480),
-                )
                 variant_720 = generate_pages.output_relative_url(
                     output_html,
                     generate_pages.highlight_tile_video_variant_path(media_path, 720),
@@ -1148,11 +1218,13 @@ class GeneratePagesTests(unittest.TestCase):
                 full_src = generate_pages.output_relative_url(output_html, media_path)
 
         self.assertIn('<video class="highlight-media media-hover-zoom-target"', rendered)
-        self.assertIn("data-lazy-video", rendered)
-        self.assertIn(f'data-src-480="{variant_480}"', rendered)
-        self.assertIn(f'data-src-720="{variant_720}"', rendered)
+        self.assertIn(f'src="{variant_720}"', rendered)
         self.assertIn(f'data-full-src="{full_src}"', rendered)
-        self.assertIn('preload="none"', rendered)
+        self.assertIn(" autoplay", rendered)
+        self.assertIn('preload="metadata"', rendered)
+        self.assertNotIn("data-lazy-video", rendered)
+        self.assertNotIn("data-src-480", rendered)
+        self.assertNotIn("data-src-720", rendered)
         self.assertNotIn(f' src="{full_src}"', rendered)
 
     def test_lazy_media_script_selects_responsive_video_sources(self):
@@ -1167,116 +1239,31 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertIn("data-src-(\\d+)", script)
         self.assertIn("devicePixelRatio", script)
         self.assertIn("activateVisibleVideos", script)
-        self.assertIn("setAttribute('autoplay', '')", script)
-        self.assertIn("loadedmetadata", script)
-        self.assertIn("canplay", script)
         self.assertIn("requestVisibleCheck", script)
+        self.assertNotIn("setAttribute('autoplay'", script)
+        self.assertNotIn("data-autoplay", script)
+        self.assertNotIn(".play()", script)
 
-    def test_lazy_media_script_activates_near_viewport_video_after_layout(self):
-        script_path = (
-            Path(__file__).resolve().parents[1]
-            / "site-source-assets"
-            / "js"
-            / "lazy-media.js"
-        )
-        node_script = f"""
-const fs = require('fs');
-const attrs = new Map([
-  ['data-lazy-video', ''],
-  ['data-autoplay', 'true'],
-  ['data-src', 'clip-720.mp4'],
-  ['data-src-480', 'clip-480.mp4'],
-  ['data-src-720', 'clip-720.mp4']
-]);
-const listeners = {{}};
-const windowListeners = {{}};
-let tileWidth = 0;
-const video = {{
-  attributes: Array.from(attrs, ([name, value]) => ({{ name, value }})),
-  dataset: {{}},
-  get clientWidth() {{
-    return tileWidth;
-  }},
-  getBoundingClientRect() {{
-    return {{ top: 20, bottom: 220, width: tileWidth, height: 200 }};
-  }},
-  getAttribute(name) {{
-    return attrs.has(name) ? attrs.get(name) : null;
-  }},
-  setAttribute(name, value) {{
-    attrs.set(name, String(value));
-    this.attributes = Array.from(attrs, ([attrName, attrValue]) => ({{
-      name: attrName,
-      value: attrValue
-    }}));
-  }},
-  hasAttribute(name) {{
-    return attrs.has(name);
-  }},
-  addEventListener(name, callback) {{
-    listeners[name] = callback;
-  }},
-  load() {{
-    this.loadCount = (this.loadCount || 0) + 1;
-  }},
-  play() {{
-    this.playCount = (this.playCount || 0) + 1;
-    return {{ catch() {{}} }};
-  }}
-}};
-function FakeIntersectionObserver() {{}}
-FakeIntersectionObserver.prototype.observe = function () {{}};
-FakeIntersectionObserver.prototype.unobserve = function () {{}};
-global.window = {{
-  innerHeight: 800,
-  devicePixelRatio: 1,
-  IntersectionObserver: FakeIntersectionObserver,
-  requestAnimationFrame(callback) {{ callback(); }},
-  setTimeout(callback) {{ callback(); }},
-  addEventListener(name, callback) {{
-    windowListeners[name] = callback;
-  }}
-}};
-global.IntersectionObserver = FakeIntersectionObserver;
-global.document = {{
-  readyState: 'complete',
-  documentElement: {{ clientHeight: 800 }},
-  querySelectorAll(selector) {{
-    return selector === 'video[data-lazy-video]' ? [video] : [];
-  }}
-}};
-eval(fs.readFileSync({json.dumps(str(script_path))}, 'utf8'));
-const preLayout = {{
-  src: video.getAttribute('src'),
-  lazyLoaded: video.dataset.lazyLoaded || ''
-}};
-tileWidth = 320;
-windowListeners.resize();
-listeners.canplay();
-console.log(JSON.stringify({{
-  preLayout,
-  src: video.getAttribute('src'),
-  lazyLoaded: video.dataset.lazyLoaded,
-  autoplay: video.hasAttribute('autoplay'),
-  loadCount: video.loadCount,
-  playCount: video.playCount
-}}));
-"""
-        result = subprocess.run(
-            ["node", "-e", node_script],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        state = json.loads(result.stdout)
+    def test_lazy_video_tag_does_not_use_js_autoplay(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_html = root / "generated-website" / "work" / "sample" / "index.html"
+            media_path = root / "editable-content" / "work" / "sample" / "note" / "2_note.mp4"
+            item = generate_pages.MediaItem(2, media_path, "video")
 
-        self.assertIsNone(state["preLayout"]["src"])
-        self.assertEqual(state["preLayout"]["lazyLoaded"], "")
-        self.assertEqual(state["src"], "clip-480.mp4")
-        self.assertEqual(state["lazyLoaded"], "true")
-        self.assertTrue(state["autoplay"])
-        self.assertEqual(state["loadCount"], 1)
-        self.assertGreaterEqual(state["playCount"], 2)
+            rendered = generate_pages.video_tag(
+                item,
+                output_html,
+                "Sample note",
+                lazy=True,
+                autoplay=True,
+                controls=True,
+            )
+
+        self.assertIn("data-lazy-video", rendered)
+        self.assertIn("controls", rendered)
+        self.assertNotIn("data-autoplay", rendered)
+        self.assertNotIn(" autoplay", rendered)
 
     def test_highlight_lightbox_uses_original_video_source_when_expanded(self):
         template = (
