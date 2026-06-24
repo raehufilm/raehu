@@ -29,6 +29,21 @@ class GeneratePagesTests(unittest.TestCase):
             quote_html='"Quote."',
         )
 
+    def test_parse_args_accepts_verify_generated_flag(self):
+        args = generate_pages.parse_args(["--verify-generated"])
+
+        self.assertTrue(args.verify_generated)
+
+    def test_parse_args_rejects_old_check_flag(self):
+        stderr = io.StringIO()
+
+        with contextlib.redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as context:
+                generate_pages.parse_args(["--check"])
+
+        self.assertEqual(context.exception.code, 2)
+        self.assertIn("unrecognized arguments: --check", stderr.getvalue())
+
     def test_vimeo_embed_url_accepts_user_facing_link_and_strips_hash(self):
         embed_url = generate_pages.vimeo_embed_url(
             "  https://vimeo.com/123456789/abcdef1234  "

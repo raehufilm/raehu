@@ -435,8 +435,8 @@ python3 scripts/generate_pages.py
 log "Running tests"
 python3 -m unittest discover -s tests
 
-log "Checking generated HTML"
-python3 scripts/generate_pages.py --check
+log "Verifying generated output"
+python3 scripts/generate_pages.py --verify-generated
 
 log "Checking media policy and 800 MB budget"
 check_media_policy

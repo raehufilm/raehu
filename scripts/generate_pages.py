@@ -2796,14 +2796,15 @@ def generate(check: bool = False, selected_slug: str | None = None) -> int:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--check",
+        "--verify-generated",
+        dest="verify_generated",
         action="store_true",
-        help="fail if generated HTML differs from committed output",
+        help="verify generated output is already current without writing files",
     )
     parser.add_argument(
         "--work",
         metavar="SLUG",
-        help="generate/check only one work slug",
+        help="generate/verify only one work slug",
     )
     return parser.parse_args(argv)
 
@@ -2811,7 +2812,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
     try:
-        failures = generate(check=args.check, selected_slug=args.work)
+        failures = generate(check=args.verify_generated, selected_slug=args.work)
     except PageGenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

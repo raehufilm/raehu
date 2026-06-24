@@ -408,10 +408,10 @@ Validation and publishing:
 
 ```sh
 python3 -m unittest discover -s tests
-python3 scripts/generate_pages.py --check
+python3 scripts/generate_pages.py --verify-generated
 ```
 
-Use `./generate_website --message "<commit message>" --no-pause` for normal publishing. It generates pages, runs tests, checks generated HTML, enforces media policy, commits, pushes, switches GitHub Pages to workflow publishing if needed, dispatches `.github/workflows/publish-website.yml`, and waits for deployment.
+Use `./generate_website --message "<commit message>" --no-pause` for normal publishing. It generates pages, runs tests, verifies generated output, enforces media policy, commits, pushes, switches GitHub Pages to workflow publishing if needed, dispatches `.github/workflows/publish-website.yml`, and waits for deployment.
 
 Before pushing user-visible changes, preview locally and get explicit owner confirmation. Docs, hooks, CI, and internal maintenance changes do not need a visual preview.
 
