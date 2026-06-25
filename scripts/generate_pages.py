@@ -162,6 +162,8 @@ class WorkContent:
     bts_text_html: str | None
     bts_media: tuple[MediaItem, ...]
     category: str = ""
+    note_video_url: str | None = None
+    note_video_position: int = 2
     trailer_media: MediaItem | None = None
     grid_preview_media: MediaItem | None = None
     grid_display_media: MediaItem | None = None
@@ -238,7 +240,7 @@ def primary_link_file_for_section(section_name: str) -> str:
 
 
 def has_note_section(work: WorkContent) -> bool:
-    return work.note is not None or work.note_media is not None
+    return work.note is not None or work.note_media is not None or work.note_video_url is not None
 
 
 def has_bts_section(work: WorkContent) -> bool:
@@ -630,6 +632,28 @@ def vimeo_embed_url(raw_url: str) -> str:
     if hash_value:
         params.insert(0, ("h", hash_value))
     return f"https://player.vimeo.com/video/{video_id}?{urlencode(params)}"
+
+
+def parse_youtube_url(raw_url: str) -> str:
+    raw_url = raw_url.strip()
+    parsed = urlparse(raw_url)
+    if parsed.hostname in ("youtu.be",):
+        return parsed.path.lstrip("/")
+    if parsed.hostname in ("www.youtube.com", "youtube.com", "m.youtube.com"):
+        params = parse_qs(parsed.query)
+        if "v" in params:
+            return params["v"][0]
+        if parsed.path.startswith(("/embed/", "/shorts/")):
+            return parsed.path.split("/")[2]
+    raise PageGenerationError(
+        f"Could not parse YouTube URL: {raw_url!r}. "
+        "Expected a URL like https://www.youtube.com/watch?v=VIDEO_ID or https://youtu.be/VIDEO_ID"
+    )
+
+
+def youtube_embed_url(raw_url: str) -> str:
+    video_id = parse_youtube_url(raw_url)
+    return f"https://www.youtube.com/embed/{video_id}?rel=0"
 
 
 def read_vimeo_thumbnail_cache(path: Path = VIMEO_THUMBNAIL_CACHE) -> dict[str, str]:
@@ -1375,6 +1399,13 @@ def media_index(path: Path) -> int:
     return content_index(path, "Media file")
 
 
+NOTE_VIDEO_LINK_SUFFIX = "_video_link.md"
+
+
+def _is_note_video_link(path: Path) -> bool:
+    return path.name.endswith(NOTE_VIDEO_LINK_SUFFIX) or path.name == "video_link.md"
+
+
 def note_text_files(note_dir: Path) -> tuple[Path, ...]:
     if not note_dir.is_dir():
         raise PageGenerationError(f"Missing required note folder: {note_dir}")
@@ -1385,6 +1416,7 @@ def note_text_files(note_dir: Path) -> tuple[Path, ...]:
             if path.is_file()
             and path.suffix.lower() == ".md"
             and path.name not in IGNORED_NAMES
+            and not _is_note_video_link(path)
             and not path.name.startswith(".")
             and not is_alternate_language_path(path)
         )
@@ -1426,6 +1458,30 @@ def load_note_content(note_dir: Path) -> NoteContent | None:
             "or 2_ for the right column."
         )
     return load_localized_note_content(path, index=index)
+
+
+def _load_note_video_link(note_dir: Path) -> tuple[str, int] | None:
+    candidates = [
+        p for p in note_dir.iterdir()
+        if p.is_file() and _is_note_video_link(p)
+    ]
+    if not candidates:
+        return None
+    if len(candidates) > 1:
+        raise PageGenerationError(
+            f"{note_dir} has multiple video link files: "
+            f"{', '.join(str(p) for p in candidates)}. Keep exactly one."
+        )
+    path = candidates[0]
+    raw = read_optional_first_non_empty_line(path)
+    if not raw:
+        return None
+    index = content_index(path, "Note video link file")
+    if index not in {1, 2}:
+        raise PageGenerationError(
+            f"{path} uses position {index}. Note video link must use 1_ or 2_."
+        )
+    return youtube_embed_url(raw), index
 
 
 def validate_note_content(
@@ -2034,8 +2090,13 @@ def load_work(
     note_dir = work_dir / "note"
     note: NoteContent | None = None
     note_media_item: MediaItem | None = None
+    note_video_url: str | None = None
+    note_video_position: int = 2
     if note_dir.is_dir():
         note = load_note_content(note_dir)
+        video_link_result = _load_note_video_link(note_dir)
+        if video_link_result:
+            note_video_url, note_video_position = video_link_result
         note_media = ordered_media(
             note_dir,
             write_assets=write_assets,
@@ -2098,6 +2159,8 @@ def load_work(
         trailer_poster_url=trailer_poster_url,
         note=note,
         note_media=note_media_item,
+        note_video_url=note_video_url,
+        note_video_position=note_video_position,
         highlight_media=highlight_media,
         bts_text_html=bts_text_html,
         bts_media=bts_media,
@@ -2357,24 +2420,45 @@ def render_note_text_block(note: NoteContent) -> str:
         </div>"""
 
 
+def _note_media_block(work: WorkContent, output_html: Path) -> tuple[int, str] | None:
+    if work.note_media is not None:
+        media_html = media_tag(work.note_media, output_html, work.title, class_name="work-header-image", video_controls=True)
+        position = work.note_media.index
+        pos_class = "left" if position == 1 else "right"
+        block = f"""        <div class="work-header-image-wrap work-header-piece--{pos_class}">
+          {media_html}
+        </div>"""
+        return position, block
+    if work.note_video_url is not None:
+        position = work.note_video_position
+        pos_class = "left" if position == 1 else "right"
+        block = f"""        <div class="work-header-image-wrap work-header-piece--{pos_class}">
+          <div class="note-video-embed">
+            <iframe src="{html_escape(work.note_video_url)}"
+                    frameborder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen></iframe>
+          </div>
+        </div>"""
+        return position, block
+    return None
+
+
 def render_note_section(work: WorkContent, output_html: Path) -> str:
     has_text = work.note is not None
-    has_media = work.note_media is not None
+    media_result = _note_media_block(work, output_html)
+    has_media = media_result is not None
     empty_column = '        <div class="work-header-spacer"></div>'
 
     if has_text and has_media:
-        media_html = media_tag(work.note_media, output_html, work.title, class_name="work-header-image", video_controls=True)
-        media_position = "left" if work.note_media.index == 1 else "right"
+        media_position, media_block_html = media_result
         text_html = render_note_text_block(work.note)
-        media_block_html = f"""        <div class="work-header-image-wrap work-header-piece--{media_position}">
-          {media_html}
-        </div>"""
         note_columns = "\n".join(
             html_block
             for _, html_block in sorted(
                 (
                     (work.note.index, text_html),
-                    (work.note_media.index, media_block_html),
+                    (media_position, media_block_html),
                 ),
                 key=lambda item: item[0],
             )
@@ -2386,14 +2470,8 @@ def render_note_section(work: WorkContent, output_html: Path) -> str:
         else:
             note_columns = empty_column + "\n" + render_note_text_block(work.note)
     else:
-        media_html = media_tag(work.note_media, output_html, work.title, class_name="work-header-image", video_controls=True)
-        media_block_html = f"""        <div class="work-header-image-wrap">
-          {media_html}
-        </div>"""
-        if work.note_media.index == 1:
-            note_columns = media_block_html + "\n" + empty_column
-        else:
-            note_columns = empty_column + "\n" + media_block_html
+        _, media_block_html = media_result
+        note_columns = empty_column + "\n" + media_block_html
 
     return f"""    <section class="work-page work-page--note content-visibility-auto"
              id="note"
@@ -2828,7 +2906,9 @@ def render_works_index_grid_item(work: WorkContent, output_html: Path) -> str:
         </a>"""
 
 
-def render_drawings_slide(item: MediaItem, output_html: Path, index: int) -> str:
+def render_drawings_slide(
+    item: MediaItem, output_html: Path, index: int, total: int,
+) -> str:
     img_html = image_tag(
         item,
         output_html,
@@ -2851,9 +2931,28 @@ def render_drawings_slide(item: MediaItem, output_html: Path, index: int) -> str
             f'\n            <figcaption class="drawings-caption">'
             f'{" ".join(caption_parts)}</figcaption>'
         )
+    controls_html = ""
+    if total > 1:
+        controls_html = """
+            <button class="drawings-control drawings-control--prev"
+                    type="button"
+                    data-drawings-control="prev"
+                    aria-label="Previous drawing">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path class="interactive-chevron interactive-chevron--left" d="M15 18l-6-6 6-6"></path>
+              </svg>
+            </button>
+            <button class="drawings-control drawings-control--next"
+                    type="button"
+                    data-drawings-control="next"
+                    aria-label="Next drawing">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
+              </svg>
+            </button>"""
     active_class = " is-active" if index == 0 else ""
     return f"""          <div class="drawings-slide-wrap{active_class}" data-drawings-slide="{index}">
-            {img_html}{caption_html}
+            {img_html}{caption_html}{controls_html}
           </div>"""
 
 
@@ -2874,29 +2973,11 @@ def render_drawings_section(
       <p class="works-index-empty">Coming soon.</p>
     </section>"""
 
+    total = len(all_items)
     slide_lines = [
-        render_drawings_slide(item, output_html, i)
+        render_drawings_slide(item, output_html, i, total)
         for i, item in enumerate(all_items)
     ]
-    controls = ""
-    if len(all_items) > 1:
-        controls = """
-          <button class="drawings-control drawings-control--prev"
-                  type="button"
-                  data-drawings-control="prev"
-                  aria-label="Previous drawing">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path class="interactive-chevron interactive-chevron--left" d="M15 18l-6-6 6-6"></path>
-            </svg>
-          </button>
-          <button class="drawings-control drawings-control--next"
-                  type="button"
-                  data-drawings-control="next"
-                  aria-label="Next drawing">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
-            </svg>
-          </button>"""
 
     return f"""    <section class="works-index-page fade-up"
              id="drawings"
@@ -2904,7 +2985,7 @@ def render_drawings_section(
              data-section-title="{html_escape(category_label('drawings'))}"
              aria-label="{html_escape(category_label('drawings'))}">
       <div class="drawings-slideshow" data-drawings-slideshow>
-{chr(10).join(slide_lines)}{controls}
+{chr(10).join(slide_lines)}
       </div>
     </section>"""
 

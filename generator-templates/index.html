@@ -849,24 +849,15 @@
       width: 2.75rem;
       height: 2.75rem;
       border: 0;
-      background: rgba(255,255,255,0.35);
-      backdrop-filter: blur(4px);
-      border-radius: 50%;
+      background: transparent;
       color: var(--text-color);
       cursor: pointer;
       opacity: 0;
       padding: 0;
-      transition: opacity 0.25s ease, background 0.2s ease, color var(--theme-transition-duration) var(--theme-transition-easing);
+      transition: opacity 0.25s ease, color var(--theme-transition-duration) var(--theme-transition-easing);
     }
 
-    .drawings-control:hover {
-      background: rgba(255,255,255,0.55);
-    }
-
-    .drawings-control--prev { left: 1rem; top: 50%; transform: translateY(-50%); }
-    .drawings-control--next { right: 1rem; top: 50%; transform: translateY(-50%); }
-
-    .drawings-slideshow:hover .drawings-control {
+    .drawings-slide-wrap:hover .drawings-control {
       opacity: 1;
     }
 
@@ -1583,45 +1574,37 @@
       var lightbox = document.querySelector('[data-drawings-lightbox]');
       var current = 0;
 
-      var prevBtn = slideshow.querySelector('.drawings-control--prev');
-      var nextBtn = slideshow.querySelector('.drawings-control--next');
-
-      function positionCaption(wrap) {
-        var slide = wrap.querySelector('.drawings-slide');
-        var caption = wrap.querySelector('.drawings-caption');
-        if (!slide || !caption) return;
-        var wrapRect = wrap.getBoundingClientRect();
-        var imgRect = slide.getBoundingClientRect();
-        caption.style.top = (imgRect.bottom - wrapRect.top + 6) + 'px';
-        caption.style.right = (wrapRect.right - imgRect.right) + 'px';
-      }
-
-      function positionControls(wrap) {
+      function positionElements(wrap) {
         var slide = wrap.querySelector('.drawings-slide');
         if (!slide) return;
-        var ssRect = slideshow.getBoundingClientRect();
+        var wrapRect = wrap.getBoundingClientRect();
         var imgRect = slide.getBoundingClientRect();
-        var imgTop = imgRect.top - ssRect.top;
-        var imgBottom = imgRect.bottom - ssRect.top;
-        var imgLeft = imgRect.left - ssRect.left;
-        var imgRight = ssRect.right - imgRect.right;
-        var midY = imgTop + (imgBottom - imgTop) / 2;
-        if (prevBtn) {
-          prevBtn.style.top = midY + 'px';
-          prevBtn.style.left = (imgLeft + 8) + 'px';
-          prevBtn.style.transform = 'translateY(-50%)';
+        var imgLeft = imgRect.left - wrapRect.left;
+        var imgRight = wrapRect.right - imgRect.right;
+        var imgMidY = (imgRect.top - wrapRect.top) + imgRect.height / 2;
+
+        var caption = wrap.querySelector('.drawings-caption');
+        if (caption) {
+          caption.style.top = (imgRect.bottom - wrapRect.top + 6) + 'px';
+          caption.style.right = imgRight + 'px';
         }
-        if (nextBtn) {
-          nextBtn.style.top = midY + 'px';
-          nextBtn.style.right = (imgRight + 8) + 'px';
-          nextBtn.style.left = 'auto';
-          nextBtn.style.transform = 'translateY(-50%)';
+
+        var prev = wrap.querySelector('.drawings-control--prev');
+        var next = wrap.querySelector('.drawings-control--next');
+        if (prev) {
+          prev.style.top = imgMidY + 'px';
+          prev.style.left = (imgLeft - 44) + 'px';
+          prev.style.transform = 'translateY(-50%)';
+        }
+        if (next) {
+          next.style.top = imgMidY + 'px';
+          next.style.right = (imgRight - 44) + 'px';
+          next.style.transform = 'translateY(-50%)';
         }
       }
 
       function positionAll() {
-        wraps.forEach(function (wrap) { positionCaption(wrap); });
-        positionControls(wraps[current]);
+        wraps.forEach(function (wrap) { positionElements(wrap); });
       }
 
       function showSlide(index) {
@@ -1646,10 +1629,9 @@
         setTimeout(function () {
           oldWrap.classList.remove('slide-out-left');
           oldWrap.style.transform = '';
-          positionControls(wraps[current]);
         }, 380);
 
-        positionCaption(wraps[current]);
+        positionElements(wraps[current]);
       }
 
       var autoTimer = setInterval(function () {
@@ -1665,22 +1647,22 @@
         var slide = wrap.querySelector('.drawings-slide');
         if (!slide) return;
         if (slide.complete) {
-          positionCaption(wrap);
-          if (wrap.classList.contains('is-active')) positionControls(wrap);
+          positionElements(wrap);
         } else {
           slide.addEventListener('load', function () {
-            positionCaption(wrap);
-            if (wrap.classList.contains('is-active')) positionControls(wrap);
+            positionElements(wrap);
           });
         }
       });
 
       window.addEventListener('resize', positionAll);
 
-      slideshow.querySelectorAll('[data-drawings-control]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          var dir = btn.getAttribute('data-drawings-control');
-          showSlide(current + (dir === 'next' ? 1 : -1));
+      wraps.forEach(function (wrap) {
+        wrap.querySelectorAll('[data-drawings-control]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var dir = btn.getAttribute('data-drawings-control');
+            showSlide(current + (dir === 'next' ? 1 : -1));
+          });
         });
       });
 

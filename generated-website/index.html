@@ -849,24 +849,15 @@
       width: 2.75rem;
       height: 2.75rem;
       border: 0;
-      background: rgba(255,255,255,0.35);
-      backdrop-filter: blur(4px);
-      border-radius: 50%;
+      background: transparent;
       color: var(--text-color);
       cursor: pointer;
       opacity: 0;
       padding: 0;
-      transition: opacity 0.25s ease, background 0.2s ease, color var(--theme-transition-duration) var(--theme-transition-easing);
+      transition: opacity 0.25s ease, color var(--theme-transition-duration) var(--theme-transition-easing);
     }
 
-    .drawings-control:hover {
-      background: rgba(255,255,255,0.55);
-    }
-
-    .drawings-control--prev { left: 1rem; top: 50%; transform: translateY(-50%); }
-    .drawings-control--next { right: 1rem; top: 50%; transform: translateY(-50%); }
-
-    .drawings-slideshow:hover .drawings-control {
+    .drawings-slide-wrap:hover .drawings-control {
       opacity: 1;
     }
 
@@ -1596,7 +1587,7 @@
           </span>
         </a>
         <a class="works-grid-link media-hover-zoom" href="commercials/wildaid-tigers/" aria-label="Wildaid Tigers">
-          <img class="media-hover-zoom-target" width="16" height="9" data-aspect-ratio="1.777778" src="https://i.vimeocdn.com/video/1724242026-29504855a84a2e60d77adf2738fc886dd9a66c74c7d4c457df0f1fd6646c6581-d_1280?region=us" alt="Wildaid Tigers film preview" loading="eager" decoding="async">
+          <video class="media-hover-zoom-target" data-src="media/editable-content/work/commercials/wildaid-tigers/grid_preview/1_1m34s-grid-preview-1080p-v4.mp4" data-src-480="media/editable-content/work/commercials/wildaid-tigers/grid_preview/1_1m34s-grid-preview-480p-v4.mp4" data-src-720="media/editable-content/work/commercials/wildaid-tigers/grid_preview/1_1m34s-grid-preview-720p-v4.mp4" data-src-1080="media/editable-content/work/commercials/wildaid-tigers/grid_preview/1_1m34s-grid-preview-1080p-v4.mp4" data-responsive-video muted playsinline autoplay loop preload="metadata" aria-label="Wildaid Tigers grid preview"></video>
           <span class="works-grid-title">
             <span class="works-grid-title-text">Wildaid Tigers</span>
             <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1617,27 +1608,43 @@
           <div class="drawings-slide-wrap is-active" data-drawings-slide="0">
             <img class="drawings-slide" width="1117" height="1118" data-aspect-ratio="0.999106" src="../editable-content/work/drawings/cait/highlight/1_drawing.webp" srcset="media/editable-content/work/drawings/cait/highlight/1_drawing-480.webp 480w, media/editable-content/work/drawings/cait/highlight/1_drawing-960.webp 960w, media/editable-content/work/drawings/cait/highlight/1_drawing-1440.webp 1440w, media/editable-content/work/drawings/cait/highlight/1_drawing-1920.webp 1920w" sizes="100vw" alt="cait" loading="eager" decoding="async">
             <figcaption class="drawings-caption"><span class="drawings-caption-title">cait</span> <span class="drawings-caption-text">2025</span></figcaption>
+            <button class="drawings-control drawings-control--prev"
+                    type="button"
+                    data-drawings-control="prev"
+                    aria-label="Previous drawing">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path class="interactive-chevron interactive-chevron--left" d="M15 18l-6-6 6-6"></path>
+              </svg>
+            </button>
+            <button class="drawings-control drawings-control--next"
+                    type="button"
+                    data-drawings-control="next"
+                    aria-label="Next drawing">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
+              </svg>
+            </button>
           </div>
           <div class="drawings-slide-wrap" data-drawings-slide="1">
             <img class="drawings-slide" width="894" height="1288" data-aspect-ratio="0.694099" src="../editable-content/work/drawings/mia/highlight/1_drwaing.webp" srcset="media/editable-content/work/drawings/mia/highlight/1_drwaing-480.webp 480w, media/editable-content/work/drawings/mia/highlight/1_drwaing-960.webp 960w, media/editable-content/work/drawings/mia/highlight/1_drwaing-1440.webp 1440w, media/editable-content/work/drawings/mia/highlight/1_drwaing-1920.webp 1920w" sizes="100vw" alt="Mia" loading="lazy" decoding="async">
             <figcaption class="drawings-caption"><span class="drawings-caption-title">Mia</span> <span class="drawings-caption-text">2026</span></figcaption>
+            <button class="drawings-control drawings-control--prev"
+                    type="button"
+                    data-drawings-control="prev"
+                    aria-label="Previous drawing">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path class="interactive-chevron interactive-chevron--left" d="M15 18l-6-6 6-6"></path>
+              </svg>
+            </button>
+            <button class="drawings-control drawings-control--next"
+                    type="button"
+                    data-drawings-control="next"
+                    aria-label="Next drawing">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
+              </svg>
+            </button>
           </div>
-          <button class="drawings-control drawings-control--prev"
-                  type="button"
-                  data-drawings-control="prev"
-                  aria-label="Previous drawing">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path class="interactive-chevron interactive-chevron--left" d="M15 18l-6-6 6-6"></path>
-            </svg>
-          </button>
-          <button class="drawings-control drawings-control--next"
-                  type="button"
-                  data-drawings-control="next"
-                  aria-label="Next drawing">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
-            </svg>
-          </button>
       </div>
     </section>
         <div class="clients-marquee fade-up" role="region" aria-label="Selected brand clients">
@@ -1919,45 +1926,37 @@
       var lightbox = document.querySelector('[data-drawings-lightbox]');
       var current = 0;
 
-      var prevBtn = slideshow.querySelector('.drawings-control--prev');
-      var nextBtn = slideshow.querySelector('.drawings-control--next');
-
-      function positionCaption(wrap) {
-        var slide = wrap.querySelector('.drawings-slide');
-        var caption = wrap.querySelector('.drawings-caption');
-        if (!slide || !caption) return;
-        var wrapRect = wrap.getBoundingClientRect();
-        var imgRect = slide.getBoundingClientRect();
-        caption.style.top = (imgRect.bottom - wrapRect.top + 6) + 'px';
-        caption.style.right = (wrapRect.right - imgRect.right) + 'px';
-      }
-
-      function positionControls(wrap) {
+      function positionElements(wrap) {
         var slide = wrap.querySelector('.drawings-slide');
         if (!slide) return;
-        var ssRect = slideshow.getBoundingClientRect();
+        var wrapRect = wrap.getBoundingClientRect();
         var imgRect = slide.getBoundingClientRect();
-        var imgTop = imgRect.top - ssRect.top;
-        var imgBottom = imgRect.bottom - ssRect.top;
-        var imgLeft = imgRect.left - ssRect.left;
-        var imgRight = ssRect.right - imgRect.right;
-        var midY = imgTop + (imgBottom - imgTop) / 2;
-        if (prevBtn) {
-          prevBtn.style.top = midY + 'px';
-          prevBtn.style.left = (imgLeft + 8) + 'px';
-          prevBtn.style.transform = 'translateY(-50%)';
+        var imgLeft = imgRect.left - wrapRect.left;
+        var imgRight = wrapRect.right - imgRect.right;
+        var imgMidY = (imgRect.top - wrapRect.top) + imgRect.height / 2;
+
+        var caption = wrap.querySelector('.drawings-caption');
+        if (caption) {
+          caption.style.top = (imgRect.bottom - wrapRect.top + 6) + 'px';
+          caption.style.right = imgRight + 'px';
         }
-        if (nextBtn) {
-          nextBtn.style.top = midY + 'px';
-          nextBtn.style.right = (imgRight + 8) + 'px';
-          nextBtn.style.left = 'auto';
-          nextBtn.style.transform = 'translateY(-50%)';
+
+        var prev = wrap.querySelector('.drawings-control--prev');
+        var next = wrap.querySelector('.drawings-control--next');
+        if (prev) {
+          prev.style.top = imgMidY + 'px';
+          prev.style.left = (imgLeft - 44) + 'px';
+          prev.style.transform = 'translateY(-50%)';
+        }
+        if (next) {
+          next.style.top = imgMidY + 'px';
+          next.style.right = (imgRight - 44) + 'px';
+          next.style.transform = 'translateY(-50%)';
         }
       }
 
       function positionAll() {
-        wraps.forEach(function (wrap) { positionCaption(wrap); });
-        positionControls(wraps[current]);
+        wraps.forEach(function (wrap) { positionElements(wrap); });
       }
 
       function showSlide(index) {
@@ -1982,10 +1981,9 @@
         setTimeout(function () {
           oldWrap.classList.remove('slide-out-left');
           oldWrap.style.transform = '';
-          positionControls(wraps[current]);
         }, 380);
 
-        positionCaption(wraps[current]);
+        positionElements(wraps[current]);
       }
 
       var autoTimer = setInterval(function () {
@@ -2001,22 +1999,22 @@
         var slide = wrap.querySelector('.drawings-slide');
         if (!slide) return;
         if (slide.complete) {
-          positionCaption(wrap);
-          if (wrap.classList.contains('is-active')) positionControls(wrap);
+          positionElements(wrap);
         } else {
           slide.addEventListener('load', function () {
-            positionCaption(wrap);
-            if (wrap.classList.contains('is-active')) positionControls(wrap);
+            positionElements(wrap);
           });
         }
       });
 
       window.addEventListener('resize', positionAll);
 
-      slideshow.querySelectorAll('[data-drawings-control]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          var dir = btn.getAttribute('data-drawings-control');
-          showSlide(current + (dir === 'next' ? 1 : -1));
+      wraps.forEach(function (wrap) {
+        wrap.querySelectorAll('[data-drawings-control]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var dir = btn.getAttribute('data-drawings-control');
+            showSlide(current + (dir === 'next' ? 1 : -1));
+          });
         });
       });
 
