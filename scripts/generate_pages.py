@@ -2983,28 +2983,9 @@ def render_drawings_slide(
             f'\n            <figcaption class="drawings-caption">'
             f'{" ".join(caption_parts)}</figcaption>'
         )
-    controls_html = ""
-    if total > 1:
-        controls_html = """
-            <button class="drawings-control drawings-control--prev"
-                    type="button"
-                    data-drawings-control="prev"
-                    aria-label="Previous drawing">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path class="interactive-chevron interactive-chevron--left" d="M15 18l-6-6 6-6"></path>
-              </svg>
-            </button>
-            <button class="drawings-control drawings-control--next"
-                    type="button"
-                    data-drawings-control="next"
-                    aria-label="Next drawing">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
-              </svg>
-            </button>"""
     active_class = " is-active" if index == 0 else ""
     return f"""          <div class="drawings-slide-wrap{active_class}" data-drawings-slide="{index}">
-            {img_html}{caption_html}{controls_html}
+            {img_html}{caption_html}
           </div>"""
 
 
@@ -3031,13 +3012,33 @@ def render_drawings_section(
         for i, item in enumerate(all_items)
     ]
 
+    controls_html = ""
+    if total > 1:
+        controls_html = """
+        <button class="drawings-control drawings-control--prev"
+                type="button"
+                data-drawings-control="prev"
+                aria-label="Previous drawing">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path class="interactive-chevron interactive-chevron--left" d="M15 18l-6-6 6-6"></path>
+          </svg>
+        </button>
+        <button class="drawings-control drawings-control--next"
+                type="button"
+                data-drawings-control="next"
+                aria-label="Next drawing">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
+          </svg>
+        </button>"""
+
     return f"""    <section class="works-index-page fade-up"
              id="drawings"
              data-work-category-section="drawings"
              data-section-title="{html_escape(category_label('drawings'))}"
              aria-label="{html_escape(category_label('drawings'))}">
       <div class="drawings-slideshow" data-drawings-slideshow>
-{chr(10).join(slide_lines)}
+{chr(10).join(slide_lines)}{controls_html}
       </div>
     </section>"""
 

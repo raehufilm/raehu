@@ -842,6 +842,7 @@
 
     .drawings-control {
       position: absolute;
+      top: 50%;
       z-index: 2;
       display: flex;
       align-items: center;
@@ -854,10 +855,14 @@
       cursor: pointer;
       opacity: 0;
       padding: 0;
+      transform: translateY(-50%);
       transition: opacity 0.25s ease, color var(--theme-transition-duration) var(--theme-transition-easing);
     }
 
-    .drawings-slide-wrap:hover .drawings-control {
+    .drawings-control--prev { left: 1rem; }
+    .drawings-control--next { right: 1rem; }
+
+    .drawings-slideshow:hover .drawings-control {
       opacity: 1;
     }
 
@@ -1608,43 +1613,27 @@
           <div class="drawings-slide-wrap is-active" data-drawings-slide="0">
             <img class="drawings-slide" width="1117" height="1118" data-aspect-ratio="0.999106" src="../editable-content/work/drawings/cait/highlight/1_drawing.webp" srcset="media/editable-content/work/drawings/cait/highlight/1_drawing-480.webp 480w, media/editable-content/work/drawings/cait/highlight/1_drawing-960.webp 960w, media/editable-content/work/drawings/cait/highlight/1_drawing-1440.webp 1440w, media/editable-content/work/drawings/cait/highlight/1_drawing-1920.webp 1920w" sizes="100vw" alt="cait" loading="eager" decoding="async">
             <figcaption class="drawings-caption"><span class="drawings-caption-title">cait</span> <span class="drawings-caption-text">2025</span></figcaption>
-            <button class="drawings-control drawings-control--prev"
-                    type="button"
-                    data-drawings-control="prev"
-                    aria-label="Previous drawing">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path class="interactive-chevron interactive-chevron--left" d="M15 18l-6-6 6-6"></path>
-              </svg>
-            </button>
-            <button class="drawings-control drawings-control--next"
-                    type="button"
-                    data-drawings-control="next"
-                    aria-label="Next drawing">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
-              </svg>
-            </button>
           </div>
           <div class="drawings-slide-wrap" data-drawings-slide="1">
             <img class="drawings-slide" width="894" height="1288" data-aspect-ratio="0.694099" src="../editable-content/work/drawings/mia/highlight/1_drwaing.webp" srcset="media/editable-content/work/drawings/mia/highlight/1_drwaing-480.webp 480w, media/editable-content/work/drawings/mia/highlight/1_drwaing-960.webp 960w, media/editable-content/work/drawings/mia/highlight/1_drwaing-1440.webp 1440w, media/editable-content/work/drawings/mia/highlight/1_drwaing-1920.webp 1920w" sizes="100vw" alt="Mia" loading="lazy" decoding="async">
             <figcaption class="drawings-caption"><span class="drawings-caption-title">Mia</span> <span class="drawings-caption-text">2026</span></figcaption>
-            <button class="drawings-control drawings-control--prev"
-                    type="button"
-                    data-drawings-control="prev"
-                    aria-label="Previous drawing">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path class="interactive-chevron interactive-chevron--left" d="M15 18l-6-6 6-6"></path>
-              </svg>
-            </button>
-            <button class="drawings-control drawings-control--next"
-                    type="button"
-                    data-drawings-control="next"
-                    aria-label="Next drawing">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
-              </svg>
-            </button>
           </div>
+        <button class="drawings-control drawings-control--prev"
+                type="button"
+                data-drawings-control="prev"
+                aria-label="Previous drawing">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path class="interactive-chevron interactive-chevron--left" d="M15 18l-6-6 6-6"></path>
+          </svg>
+        </button>
+        <button class="drawings-control drawings-control--next"
+                type="button"
+                data-drawings-control="next"
+                aria-label="Next drawing">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
+          </svg>
+        </button>
       </div>
     </section>
         <div class="clients-marquee fade-up" role="region" aria-label="Selected brand clients">
@@ -1931,27 +1920,12 @@
         if (!slide) return;
         var wrapRect = wrap.getBoundingClientRect();
         var imgRect = slide.getBoundingClientRect();
-        var imgLeft = imgRect.left - wrapRect.left;
         var imgRight = wrapRect.right - imgRect.right;
-        var imgMidY = (imgRect.top - wrapRect.top) + imgRect.height / 2;
 
         var caption = wrap.querySelector('.drawings-caption');
         if (caption) {
           caption.style.top = (imgRect.bottom - wrapRect.top + 6) + 'px';
           caption.style.right = imgRight + 'px';
-        }
-
-        var prev = wrap.querySelector('.drawings-control--prev');
-        var next = wrap.querySelector('.drawings-control--next');
-        if (prev) {
-          prev.style.top = imgMidY + 'px';
-          prev.style.left = (imgLeft - 44) + 'px';
-          prev.style.transform = 'translateY(-50%)';
-        }
-        if (next) {
-          next.style.top = imgMidY + 'px';
-          next.style.right = (imgRight - 44) + 'px';
-          next.style.transform = 'translateY(-50%)';
         }
       }
 
@@ -2009,12 +1983,10 @@
 
       window.addEventListener('resize', positionAll);
 
-      wraps.forEach(function (wrap) {
-        wrap.querySelectorAll('[data-drawings-control]').forEach(function (btn) {
-          btn.addEventListener('click', function () {
-            var dir = btn.getAttribute('data-drawings-control');
-            showSlide(current + (dir === 'next' ? 1 : -1));
-          });
+      slideshow.querySelectorAll('[data-drawings-control]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var dir = btn.getAttribute('data-drawings-control');
+          showSlide(current + (dir === 'next' ? 1 : -1));
         });
       });
 
