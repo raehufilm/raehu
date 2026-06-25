@@ -791,7 +791,6 @@
       position: absolute;
       inset: 2rem 4rem;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       opacity: 0;
@@ -815,8 +814,7 @@
     }
 
     .drawings-caption {
-      margin-top: 0.6rem;
-      align-self: flex-end;
+      position: absolute;
       text-align: right;
       font-family: 'EB Garamond', serif;
       color: var(--muted-text);
@@ -1574,11 +1572,38 @@
       var lightbox = document.querySelector('[data-drawings-lightbox]');
       var current = 0;
 
+      function positionCaption(wrap) {
+        var slide = wrap.querySelector('.drawings-slide');
+        var caption = wrap.querySelector('.drawings-caption');
+        if (!slide || !caption) return;
+        var wrapRect = wrap.getBoundingClientRect();
+        var imgRect = slide.getBoundingClientRect();
+        caption.style.top = (imgRect.bottom - wrapRect.top + 6) + 'px';
+        caption.style.right = (wrapRect.right - imgRect.right) + 'px';
+      }
+
+      function positionAllCaptions() {
+        wraps.forEach(function (wrap) { positionCaption(wrap); });
+      }
+
       function showSlide(index) {
         wraps[current].classList.remove('is-active');
         current = (index + wraps.length) % wraps.length;
         wraps[current].classList.add('is-active');
+        positionCaption(wraps[current]);
       }
+
+      wraps.forEach(function (wrap) {
+        var slide = wrap.querySelector('.drawings-slide');
+        if (!slide) return;
+        if (slide.complete) {
+          positionCaption(wrap);
+        } else {
+          slide.addEventListener('load', function () { positionCaption(wrap); });
+        }
+      });
+
+      window.addEventListener('resize', positionAllCaptions);
 
       slideshow.querySelectorAll('[data-drawings-control]').forEach(function (btn) {
         btn.addEventListener('click', function () {
