@@ -264,7 +264,7 @@
     .work-title {
       font-family: 'EB Garamond', serif;
       font-weight: 500;
-      font-size: 2rem;
+      font-size: 1.3rem;
       line-height: 1.3;
       letter-spacing: -0.01em;
       margin-bottom: 1.8rem;
@@ -273,11 +273,19 @@
     .work-subtext {
       font-family: 'EB Garamond', serif;
       font-weight: 400;
-      font-size: 1.2rem;
+      font-size: 1rem;
       line-height: 1.6;
       color: var(--muted-text);
       margin-bottom: 2.5rem;
       transition: color var(--theme-transition-duration) var(--theme-transition-easing);
+    }
+
+    [data-language-content="cn"] .work-title {
+      font-size: 1.15rem;
+    }
+
+    [data-language-content="cn"] .work-subtext {
+      font-size: 0.88rem;
     }
 
     .work-label {
@@ -331,26 +339,28 @@
     }
 
     .work-header-image-wrap {
-      padding: 3.25rem var(--page-padding) 6.5rem 0;
+      padding: 3.25rem var(--page-padding) 6.5rem var(--page-padding);
       display: flex;
       align-items: center;
-      justify-content: flex-end;
+      justify-content: center;
+      max-height: 100svh;
+      overflow: hidden;
     }
 
     .work-header-image-wrap.work-header-piece--left {
-      padding: 3.25rem 0 6.5rem var(--page-padding);
-      justify-content: flex-start;
+      padding: 3.25rem var(--page-padding) 6.5rem var(--page-padding);
+      justify-content: center;
     }
 
     .work-header-image-wrap.work-header-piece--right {
-      padding: 3.25rem var(--page-padding) 6.5rem 0;
-      justify-content: flex-end;
+      padding: 3.25rem var(--page-padding) 6.5rem var(--page-padding);
+      justify-content: center;
     }
 
     .work-header-image {
-      max-width: 100%;
-      max-height: 100%;
-      height: 100%;
+      max-width: 80%;
+      max-height: calc(100svh - 6.5rem - 3.25rem);
+      height: auto;
       object-fit: contain;
       display: block;
     }
@@ -519,6 +529,37 @@
       opacity: 1;
     }
 
+    .highlight-lightbox-caption {
+      position: absolute;
+      bottom: 1rem;
+      right: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.25rem;
+      color: var(--overlay-text-color);
+      font-family: 'EB Garamond', serif;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      pointer-events: none;
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+    }
+
+    .highlight-lightbox-frame.is-expanded .highlight-lightbox-caption {
+      opacity: 1;
+    }
+
+    .highlight-lightbox-caption-title {
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+    .highlight-lightbox-caption-text {
+      font-size: 0.85rem;
+      font-weight: 400;
+      color: rgba(244, 241, 236, 0.75);
+    }
+
     @media (hover: none) {
       .highlight-tile:hover .highlight-expand-button,
       .highlight-expand-button:hover {
@@ -550,7 +591,7 @@
       position: relative;
       min-height: calc(100vh - var(--site-header-height) - var(--page-padding-top, var(--page-padding)) - var(--page-padding));
       overflow: hidden;
-      background: var(--media-bg);
+      background: var(--bg-color);
     }
 
     .bts-slide {
@@ -561,6 +602,10 @@
       object-fit: cover;
       opacity: 0;
       transition: opacity 1s ease;
+    }
+
+    video.bts-slide {
+      object-fit: contain;
     }
 
     .bts-slide.is-active {
@@ -715,14 +760,14 @@
       }
 
       .work-title {
-        font-size: clamp(1.9rem, 11vw, 2.7rem);
+        font-size: clamp(1.2rem, 5vw, 1.3rem);
         line-height: 1.05;
         margin-bottom: 1.4rem;
       }
 
       .work-subtext {
         max-width: 19rem;
-        font-size: 1.1rem;
+        font-size: 1rem;
         line-height: 1.5;
         margin-bottom: 2rem;
       }
@@ -776,6 +821,10 @@
       }
 
       .bts-slide {
+        object-fit: cover;
+      }
+
+      video.bts-slide {
         object-fit: contain;
       }
 
@@ -797,7 +846,7 @@
 
     @media (max-width: 430px) {
       .work-title {
-        font-size: clamp(1.8rem, 10vw, 2.35rem);
+        font-size: clamp(1.1rem, 4.5vw, 1.2rem);
       }
 
       .work-subtext {
@@ -1049,7 +1098,30 @@
              aria-label="Behind the scenes">
       <div class="bts-layout">
         <div class="bts-slideshow" aria-label="Behind the scenes slideshow">
-          <img class="bts-slide is-active" width="1038" height="574" data-aspect-ratio="1.808362" src="../../../editable-content/work/commercials/wildaid-tigers/bts/1_bts.webp" srcset="../../media/editable-content/work/commercials/wildaid-tigers/bts/1_bts-480.webp 480w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/1_bts-960.webp 960w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/1_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/1_bts-1920.webp 1920w" sizes="100vw" alt="Wildaid Tigers behind the scenes" loading="lazy" decoding="async">
+          <img class="bts-slide is-active" width="1708" height="940" data-aspect-ratio="1.817021" src="../../../editable-content/work/commercials/wildaid-tigers/bts/1_bts.webp" srcset="../../media/editable-content/work/commercials/wildaid-tigers/bts/1_bts-480.webp 480w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/1_bts-960.webp 960w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/1_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/1_bts-1920.webp 1920w" sizes="100vw" alt="Wildaid Tigers behind the scenes" loading="lazy" decoding="async">
+          <img class="bts-slide" width="1920" height="1200" data-aspect-ratio="1.600000" src="../../../editable-content/work/commercials/wildaid-tigers/bts/2_bts.webp" srcset="../../media/editable-content/work/commercials/wildaid-tigers/bts/2_bts-480.webp 480w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/2_bts-960.webp 960w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/2_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/2_bts-1920.webp 1920w" sizes="100vw" alt="Wildaid Tigers behind the scenes" loading="lazy" decoding="async">
+          <img class="bts-slide" width="1038" height="574" data-aspect-ratio="1.808362" src="../../../editable-content/work/commercials/wildaid-tigers/bts/3_bts.webp" srcset="../../media/editable-content/work/commercials/wildaid-tigers/bts/3_bts-480.webp 480w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/3_bts-960.webp 960w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/3_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/3_bts-1920.webp 1920w" sizes="100vw" alt="Wildaid Tigers behind the scenes" loading="lazy" decoding="async">
+          <img class="bts-slide" width="1920" height="1200" data-aspect-ratio="1.600000" src="../../../editable-content/work/commercials/wildaid-tigers/bts/4_bts.webp" srcset="../../media/editable-content/work/commercials/wildaid-tigers/bts/4_bts-480.webp 480w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/4_bts-960.webp 960w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/4_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/4_bts-1920.webp 1920w" sizes="100vw" alt="Wildaid Tigers behind the scenes" loading="lazy" decoding="async">
+          <img class="bts-slide" width="1336" height="748" data-aspect-ratio="1.786096" src="../../../editable-content/work/commercials/wildaid-tigers/bts/5_bts.webp" srcset="../../media/editable-content/work/commercials/wildaid-tigers/bts/5_bts-480.webp 480w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/5_bts-960.webp 960w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/5_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/5_bts-1920.webp 1920w" sizes="100vw" alt="Wildaid Tigers behind the scenes" loading="lazy" decoding="async">
+          <img class="bts-slide" width="1920" height="1200" data-aspect-ratio="1.600000" src="../../../editable-content/work/commercials/wildaid-tigers/bts/6_bts.webp" srcset="../../media/editable-content/work/commercials/wildaid-tigers/bts/6_bts-480.webp 480w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/6_bts-960.webp 960w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/6_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/6_bts-1920.webp 1920w" sizes="100vw" alt="Wildaid Tigers behind the scenes" loading="lazy" decoding="async">
+          <img class="bts-slide" width="1920" height="1200" data-aspect-ratio="1.600000" src="../../../editable-content/work/commercials/wildaid-tigers/bts/7_bts.webp" srcset="../../media/editable-content/work/commercials/wildaid-tigers/bts/7_bts-480.webp 480w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/7_bts-960.webp 960w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/7_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/7_bts-1920.webp 1920w" sizes="100vw" alt="Wildaid Tigers behind the scenes" loading="lazy" decoding="async">
+          <img class="bts-slide" width="1920" height="1200" data-aspect-ratio="1.600000" src="../../../editable-content/work/commercials/wildaid-tigers/bts/8_bts.webp" srcset="../../media/editable-content/work/commercials/wildaid-tigers/bts/8_bts-480.webp 480w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/8_bts-960.webp 960w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/8_bts-1440.webp 1440w, ../../media/editable-content/work/commercials/wildaid-tigers/bts/8_bts-1920.webp 1920w" sizes="100vw" alt="Wildaid Tigers behind the scenes" loading="lazy" decoding="async">
+          <button class="bts-slide-control bts-slide-control--prev"
+                  type="button"
+                  data-bts-slide-control="prev"
+                  aria-label="Previous BTS image">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path class="interactive-chevron interactive-chevron--left" d="M15 18l-6-6 6-6"></path>
+            </svg>
+          </button>
+          <button class="bts-slide-control bts-slide-control--next"
+                  type="button"
+                  data-bts-slide-control="next"
+                  aria-label="Next BTS image">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
+            </svg>
+          </button>
         </div>
 
         <div class="bts-copy">
@@ -1163,7 +1235,13 @@
         clone.removeAttribute('id');
 
         if (clone.tagName === 'VIDEO') {
-          if (!clone.getAttribute('src') && clone.getAttribute('data-src')) {
+          var fullSource = clone.getAttribute('data-full-src');
+          if (fullSource) {
+            if (clone.getAttribute('src') !== fullSource) {
+              clone.setAttribute('src', fullSource);
+              clone.load();
+            }
+          } else if (!clone.getAttribute('src') && clone.getAttribute('data-src')) {
             clone.setAttribute('src', clone.getAttribute('data-src'));
             clone.load();
           }
@@ -1229,6 +1307,27 @@
         frame.className = 'highlight-lightbox-frame';
         frame.appendChild(prepareClone(media));
         frame.appendChild(closeButton);
+
+        var captionTitle = tile.getAttribute('data-caption-title');
+        var captionText = tile.getAttribute('data-caption-text');
+        if (captionTitle || captionText) {
+          var caption = document.createElement('div');
+          caption.className = 'highlight-lightbox-caption';
+          if (captionTitle) {
+            var titleEl = document.createElement('span');
+            titleEl.className = 'highlight-lightbox-caption-title';
+            titleEl.textContent = captionTitle;
+            caption.appendChild(titleEl);
+          }
+          if (captionText) {
+            var textEl = document.createElement('span');
+            textEl.className = 'highlight-lightbox-caption-text';
+            textEl.textContent = captionText;
+            caption.appendChild(textEl);
+          }
+          frame.appendChild(caption);
+        }
+
         stage.innerHTML = '';
         stage.appendChild(frame);
         setFrameRect(frame, originRect);

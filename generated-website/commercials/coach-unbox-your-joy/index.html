@@ -529,6 +529,37 @@
       opacity: 1;
     }
 
+    .highlight-lightbox-caption {
+      position: absolute;
+      bottom: 1rem;
+      right: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.25rem;
+      color: var(--overlay-text-color);
+      font-family: 'EB Garamond', serif;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      pointer-events: none;
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+    }
+
+    .highlight-lightbox-frame.is-expanded .highlight-lightbox-caption {
+      opacity: 1;
+    }
+
+    .highlight-lightbox-caption-title {
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+    .highlight-lightbox-caption-text {
+      font-size: 0.85rem;
+      font-weight: 400;
+      color: rgba(244, 241, 236, 0.75);
+    }
+
     @media (hover: none) {
       .highlight-tile:hover .highlight-expand-button,
       .highlight-expand-button:hover {
@@ -1234,6 +1265,27 @@
         frame.className = 'highlight-lightbox-frame';
         frame.appendChild(prepareClone(media));
         frame.appendChild(closeButton);
+
+        var captionTitle = tile.getAttribute('data-caption-title');
+        var captionText = tile.getAttribute('data-caption-text');
+        if (captionTitle || captionText) {
+          var caption = document.createElement('div');
+          caption.className = 'highlight-lightbox-caption';
+          if (captionTitle) {
+            var titleEl = document.createElement('span');
+            titleEl.className = 'highlight-lightbox-caption-title';
+            titleEl.textContent = captionTitle;
+            caption.appendChild(titleEl);
+          }
+          if (captionText) {
+            var textEl = document.createElement('span');
+            textEl.className = 'highlight-lightbox-caption-text';
+            textEl.textContent = captionText;
+            caption.appendChild(textEl);
+          }
+          frame.appendChild(caption);
+        }
+
         stage.innerHTML = '';
         stage.appendChild(frame);
         setFrameRect(frame, originRect);

@@ -41,12 +41,13 @@ HERO_ILLUSTRATION = SITE_SOURCE_ASSETS_DIR / "images" / "illustration-tight.svg"
 FAVICON = SITE_SOURCE_ASSETS_DIR / "images" / "favicon.svg"
 VIMEO_THUMBNAIL_CACHE = REPO_ROOT / "vimeo-thumbnails.json"
 
-WORK_CATEGORIES = ("films", "commercials")
+WORK_CATEGORIES = ("films", "commercials", "drawings")
 ROOT_WORK_SECTION = "work"
 ROOT_SECTION_ORDER = ("about", ROOT_WORK_SECTION)
 PRIMARY_SECTION_BY_CATEGORY = {
     "films": "trailer",
     "commercials": "film",
+    "drawings": "highlight",
 }
 PRIMARY_LINK_FILE_BY_SECTION = {
     "trailer": "trailer_link.md",
@@ -92,6 +93,7 @@ CHINESE_NAV_LABELS = {
     "work": "作品",
     "films": "电影",
     "commercials": "广告",
+    "drawings": "瞎画儿",
     "film": "影片",
     "trailer": "预告片",
     "note": "手记",
@@ -103,6 +105,7 @@ SPANISH_NAV_LABELS = {
     "work": "obra",
     "films": "películas",
     "commercials": "anuncios",
+    "drawings": "dibujos",
     "film": "cine",
     "trailer": "trailer",
     "note": "apuntes",
@@ -126,6 +129,8 @@ class MediaItem:
     kind: str
     width: int | None = None
     height: int | None = None
+    caption_title: str | None = None
+    caption_text: str | None = None
 
 
 @dataclass(frozen=True)
@@ -241,7 +246,10 @@ def has_bts_section(work: WorkContent) -> bool:
 
 
 def work_section_order(work: WorkContent) -> tuple[str, ...]:
-    sections = [primary_section_for_category(work.category)]
+    primary = primary_section_for_category(work.category)
+    sections = []
+    if primary != "highlight":
+        sections.append(primary)
     if has_note_section(work):
         sections.append("note")
     sections.append("highlight")
@@ -1525,6 +1533,39 @@ def ordered_media(
     return tuple(sorted(media, key=lambda item: item.index))
 
 
+def load_highlight_captions(
+    highlight_dir: Path,
+    media: tuple[MediaItem, ...],
+) -> tuple[MediaItem, ...]:
+    result = []
+    for item in media:
+        caption_path = highlight_dir / f"{item.index}_caption.md"
+        if not caption_path.exists():
+            result.append(item)
+            continue
+        lines = read_text(caption_path).splitlines()
+        title = None
+        body_lines = []
+        for i, line in enumerate(lines):
+            if line.strip().startswith("# ") and title is None:
+                title = line.strip()[2:].strip()
+                body_lines = lines[i + 1 :]
+                break
+        caption_text = "\n".join(l for l in body_lines if l.strip()).strip() or None
+        result.append(
+            MediaItem(
+                index=item.index,
+                path=item.path,
+                kind=item.kind,
+                width=item.width,
+                height=item.height,
+                caption_title=title,
+                caption_text=caption_text,
+            )
+        )
+    return tuple(result)
+
+
 def media_canonical_identity_path(path: Path) -> Path:
     if media_kind(path) == "image":
         return converted_image_path(path)
@@ -1971,18 +2012,24 @@ def load_work(
     slug = work_dir.name
     category = work_dir.parent.name
     primary_section = primary_section_for_category(category)
-    primary_dir = work_dir / primary_section
-    trailer_embed_url, trailer_poster_url, trailer_media = load_primary_media_source(
-        primary_dir,
-        primary_section,
-        primary_link_file_for_section(primary_section),
-        write_assets=write_assets,
-        check_generated_assets=check_generated_assets,
-        vimeo_thumbnail_cache=vimeo_thumbnail_cache,
-        fetch_vimeo_thumbnails=fetch_vimeo_thumbnails,
-        resolve_assets=resolve_assets,
-    )
-    primary_links = load_primary_links(primary_dir / "additional_links.md")
+    has_separate_primary = primary_section != "highlight"
+    trailer_embed_url: str | None = None
+    trailer_poster_url: str | None = None
+    trailer_media: MediaItem | None = None
+    primary_links: tuple[PrimaryLink, ...] = ()
+    if has_separate_primary:
+        primary_dir = work_dir / primary_section
+        trailer_embed_url, trailer_poster_url, trailer_media = load_primary_media_source(
+            primary_dir,
+            primary_section,
+            primary_link_file_for_section(primary_section),
+            write_assets=write_assets,
+            check_generated_assets=check_generated_assets,
+            vimeo_thumbnail_cache=vimeo_thumbnail_cache,
+            fetch_vimeo_thumbnails=fetch_vimeo_thumbnails,
+            resolve_assets=resolve_assets,
+        )
+        primary_links = load_primary_links(primary_dir / "additional_links.md")
     note_dir = work_dir / "note"
     note: NoteContent | None = None
     note_media_item: MediaItem | None = None
@@ -1996,12 +2043,15 @@ def load_work(
             resolve_assets=resolve_assets,
         )
         note_media_item = validate_note_content(note_dir, note, note_media)
+    highlight_dir = work_dir / "highlight"
     highlight_media = ordered_media(
-        work_dir / "highlight",
+        highlight_dir,
         write_assets=write_assets,
         check_generated_assets=check_generated_assets,
         resolve_assets=resolve_assets,
     )
+    if not has_separate_primary:
+        highlight_media = load_highlight_captions(highlight_dir, highlight_media)
     ensure_highlight_video_outputs(
         highlight_media,
         write_assets=write_assets,
@@ -2031,8 +2081,11 @@ def load_work(
             check_generated_assets=check_generated_assets,
             resolve_assets=resolve_assets,
         )
+    grid_source = grid_preview_media or trailer_media
+    if grid_source is None and not has_separate_primary and highlight_media:
+        grid_source = highlight_media[0]
     grid_display_media = grid_display_media_for(
-        grid_preview_media or trailer_media,
+        grid_source,
         write_assets=write_assets,
         check_generated_assets=check_generated_assets,
     )
@@ -2396,7 +2449,12 @@ def render_highlight_tile(item: MediaItem, output_html: Path, title: str) -> str
             class_name="highlight-media media-hover-zoom-target",
             image_loading="eager",
         )
-    return f"""<figure class="highlight-tile media-hover-zoom" data-highlight-tile>
+    caption_attrs = ""
+    if item.caption_title:
+        caption_attrs += f' data-caption-title="{html_escape(item.caption_title)}"'
+    if item.caption_text:
+        caption_attrs += f' data-caption-text="{html_escape(item.caption_text)}"'
+    return f"""<figure class="highlight-tile media-hover-zoom" data-highlight-tile{caption_attrs}>
           {media_html}
           <button class="highlight-expand-button"
                   type="button"
@@ -2591,7 +2649,10 @@ def apply_template_replacements(template: str, replacements: Mapping[str, str]) 
 
 
 def render_work(work: WorkContent, template: str, output_html: Path) -> str:
-    sections = [render_trailer_section(work, output_html)]
+    has_separate_primary = primary_section_for_category(work.category) != "highlight"
+    sections = []
+    if has_separate_primary:
+        sections.append(render_trailer_section(work, output_html))
     if has_note_section(work):
         sections.append(render_note_section(work, output_html))
     sections.append(render_highlight_section(work, output_html))
