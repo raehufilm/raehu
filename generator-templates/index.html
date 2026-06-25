@@ -1646,11 +1646,20 @@
         setTimeout(function () {
           oldWrap.classList.remove('slide-out-left');
           oldWrap.style.transform = '';
-        }, 400);
+          positionControls(wraps[current]);
+        }, 380);
 
         positionCaption(wraps[current]);
-        positionControls(wraps[current]);
       }
+
+      var autoTimer = setInterval(function () {
+        showSlide(current + 1);
+      }, 4000);
+
+      slideshow.addEventListener('mouseenter', function () { clearInterval(autoTimer); });
+      slideshow.addEventListener('mouseleave', function () {
+        autoTimer = setInterval(function () { showSlide(current + 1); }, 4000);
+      });
 
       wraps.forEach(function (wrap) {
         var slide = wrap.querySelector('.drawings-slide');
