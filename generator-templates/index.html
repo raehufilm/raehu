@@ -794,13 +794,20 @@
       align-items: center;
       justify-content: center;
       opacity: 0;
-      transition: opacity 0.3s ease;
+      transform: translateX(30px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
       pointer-events: none;
     }
 
     .drawings-slide-wrap.is-active {
       opacity: 1;
+      transform: translateX(0);
       pointer-events: auto;
+    }
+
+    .drawings-slide-wrap.slide-out-left {
+      opacity: 0;
+      transform: translateX(-30px);
     }
 
     .drawings-slide {
@@ -835,7 +842,6 @@
 
     .drawings-control {
       position: absolute;
-      top: 50%;
       z-index: 2;
       display: flex;
       align-items: center;
@@ -843,18 +849,22 @@
       width: 2.75rem;
       height: 2.75rem;
       border: 0;
-      background: transparent;
+      background: rgba(255,255,255,0.35);
+      backdrop-filter: blur(4px);
+      border-radius: 50%;
       color: var(--text-color);
       cursor: pointer;
       opacity: 0;
       padding: 0;
-      transform: translateY(-50%);
-      transition: opacity 0.25s ease, color var(--theme-transition-duration) var(--theme-transition-easing);
+      transition: opacity 0.25s ease, background 0.2s ease, color var(--theme-transition-duration) var(--theme-transition-easing);
     }
 
-    .drawings-control--prev { left: 1rem; }
-    .drawings-control--next { right: 1rem; }
-    .drawings-control.js-positioned { transform: translateY(-50%); }
+    .drawings-control:hover {
+      background: rgba(255,255,255,0.55);
+    }
+
+    .drawings-control--prev { left: 1rem; top: 50%; transform: translateY(-50%); }
+    .drawings-control--next { right: 1rem; top: 50%; transform: translateY(-50%); }
 
     .drawings-slideshow:hover .drawings-control {
       opacity: 1;
@@ -1591,16 +1601,21 @@
         if (!slide) return;
         var ssRect = slideshow.getBoundingClientRect();
         var imgRect = slide.getBoundingClientRect();
+        var imgTop = imgRect.top - ssRect.top;
+        var imgBottom = imgRect.bottom - ssRect.top;
         var imgLeft = imgRect.left - ssRect.left;
-        var imgRight = imgRect.right - ssRect.left;
+        var imgRight = ssRect.right - imgRect.right;
+        var midY = imgTop + (imgBottom - imgTop) / 2;
         if (prevBtn) {
-          prevBtn.style.left = Math.max(0, imgLeft - 44) + 'px';
-          prevBtn.classList.add('js-positioned');
+          prevBtn.style.top = midY + 'px';
+          prevBtn.style.left = (imgLeft + 8) + 'px';
+          prevBtn.style.transform = 'translateY(-50%)';
         }
         if (nextBtn) {
-          nextBtn.style.right = 'auto';
-          nextBtn.style.left = (imgRight + 8) + 'px';
-          nextBtn.classList.add('js-positioned');
+          nextBtn.style.top = midY + 'px';
+          nextBtn.style.right = (imgRight + 8) + 'px';
+          nextBtn.style.left = 'auto';
+          nextBtn.style.transform = 'translateY(-50%)';
         }
       }
 
@@ -1610,9 +1625,29 @@
       }
 
       function showSlide(index) {
-        wraps[current].classList.remove('is-active');
-        current = (index + wraps.length) % wraps.length;
-        wraps[current].classList.add('is-active');
+        var oldWrap = wraps[current];
+        var newIndex = (index + wraps.length) % wraps.length;
+        var goingForward = index > current || (current === wraps.length - 1 && newIndex === 0);
+
+        oldWrap.classList.remove('is-active');
+        oldWrap.classList.add(goingForward ? 'slide-out-left' : '');
+        if (!goingForward) {
+          oldWrap.style.transform = 'translateX(30px)';
+        }
+
+        var newWrap = wraps[newIndex];
+        newWrap.style.transform = goingForward ? 'translateX(30px)' : 'translateX(-30px)';
+        newWrap.offsetHeight;
+        newWrap.style.transform = '';
+        newWrap.classList.add('is-active');
+
+        current = newIndex;
+
+        setTimeout(function () {
+          oldWrap.classList.remove('slide-out-left');
+          oldWrap.style.transform = '';
+        }, 400);
+
         positionCaption(wraps[current]);
         positionControls(wraps[current]);
       }
