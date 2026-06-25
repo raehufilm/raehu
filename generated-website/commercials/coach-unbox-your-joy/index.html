@@ -1508,7 +1508,7 @@
           slides[current].classList.remove('is-active');
           current = (nextIndex + slides.length) % slides.length;
           slides[current].classList.add('is-active');
-          loadVideo(slides[current]);
+          activateVideo(slides[current]);
         }
 
         function startTimer() {
@@ -1539,7 +1539,7 @@
 
         var current = 0;
 
-        function loadVideo(el) {
+        function activateVideo(el) {
           var vid = el.querySelector('video');
           if (!vid) return;
           var src = vid.getAttribute('data-src');
@@ -1547,6 +1547,7 @@
             vid.setAttribute('src', src);
             vid.load();
           }
+          vid.play().catch(function () {});
         }
 
         function pauseVideo(el) {
@@ -1559,7 +1560,7 @@
           slides[current].classList.remove('is-active');
           current = (nextIndex + slides.length) % slides.length;
           slides[current].classList.add('is-active');
-          loadVideo(slides[current]);
+          activateVideo(slides[current]);
         }
 
         slideshow.querySelectorAll('[data-note-slide-control]').forEach(function (control) {

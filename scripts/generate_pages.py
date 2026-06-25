@@ -2446,7 +2446,7 @@ def _note_media_block(work: WorkContent, output_html: Path) -> tuple[int, str] |
     captions = work.note_captions
     if len(work.note_media) == 1:
         item = work.note_media[0]
-        media_html = media_tag(item, output_html, work.title, class_name="work-header-image", video_controls=True, video_muted=False)
+        media_html = media_tag(item, output_html, work.title, class_name="work-header-image", video_controls=True)
         caption = _note_caption_html(captions, item.index)
         position = item.index
         pos_class = "left" if position == 1 else "right"
@@ -2460,7 +2460,7 @@ def _note_media_block(work: WorkContent, output_html: Path) -> tuple[int, str] |
         slides = []
         for i, item in enumerate(work.note_media):
             active = " is-active" if i == 0 else ""
-            m_html = media_tag(item, output_html, work.title, class_name="note-slide-media", video_controls=True, video_muted=False)
+            m_html = media_tag(item, output_html, work.title, class_name="note-slide-media", video_controls=True)
             cap = _note_caption_html(captions, item.index)
             slides.append(
                 f'            <div class="note-slide{active}">\n'
