@@ -482,7 +482,7 @@ class GeneratePagesTests(unittest.TestCase):
             trailer_embed_url="https://player.vimeo.com/video/123",
             trailer_poster_url="https://i.vimeocdn.com/video/example_1280",
             note=generate_pages.NoteContent(title_html="Title", body_html="Body"),
-            note_media=generate_pages.MediaItem(1, Path("note.webp"), "image"),
+            note_media=(generate_pages.MediaItem(1, Path("note.webp"), "image"),),
             highlight_media=(),
             bts_text_html="Credits",
             bts_media=(),
@@ -513,7 +513,7 @@ class GeneratePagesTests(unittest.TestCase):
                 trailer_embed_url=None,
                 trailer_poster_url=None,
                 note=generate_pages.NoteContent(title_html="Title", body_html="Body"),
-                note_media=generate_pages.MediaItem(1, Path("note.webp"), "image"),
+                note_media=(generate_pages.MediaItem(1, Path("note.webp"), "image"),),
                 highlight_media=(),
                 bts_text_html="Credits",
                 bts_media=(),
@@ -533,7 +533,7 @@ class GeneratePagesTests(unittest.TestCase):
             trailer_embed_url="https://player.vimeo.com/video/123",
             trailer_poster_url="https://i.vimeocdn.com/video/example_1280",
             note=generate_pages.NoteContent(title_html="Title", body_html="Body"),
-            note_media=generate_pages.MediaItem(1, Path("note.webp"), "image"),
+            note_media=(generate_pages.MediaItem(1, Path("note.webp"), "image"),),
             highlight_media=(),
             bts_text_html="Credits",
             bts_media=(),
@@ -554,7 +554,7 @@ class GeneratePagesTests(unittest.TestCase):
             trailer_embed_url="https://player.vimeo.com/video/123",
             trailer_poster_url="https://i.vimeocdn.com/video/example_1280",
             note=generate_pages.NoteContent(title_html="Title", body_html="Body"),
-            note_media=generate_pages.MediaItem(1, Path("note.webp"), "image"),
+            note_media=(generate_pages.MediaItem(1, Path("note.webp"), "image"),),
             highlight_media=(),
             bts_text_html="Credits",
             bts_media=(),
@@ -1255,7 +1255,7 @@ class GeneratePagesTests(unittest.TestCase):
                     body_html="Body",
                     index=2,
                 ),
-                note_media=generate_pages.MediaItem(1, media, "image"),
+                note_media=(generate_pages.MediaItem(1, media, "image"),),
                 highlight_media=(),
                 bts_text_html="Credits",
                 bts_media=(),
@@ -1307,7 +1307,7 @@ class GeneratePagesTests(unittest.TestCase):
                 trailer_embed_url="https://player.vimeo.com/video/123",
                 trailer_poster_url=None,
                 note=generate_pages.NoteContent(title_html="Title", body_html="Body"),
-                note_media=generate_pages.MediaItem(1, Path("note.webp"), "image"),
+                note_media=(generate_pages.MediaItem(1, Path("note.webp"), "image"),),
                 highlight_media=(
                     generate_pages.MediaItem(1, media_path, "image"),
                 ),
@@ -1349,7 +1349,7 @@ class GeneratePagesTests(unittest.TestCase):
                 trailer_embed_url="https://player.vimeo.com/video/123",
                 trailer_poster_url=None,
                 note=None,
-                note_media=None,
+                note_media=(),
                 highlight_media=(
                     generate_pages.MediaItem(1, media_path, "video"),
                 ),
@@ -2150,7 +2150,7 @@ console.log(JSON.stringify(results));
             )
 
             self.assertIsNone(work.note)
-            self.assertIsNone(work.note_media)
+            self.assertEqual(work.note_media, ())
             self.assertIsNone(work.bts_text_html)
             self.assertEqual(work.bts_media, ())
             self.assertIn('id="trailer"', rendered)
@@ -2182,7 +2182,7 @@ console.log(JSON.stringify(results));
             )
 
             self.assertIsNotNone(work.note)
-            self.assertIsNone(work.note_media)
+            self.assertEqual(work.note_media, ())
             self.assertIn('id="note"', rendered)
             self.assertIn("work-header-spacer", rendered)
             self.assertIn("Director's note", rendered)
@@ -2567,7 +2567,7 @@ console.log(JSON.stringify(results));
                 trailer_embed_url=None,
                 trailer_poster_url=None,
                 note=generate_pages.NoteContent(title_html="Title", body_html="Body"),
-                note_media=generate_pages.MediaItem(1, Path("note.webp"), "image"),
+                note_media=(generate_pages.MediaItem(1, Path("note.webp"), "image"),),
                 highlight_media=(),
                 bts_text_html="Credits",
                 bts_media=(),
@@ -2622,7 +2622,7 @@ console.log(JSON.stringify(results));
                 trailer_embed_url=None,
                 trailer_poster_url=None,
                 note=generate_pages.NoteContent(title_html="Title", body_html="Body"),
-                note_media=generate_pages.MediaItem(1, Path("note.webp"), "image"),
+                note_media=(generate_pages.MediaItem(1, Path("note.webp"), "image"),),
                 highlight_media=(),
                 bts_text_html="Credits",
                 bts_media=(),
@@ -2680,7 +2680,7 @@ console.log(JSON.stringify(results));
                 trailer_embed_url=None,
                 trailer_poster_url=None,
                 note=generate_pages.NoteContent(title_html="Title", body_html="Body"),
-                note_media=generate_pages.MediaItem(1, Path("note.webp"), "image"),
+                note_media=(generate_pages.MediaItem(1, Path("note.webp"), "image"),),
                 highlight_media=(),
                 bts_text_html="Credits",
                 bts_media=(),
@@ -2834,11 +2834,11 @@ console.log(JSON.stringify(results));
                 trailer_embed_url="https://player.vimeo.com/video/1",
                 trailer_poster_url="https://i.vimeocdn.com/video/film_1280",
                 note=generate_pages.NoteContent(title_html="Film", body_html="Body"),
-                note_media=generate_pages.MediaItem(
+                note_media=(generate_pages.MediaItem(
                     2,
                     root / "editable-content" / "work" / "films" / "sample-film" / "note" / "2_note.webp",
                     "image",
-                ),
+                ),),
                 highlight_media=(),
                 bts_text_html="Credits",
                 bts_media=(),
@@ -2850,11 +2850,11 @@ console.log(JSON.stringify(results));
                 trailer_embed_url="https://player.vimeo.com/video/2",
                 trailer_poster_url="https://i.vimeocdn.com/video/ad_1280",
                 note=generate_pages.NoteContent(title_html="Ad", body_html="Body"),
-                note_media=generate_pages.MediaItem(
+                note_media=(generate_pages.MediaItem(
                     2,
                     root / "editable-content" / "work" / "commercials" / "sample-ad" / "note" / "2_note.webp",
                     "image",
-                ),
+                ),),
                 highlight_media=(),
                 bts_text_html="Credits",
                 bts_media=(),
