@@ -374,8 +374,14 @@
     }
 
     .note-slideshow {
-      position: relative;
+      display: flex;
+      align-items: center;
       width: 100%;
+    }
+
+    .note-slides {
+      flex: 1;
+      min-width: 0;
     }
 
     .note-slide {
@@ -387,7 +393,7 @@
     }
 
     .note-slide-media {
-      max-width: 80%;
+      max-width: 100%;
       max-height: calc(100svh - 6.5rem - 3.25rem);
       height: auto;
       object-fit: contain;
@@ -395,10 +401,7 @@
     }
 
     .note-slide-control {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      z-index: 2;
+      flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -412,9 +415,6 @@
       padding: 0;
       transition: opacity 0.25s ease, color var(--theme-transition-duration) var(--theme-transition-easing);
     }
-
-    .note-slide-control--prev { left: 1rem; }
-    .note-slide-control--next { right: 1rem; }
 
     .note-slideshow:hover .note-slide-control {
       opacity: 1;
@@ -1116,6 +1116,10 @@
         </div>
         <div class="work-header-image-wrap work-header-piece--right">
           <div class="note-slideshow" data-note-slideshow>
+            <button class="note-slide-control note-slide-control--prev" type="button" data-note-slide-control="prev" aria-label="Previous">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+            </button>
+            <div class="note-slides">
             <div class="note-slide is-active">
               <video class="note-slide-media" data-src="../../../editable-content/work/commercials/champion/note/2_storyboard%20to%20live%20action.%202.MP4" data-lazy-video muted playsinline loop controls preload="none" aria-label="Champion"></video>
             <figcaption class="note-media-caption">storyboard to life</figcaption>
@@ -1124,9 +1128,7 @@
               <video class="note-slide-media" data-src="../../../editable-content/work/commercials/champion/note/3_BD244F61-CBFD-42E6-AD46-718E8A76749A.mp4" data-lazy-video muted playsinline loop controls preload="none" aria-label="Champion"></video>
             <figcaption class="note-media-caption">sound design process</figcaption>
             </div>
-            <button class="note-slide-control note-slide-control--prev" type="button" data-note-slide-control="prev" aria-label="Previous">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
-            </button>
+            </div>
             <button class="note-slide-control note-slide-control--next" type="button" data-note-slide-control="next" aria-label="Next">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
             </button>

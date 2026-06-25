@@ -2465,18 +2465,22 @@ def _note_media_block(work: WorkContent, output_html: Path) -> tuple[int, str] |
                 f'              {m_html}{cap}\n'
                 f'            </div>'
             )
-        controls = ""
+        prev_btn = ""
+        next_btn = ""
         if len(work.note_media) > 1:
-            controls = """
+            prev_btn = """
             <button class="note-slide-control note-slide-control--prev" type="button" data-note-slide-control="prev" aria-label="Previous">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
-            </button>
+            </button>"""
+            next_btn = """
             <button class="note-slide-control note-slide-control--next" type="button" data-note-slide-control="next" aria-label="Next">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
             </button>"""
         block = f"""        <div class="work-header-image-wrap work-header-piece--{pos_class}">
-          <div class="note-slideshow" data-note-slideshow>
-{chr(10).join(slides)}{controls}
+          <div class="note-slideshow" data-note-slideshow>{prev_btn}
+            <div class="note-slides">
+{chr(10).join(slides)}
+            </div>{next_btn}
           </div>
         </div>"""
         return position, block

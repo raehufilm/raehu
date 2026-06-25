@@ -374,8 +374,14 @@
     }
 
     .note-slideshow {
-      position: relative;
+      display: flex;
+      align-items: center;
       width: 100%;
+    }
+
+    .note-slides {
+      flex: 1;
+      min-width: 0;
     }
 
     .note-slide {
@@ -387,7 +393,7 @@
     }
 
     .note-slide-media {
-      max-width: 80%;
+      max-width: 100%;
       max-height: calc(100svh - 6.5rem - 3.25rem);
       height: auto;
       object-fit: contain;
@@ -395,10 +401,7 @@
     }
 
     .note-slide-control {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      z-index: 2;
+      flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -412,9 +415,6 @@
       padding: 0;
       transition: opacity 0.25s ease, color var(--theme-transition-duration) var(--theme-transition-easing);
     }
-
-    .note-slide-control--prev { left: 1rem; }
-    .note-slide-control--next { right: 1rem; }
 
     .note-slideshow:hover .note-slide-control {
       opacity: 1;
