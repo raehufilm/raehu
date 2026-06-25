@@ -2416,6 +2416,9 @@ def render_highlight_section(work: WorkContent, output_html: Path) -> str:
         len(work.highlight_media),
         f"{work.category}/{work.slug}",
     )
+    grid_class = "portfolio-grid"
+    if work.category == "drawings":
+        grid_class += " portfolio-grid--drawings"
     return f"""    <section class="work-page work-page--highlight content-visibility-auto"
              id="highlight"
              data-section-page="highlight"
@@ -2423,7 +2426,7 @@ def render_highlight_section(work: WorkContent, output_html: Path) -> str:
              data-page-padding
              aria-label="Highlight">
       <div class="grid-wrapper">
-        <div class="portfolio-grid"
+        <div class="{html_escape(grid_class)}"
              data-grid-mode="justify"
              data-layout="{html_escape(layout)}"
              data-justify-max-items="3"
@@ -2802,13 +2805,16 @@ def render_works_index_section(
     if not grid_items:
         empty = '        <p class="works-index-empty">Coming soon.</p>'
 
+    grid_class = "portfolio-grid works-index-grid"
+    if category == "drawings":
+        grid_class += " portfolio-grid--drawings"
     return f"""    <section class="works-index-page fade-up"
              id="{html_escape(category)}"
              data-work-category-section="{html_escape(category)}"
              data-section-title="{html_escape(category_label(category))}"
              aria-label="{html_escape(category_label(category))}">
       <div class="works-index-grid-wrap">
-        <div class="portfolio-grid works-index-grid"
+        <div class="{html_escape(grid_class)}"
              data-grid-mode="justify"
              data-seed="{len(category)}"
              data-justify-max-items="3"
