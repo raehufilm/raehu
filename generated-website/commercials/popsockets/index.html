@@ -1453,10 +1453,26 @@
         var current = 0;
         var timer = null;
 
+        function activateVideo(el) {
+          if (el.tagName !== 'VIDEO') return;
+          var src = el.getAttribute('data-src');
+          if (src && !el.getAttribute('src')) {
+            el.setAttribute('src', src);
+            el.load();
+          }
+          el.play().catch(function () {});
+        }
+
+        function pauseVideo(el) {
+          if (el.tagName === 'VIDEO') { el.pause(); el.currentTime = 0; }
+        }
+
         function showSlide(nextIndex) {
+          pauseVideo(slides[current]);
           slides[current].classList.remove('is-active');
           current = (nextIndex + slides.length) % slides.length;
           slides[current].classList.add('is-active');
+          activateVideo(slides[current]);
         }
 
         function startTimer() {
@@ -1474,6 +1490,7 @@
           });
         });
 
+        activateVideo(slides[current]);
         startTimer();
       });
     })();
