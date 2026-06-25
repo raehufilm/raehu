@@ -1804,6 +1804,7 @@ def media_tag(
     video_lazy: bool = True,
     video_preload: str = "none",
     video_controls: bool = False,
+    video_muted: bool = True,
 ) -> str:
     class_attr = ""
     if class_name:
@@ -1828,6 +1829,7 @@ def media_tag(
         lazy=video_lazy,
         preload=video_preload,
         controls=video_controls,
+        muted=video_muted,
     )
 
 
@@ -2444,7 +2446,7 @@ def _note_media_block(work: WorkContent, output_html: Path) -> tuple[int, str] |
     captions = work.note_captions
     if len(work.note_media) == 1:
         item = work.note_media[0]
-        media_html = media_tag(item, output_html, work.title, class_name="work-header-image", video_controls=True)
+        media_html = media_tag(item, output_html, work.title, class_name="work-header-image", video_controls=True, video_muted=False)
         caption = _note_caption_html(captions, item.index)
         position = item.index
         pos_class = "left" if position == 1 else "right"
@@ -2458,7 +2460,7 @@ def _note_media_block(work: WorkContent, output_html: Path) -> tuple[int, str] |
         slides = []
         for i, item in enumerate(work.note_media):
             active = " is-active" if i == 0 else ""
-            m_html = media_tag(item, output_html, work.title, class_name="note-slide-media", video_controls=True)
+            m_html = media_tag(item, output_html, work.title, class_name="note-slide-media", video_controls=True, video_muted=False)
             cap = _note_caption_html(captions, item.index)
             slides.append(
                 f'            <div class="note-slide{active}">\n'
