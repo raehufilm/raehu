@@ -367,7 +367,6 @@
 
     .note-media-caption {
       margin-top: 0.5rem;
-      text-align: right;
       font-family: 'EB Garamond', serif;
       font-size: 0.8rem;
       color: var(--muted-text);
@@ -1116,8 +1115,22 @@
           <div class="work-label"><div class="red-dot"></div> Director's note</div>
         </div>
         <div class="work-header-image-wrap work-header-piece--right">
-          <video class="work-header-image" data-src="../../../editable-content/work/commercials/champion/note/2_storyboard%20to%20live%20action.%202.MP4" data-lazy-video muted playsinline loop controls preload="none" aria-label="Champion"></video>
+          <div class="note-slideshow" data-note-slideshow>
+            <div class="note-slide is-active">
+              <video class="note-slide-media" data-src="../../../editable-content/work/commercials/champion/note/2_storyboard%20to%20live%20action.%202.MP4" data-lazy-video muted playsinline loop controls preload="none" aria-label="Champion"></video>
             <figcaption class="note-media-caption">storyboard to life</figcaption>
+            </div>
+            <div class="note-slide">
+              <video class="note-slide-media" data-src="../../../editable-content/work/commercials/champion/note/3_BD244F61-CBFD-42E6-AD46-718E8A76749A.mp4" data-lazy-video muted playsinline loop controls preload="none" aria-label="Champion"></video>
+            <figcaption class="note-media-caption">sound design process</figcaption>
+            </div>
+            <button class="note-slide-control note-slide-control--prev" type="button" data-note-slide-control="prev" aria-label="Previous">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+            </button>
+            <button class="note-slide-control note-slide-control--next" type="button" data-note-slide-control="next" aria-label="Next">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+            </button>
+          </div>
         </div>
       </div>
     </section>
