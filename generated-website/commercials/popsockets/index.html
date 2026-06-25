@@ -264,7 +264,7 @@
     .work-title {
       font-family: 'EB Garamond', serif;
       font-weight: 500;
-      font-size: 2rem;
+      font-size: 1.3rem;
       line-height: 1.3;
       letter-spacing: -0.01em;
       margin-bottom: 1.8rem;
@@ -273,11 +273,19 @@
     .work-subtext {
       font-family: 'EB Garamond', serif;
       font-weight: 400;
-      font-size: 1.2rem;
+      font-size: 1rem;
       line-height: 1.6;
       color: var(--muted-text);
       margin-bottom: 2.5rem;
       transition: color var(--theme-transition-duration) var(--theme-transition-easing);
+    }
+
+    [data-language-content="cn"] .work-title {
+      font-size: 1.15rem;
+    }
+
+    [data-language-content="cn"] .work-subtext {
+      font-size: 0.88rem;
     }
 
     .work-label {
@@ -721,14 +729,14 @@
       }
 
       .work-title {
-        font-size: clamp(1.9rem, 11vw, 2.7rem);
+        font-size: clamp(1.2rem, 5vw, 1.3rem);
         line-height: 1.05;
         margin-bottom: 1.4rem;
       }
 
       .work-subtext {
         max-width: 19rem;
-        font-size: 1.1rem;
+        font-size: 1rem;
         line-height: 1.5;
         margin-bottom: 2rem;
       }
@@ -807,7 +815,7 @@
 
     @media (max-width: 430px) {
       .work-title {
-        font-size: clamp(1.8rem, 10vw, 2.35rem);
+        font-size: clamp(1.1rem, 4.5vw, 1.2rem);
       }
 
       .work-subtext {

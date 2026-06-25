@@ -264,7 +264,7 @@
     .work-title {
       font-family: 'EB Garamond', serif;
       font-weight: 500;
-      font-size: 2rem;
+      font-size: 1.3rem;
       line-height: 1.3;
       letter-spacing: -0.01em;
       margin-bottom: 1.8rem;
@@ -273,11 +273,19 @@
     .work-subtext {
       font-family: 'EB Garamond', serif;
       font-weight: 400;
-      font-size: 1.2rem;
+      font-size: 1rem;
       line-height: 1.6;
       color: var(--muted-text);
       margin-bottom: 2.5rem;
       transition: color var(--theme-transition-duration) var(--theme-transition-easing);
+    }
+
+    [data-language-content="cn"] .work-title {
+      font-size: 1.15rem;
+    }
+
+    [data-language-content="cn"] .work-subtext {
+      font-size: 0.88rem;
     }
 
     .work-label {
@@ -721,14 +729,14 @@
       }
 
       .work-title {
-        font-size: clamp(1.9rem, 11vw, 2.7rem);
+        font-size: clamp(1.2rem, 5vw, 1.3rem);
         line-height: 1.05;
         margin-bottom: 1.4rem;
       }
 
       .work-subtext {
         max-width: 19rem;
-        font-size: 1.1rem;
+        font-size: 1rem;
         line-height: 1.5;
         margin-bottom: 2rem;
       }
@@ -807,7 +815,7 @@
 
     @media (max-width: 430px) {
       .work-title {
-        font-size: clamp(1.8rem, 10vw, 2.35rem);
+        font-size: clamp(1.1rem, 4.5vw, 1.2rem);
       }
 
       .work-subtext {
@@ -890,10 +898,6 @@
       <span class="red-dot section-tracker-dot" aria-hidden="true"></span>
       <span data-language-content="en">film</span><span data-language-content="cn">影片</span><span data-language-content="es">cine</span>
     </a>
-    <a href="#note" data-section-link="note">
-      <span class="red-dot section-tracker-dot" aria-hidden="true"></span>
-      <span data-language-content="en">note</span><span data-language-content="cn">手记</span><span data-language-content="es">apuntes</span>
-    </a>
     <a href="#highlight" data-section-link="highlight">
       <span class="red-dot section-tracker-dot" aria-hidden="true"></span>
       <span data-language-content="en">highlight</span><span data-language-content="cn">精选</span><span data-language-content="es">destacados</span>
@@ -920,31 +924,6 @@
           </button>
         </div>
 
-      </div>
-    </section>
-
-    <section class="work-page work-page--note content-visibility-auto"
-             id="note"
-             data-section-page="note"
-             data-section-title="Note"
-             data-page-padding
-             aria-label="Director's note">
-      <div class="work-header">
-        <div class="work-header-text" data-language-content="en">
-          <h1 class="work-title">Coach Unbox Your Joy</h1>
-          <div class="work-label"><div class="red-dot"></div> Director's note</div>
-        </div>
-        <div class="work-header-text" data-language-content="cn">
-          <h1 class="work-title">Coach Unbox Your Joy</h1>
-          <div class="work-label"><div class="red-dot"></div> Director's note</div>
-        </div>
-        <div class="work-header-text" data-language-content="es">
-          <h1 class="work-title">Coach Unbox Your Joy</h1>
-          <div class="work-label"><div class="red-dot"></div> Director's note</div>
-        </div>
-        <div class="work-header-image-wrap work-header-piece--right">
-          <img class="work-header-image" width="1920" height="1080" data-aspect-ratio="1.777778" src="../../../editable-content/work/commercials/coach-unbox-your-joy/note/2_note.webp" srcset="../../media/editable-content/work/commercials/coach-unbox-your-joy/note/2_note-480.webp 480w, ../../media/editable-content/work/commercials/coach-unbox-your-joy/note/2_note-960.webp 960w, ../../media/editable-content/work/commercials/coach-unbox-your-joy/note/2_note-1440.webp 1440w, ../../media/editable-content/work/commercials/coach-unbox-your-joy/note/2_note-1920.webp 1920w" sizes="100vw" alt="Coach Unbox Your Joy" loading="lazy" decoding="async">
-        </div>
       </div>
     </section>
 
