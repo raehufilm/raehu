@@ -787,37 +787,40 @@
       overflow: hidden;
     }
 
-    .drawings-slide {
+    .drawings-slide-wrap {
       position: absolute;
-      max-width: calc(100% - 8rem);
-      max-height: calc(100% - 6rem);
-      width: auto;
-      height: auto;
-      object-fit: contain;
+      inset: 2rem 4rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       opacity: 0;
       transition: opacity 0.6s ease;
       pointer-events: none;
-      cursor: pointer;
     }
 
-    .drawings-slide.is-active {
+    .drawings-slide-wrap.is-active {
       opacity: 1;
       pointer-events: auto;
     }
 
+    .drawings-slide {
+      max-width: 100%;
+      max-height: calc(75svh - 6rem);
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      cursor: pointer;
+      display: block;
+    }
+
     .drawings-caption {
-      position: absolute;
-      bottom: 1rem;
-      right: 2rem;
+      margin-top: 0.6rem;
+      align-self: flex-end;
       text-align: right;
       font-family: 'EB Garamond', serif;
       color: var(--muted-text);
-      opacity: 0;
-      transition: opacity 0.6s ease, color var(--theme-transition-duration) var(--theme-transition-easing);
-    }
-
-    .drawings-caption.is-active {
-      opacity: 1;
+      transition: color var(--theme-transition-duration) var(--theme-transition-easing);
     }
 
     .drawings-caption-title {
@@ -1567,17 +1570,14 @@
       var slideshow = document.querySelector('[data-drawings-slideshow]');
       if (!slideshow) return;
 
-      var slides = Array.prototype.slice.call(slideshow.querySelectorAll('.drawings-slide'));
-      var captions = Array.prototype.slice.call(slideshow.querySelectorAll('.drawings-caption'));
+      var wraps = Array.prototype.slice.call(slideshow.querySelectorAll('.drawings-slide-wrap'));
       var lightbox = document.querySelector('[data-drawings-lightbox]');
       var current = 0;
 
       function showSlide(index) {
-        slides[current].classList.remove('is-active');
-        if (captions[current]) captions[current].classList.remove('is-active');
-        current = (index + slides.length) % slides.length;
-        slides[current].classList.add('is-active');
-        if (captions[current]) captions[current].classList.add('is-active');
+        wraps[current].classList.remove('is-active');
+        current = (index + wraps.length) % wraps.length;
+        wraps[current].classList.add('is-active');
       }
 
       slideshow.querySelectorAll('[data-drawings-control]').forEach(function (btn) {
@@ -1587,7 +1587,9 @@
         });
       });
 
-      slides.forEach(function (slide) {
+      wraps.forEach(function (wrap, i) {
+        var slide = wrap.querySelector('.drawings-slide');
+        if (!slide) return;
         slide.addEventListener('click', function () {
           if (!lightbox) return;
           var img = document.createElement('img');
@@ -1596,7 +1598,7 @@
           lightbox.innerHTML = '';
           lightbox.appendChild(img);
 
-          var captionEl = captions[current];
+          var captionEl = wrap.querySelector('.drawings-caption');
           if (captionEl) {
             var cap = document.createElement('div');
             cap.className = 'drawings-lightbox-caption';

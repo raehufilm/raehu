@@ -2833,7 +2833,7 @@ def render_drawings_slide(item: MediaItem, output_html: Path, index: int) -> str
         item,
         output_html,
         item.caption_title or "Drawing",
-        class_name=f"drawings-slide{' is-active' if index == 0 else ''}",
+        class_name="drawings-slide",
         loading="lazy" if index > 0 else "eager",
     )
     caption_parts = []
@@ -2847,13 +2847,14 @@ def render_drawings_slide(item: MediaItem, output_html: Path, index: int) -> str
         )
     caption_html = ""
     if caption_parts:
-        active_class = " is-active" if index == 0 else ""
         caption_html = (
-            f'\n          <figcaption class="drawings-caption{active_class}" '
-            f'data-drawings-caption="{index}">'
+            f'\n            <figcaption class="drawings-caption">'
             f'{" ".join(caption_parts)}</figcaption>'
         )
-    return f"          {img_html}{caption_html}"
+    active_class = " is-active" if index == 0 else ""
+    return f"""          <div class="drawings-slide-wrap{active_class}" data-drawings-slide="{index}">
+            {img_html}{caption_html}
+          </div>"""
 
 
 def render_drawings_section(
