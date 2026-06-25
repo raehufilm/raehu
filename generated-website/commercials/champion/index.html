@@ -388,10 +388,15 @@
 
     .note-slide {
       display: none;
+      position: relative;
+      z-index: 0;
+      pointer-events: none;
     }
 
     .note-slide.is-active {
       display: block;
+      z-index: 1;
+      pointer-events: auto;
     }
 
     .note-slide-media {
@@ -724,10 +729,12 @@
     .bts-slide {
       position: absolute;
       inset: 0;
+      z-index: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;
       opacity: 0;
+      pointer-events: none;
       transition: opacity 1s ease;
     }
 
@@ -736,7 +743,9 @@
     }
 
     .bts-slide.is-active {
+      z-index: 1;
       opacity: 1;
+      pointer-events: auto;
     }
 
     .bts-slide-control {

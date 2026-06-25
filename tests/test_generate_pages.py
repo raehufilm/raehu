@@ -418,6 +418,35 @@ class GeneratePagesTests(unittest.TestCase):
             template,
         )
 
+    def test_slideshow_layers_only_accept_pointer_events_when_active(self):
+        work_template = generate_pages.read_text(generate_pages.WORK_PAGE_TEMPLATE)
+        home_template = generate_pages.read_text(generate_pages.HOME_TEMPLATE)
+
+        def rule_body(template, selector):
+            match = re.search(
+                rf"{re.escape(selector)}\s*{{(?P<body>[^}}]+)}}",
+                template,
+                re.DOTALL,
+            )
+            self.assertIsNotNone(match, f"Missing CSS rule for {selector}")
+            return match.group("body")
+
+        slideshow_rules = (
+            (work_template, ".note-slide", ".note-slide.is-active"),
+            (work_template, ".bts-slide", ".bts-slide.is-active"),
+            (home_template, ".drawings-slide-wrap", ".drawings-slide-wrap.is-active"),
+        )
+
+        for template, inactive_selector, active_selector in slideshow_rules:
+            with self.subTest(inactive_selector=inactive_selector):
+                inactive_body = rule_body(template, inactive_selector)
+                active_body = rule_body(template, active_selector)
+
+                self.assertIn("pointer-events: none;", inactive_body)
+                self.assertIn("z-index: 0;", inactive_body)
+                self.assertIn("pointer-events: auto;", active_body)
+                self.assertIn("z-index: 1;", active_body)
+
     def test_templates_keep_justified_grid_fill_black_in_light_mode(self):
         home_template = generate_pages.read_text(generate_pages.HOME_TEMPLATE)
         work_template = generate_pages.read_text(generate_pages.WORK_PAGE_TEMPLATE)
