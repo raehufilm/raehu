@@ -777,13 +777,140 @@
       object-fit: contain;
     }
 
-    .portfolio-grid--drawings .works-grid-link {
-      max-height: 60svh;
+    .drawings-slideshow {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 60svh;
+      padding: 2rem var(--page-padding);
     }
 
-    .portfolio-grid--drawings .works-grid-link img,
-    .portfolio-grid--drawings .works-grid-link video {
+    .drawings-slide {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      max-width: calc(100% - 8rem);
+      max-height: 75svh;
+      width: auto;
+      height: auto;
       object-fit: contain;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+      pointer-events: none;
+      cursor: pointer;
+    }
+
+    .drawings-slide.is-active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .drawings-caption {
+      position: absolute;
+      bottom: 1.5rem;
+      right: 2rem;
+      text-align: right;
+      font-family: 'EB Garamond', serif;
+      color: var(--muted-text);
+      opacity: 0;
+      transition: opacity 0.6s ease, color var(--theme-transition-duration) var(--theme-transition-easing);
+    }
+
+    .drawings-caption.is-active {
+      opacity: 1;
+    }
+
+    .drawings-caption-title {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--text-color);
+      transition: color var(--theme-transition-duration) var(--theme-transition-easing);
+    }
+
+    .drawings-caption-text {
+      font-size: 0.85rem;
+      margin-left: 0.5rem;
+    }
+
+    .drawings-control {
+      position: absolute;
+      top: 50%;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.75rem;
+      height: 2.75rem;
+      border: 0;
+      background: transparent;
+      color: var(--text-color);
+      cursor: pointer;
+      opacity: 0;
+      padding: 0;
+      transform: translateY(-50%);
+      transition: opacity 0.25s ease, color var(--theme-transition-duration) var(--theme-transition-easing);
+    }
+
+    .drawings-control--prev { left: 1rem; }
+    .drawings-control--next { right: 1rem; }
+
+    .drawings-slideshow:hover .drawings-control {
+      opacity: 1;
+    }
+
+    .drawings-control svg {
+      width: 2rem;
+      height: 2rem;
+      stroke: currentColor;
+      stroke-width: 1.35;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+
+    .drawings-lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      background: rgba(0, 0, 0, 0);
+      opacity: 0;
+      pointer-events: none;
+      transition: background 0.4s ease, opacity 0.4s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .drawings-lightbox.is-open {
+      background: rgba(0, 0, 0, 0.8);
+      opacity: 1;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    .drawings-lightbox img {
+      max-width: 90vw;
+      max-height: 90svh;
+      object-fit: contain;
+    }
+
+    .drawings-lightbox-caption {
+      position: absolute;
+      bottom: 1.5rem;
+      right: 2rem;
+      text-align: right;
+      font-family: 'EB Garamond', serif;
+    }
+
+    .drawings-lightbox-caption .drawings-caption-title {
+      color: #f4f1ec;
+    }
+
+    .drawings-lightbox-caption .drawings-caption-text {
+      color: rgba(244, 241, 236, 0.7);
     }
 
     .works-grid-title {
@@ -1477,31 +1604,27 @@
              data-work-category-section="drawings"
              data-section-title="drawings"
              aria-label="drawings">
-      <div class="works-index-grid-wrap">
-        <div class="portfolio-grid works-index-grid portfolio-grid--drawings"
-             data-grid-mode="justify"
-             data-seed="8"
-             data-justify-max-items="3"
-             data-justify-mobile-max-items="2">
-        <a class="works-grid-link media-hover-zoom" href="drawings/cait/" aria-label="Cait">
-          <img class="media-hover-zoom-target" width="1117" height="1118" data-aspect-ratio="0.999106" src="../editable-content/work/drawings/cait/highlight/1_drawing.webp" srcset="media/editable-content/work/drawings/cait/highlight/1_drawing-480.webp 480w, media/editable-content/work/drawings/cait/highlight/1_drawing-960.webp 960w, media/editable-content/work/drawings/cait/highlight/1_drawing-1440.webp 1440w, media/editable-content/work/drawings/cait/highlight/1_drawing-1920.webp 1920w" sizes="(max-width: 900px) 100vw, 33vw" alt="Cait highlight preview" loading="eager" decoding="async">
-          <span class="works-grid-title">
-            <span class="works-grid-title-text">Cait</span>
-            <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <div class="drawings-slideshow" data-drawings-slideshow>
+          <img class="drawings-slide is-active" width="1117" height="1118" data-aspect-ratio="0.999106" src="../editable-content/work/drawings/cait/highlight/1_drawing.webp" srcset="media/editable-content/work/drawings/cait/highlight/1_drawing-480.webp 480w, media/editable-content/work/drawings/cait/highlight/1_drawing-960.webp 960w, media/editable-content/work/drawings/cait/highlight/1_drawing-1440.webp 1440w, media/editable-content/work/drawings/cait/highlight/1_drawing-1920.webp 1920w" sizes="100vw" alt="cait" loading="eager" decoding="async">
+          <figcaption class="drawings-caption is-active" data-drawings-caption="0"><span class="drawings-caption-title">cait</span> <span class="drawings-caption-text">2025</span></figcaption>
+          <img class="drawings-slide" width="894" height="1288" data-aspect-ratio="0.694099" src="../editable-content/work/drawings/mia/highlight/1_drwaing.webp" srcset="media/editable-content/work/drawings/mia/highlight/1_drwaing-480.webp 480w, media/editable-content/work/drawings/mia/highlight/1_drwaing-960.webp 960w, media/editable-content/work/drawings/mia/highlight/1_drwaing-1440.webp 1440w, media/editable-content/work/drawings/mia/highlight/1_drwaing-1920.webp 1920w" sizes="100vw" alt="Mia" loading="lazy" decoding="async">
+          <figcaption class="drawings-caption" data-drawings-caption="1"><span class="drawings-caption-title">Mia</span> <span class="drawings-caption-text">2026</span></figcaption>
+          <button class="drawings-control drawings-control--prev"
+                  type="button"
+                  data-drawings-control="prev"
+                  aria-label="Previous drawing">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path class="interactive-chevron interactive-chevron--left" d="M15 18l-6-6 6-6"></path>
+            </svg>
+          </button>
+          <button class="drawings-control drawings-control--next"
+                  type="button"
+                  data-drawings-control="next"
+                  aria-label="Next drawing">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
               <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
             </svg>
-          </span>
-        </a>
-        <a class="works-grid-link media-hover-zoom" href="drawings/mia/" aria-label="Mia">
-          <img class="media-hover-zoom-target" width="894" height="1288" data-aspect-ratio="0.694099" src="../editable-content/work/drawings/mia/highlight/1_drwaing.webp" srcset="media/editable-content/work/drawings/mia/highlight/1_drwaing-480.webp 480w, media/editable-content/work/drawings/mia/highlight/1_drwaing-960.webp 960w, media/editable-content/work/drawings/mia/highlight/1_drwaing-1440.webp 1440w, media/editable-content/work/drawings/mia/highlight/1_drwaing-1920.webp 1920w" sizes="(max-width: 900px) 100vw, 33vw" alt="Mia highlight preview" loading="eager" decoding="async">
-          <span class="works-grid-title">
-            <span class="works-grid-title-text">Mia</span>
-            <svg class="works-grid-title-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
-            </svg>
-          </span>
-        </a>
-        </div>
+          </button>
       </div>
     </section>
         <div class="clients-marquee fade-up" role="region" aria-label="Selected brand clients">
@@ -1579,6 +1702,8 @@
       </span>
     </div>
   </main>
+
+  <div class="drawings-lightbox" data-drawings-lightbox aria-hidden="true"></div>
 
   <script src="js/local-preview-links.js"></script>
   <script src="js/theme-toggle.js"></script>
@@ -1769,6 +1894,63 @@
       }, { threshold: 0.16 });
 
       elements.forEach(function (element) { observer.observe(element); });
+    })();
+  </script>
+
+  <script>
+    (function () {
+      var slideshow = document.querySelector('[data-drawings-slideshow]');
+      if (!slideshow) return;
+
+      var slides = Array.prototype.slice.call(slideshow.querySelectorAll('.drawings-slide'));
+      var captions = Array.prototype.slice.call(slideshow.querySelectorAll('.drawings-caption'));
+      var lightbox = document.querySelector('[data-drawings-lightbox]');
+      var current = 0;
+
+      function showSlide(index) {
+        slides[current].classList.remove('is-active');
+        if (captions[current]) captions[current].classList.remove('is-active');
+        current = (index + slides.length) % slides.length;
+        slides[current].classList.add('is-active');
+        if (captions[current]) captions[current].classList.add('is-active');
+      }
+
+      slideshow.querySelectorAll('[data-drawings-control]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var dir = btn.getAttribute('data-drawings-control');
+          showSlide(current + (dir === 'next' ? 1 : -1));
+        });
+      });
+
+      slides.forEach(function (slide) {
+        slide.addEventListener('click', function () {
+          if (!lightbox) return;
+          var img = document.createElement('img');
+          img.src = slide.currentSrc || slide.src;
+          img.alt = slide.alt || '';
+          lightbox.innerHTML = '';
+          lightbox.appendChild(img);
+
+          var captionEl = captions[current];
+          if (captionEl) {
+            var cap = document.createElement('div');
+            cap.className = 'drawings-lightbox-caption';
+            cap.innerHTML = captionEl.innerHTML;
+            lightbox.appendChild(cap);
+          }
+
+          lightbox.classList.add('is-open');
+          lightbox.setAttribute('aria-hidden', 'false');
+        });
+      });
+
+      if (lightbox) {
+        lightbox.addEventListener('click', function () {
+          lightbox.classList.remove('is-open');
+          lightbox.setAttribute('aria-hidden', 'true');
+          lightbox.innerHTML = '';
+        });
+      }
     })();
   </script>
 

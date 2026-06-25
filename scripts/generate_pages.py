@@ -1547,8 +1547,9 @@ def load_highlight_captions(
         title = None
         body_lines = []
         for i, line in enumerate(lines):
-            if line.strip().startswith("# ") and title is None:
-                title = line.strip()[2:].strip()
+            stripped = line.strip()
+            if stripped.startswith("#") and not stripped.startswith("##") and title is None:
+                title = stripped.lstrip("#").strip()
                 body_lines = lines[i + 1 :]
                 break
         caption_text = "\n".join(l for l in body_lines if l.strip()).strip() or None
@@ -2406,7 +2407,45 @@ def render_note_section(work: WorkContent, output_html: Path) -> str:
     </section>"""
 
 
+def render_drawing_gallery_item(item: MediaItem, output_html: Path, title: str) -> str:
+    media_html = media_tag(
+        item,
+        output_html,
+        f"{title}",
+        class_name="drawing-gallery-image",
+        image_loading="lazy",
+    )
+    caption_html = ""
+    if item.caption_title or item.caption_text:
+        parts = []
+        if item.caption_title:
+            parts.append(f'<span class="drawing-caption-title">{html_escape(item.caption_title)}</span>')
+        if item.caption_text:
+            parts.append(f'<span class="drawing-caption-text">{html_escape(item.caption_text)}</span>')
+        caption_html = f'\n          <figcaption class="drawing-caption">{" ".join(parts)}</figcaption>'
+    return f"""        <figure class="drawing-gallery-item">
+          {media_html}{caption_html}
+        </figure>"""
+
+
 def render_highlight_section(work: WorkContent, output_html: Path) -> str:
+    if work.category == "drawings":
+        gallery_lines = [
+            render_drawing_gallery_item(item, output_html, work.title)
+            for item in work.highlight_media
+        ]
+        gallery_html = "\n".join(gallery_lines)
+        return f"""    <section class="work-page work-page--highlight content-visibility-auto"
+             id="highlight"
+             data-section-page="highlight"
+             data-section-title="Highlight"
+             data-page-padding
+             aria-label="Highlight">
+      <div class="drawing-gallery">
+{gallery_html}
+      </div>
+    </section>"""
+
     media_lines = [
         "        " + render_highlight_tile(item, output_html, work.title)
         for item in work.highlight_media
@@ -2416,9 +2455,6 @@ def render_highlight_section(work: WorkContent, output_html: Path) -> str:
         len(work.highlight_media),
         f"{work.category}/{work.slug}",
     )
-    grid_class = "portfolio-grid"
-    if work.category == "drawings":
-        grid_class += " portfolio-grid--drawings"
     return f"""    <section class="work-page work-page--highlight content-visibility-auto"
              id="highlight"
              data-section-page="highlight"
@@ -2426,7 +2462,7 @@ def render_highlight_section(work: WorkContent, output_html: Path) -> str:
              data-page-padding
              aria-label="Highlight">
       <div class="grid-wrapper">
-        <div class="{html_escape(grid_class)}"
+        <div class="portfolio-grid"
              data-grid-mode="justify"
              data-layout="{html_escape(layout)}"
              data-justify-max-items="3"
@@ -2792,11 +2828,94 @@ def render_works_index_grid_item(work: WorkContent, output_html: Path) -> str:
         </a>"""
 
 
+def render_drawings_slide(item: MediaItem, output_html: Path, index: int) -> str:
+    img_html = image_tag(
+        item,
+        output_html,
+        item.caption_title or "Drawing",
+        class_name=f"drawings-slide{' is-active' if index == 0 else ''}",
+        loading="lazy" if index > 0 else "eager",
+    )
+    caption_parts = []
+    if item.caption_title:
+        caption_parts.append(
+            f'<span class="drawings-caption-title">{html_escape(item.caption_title)}</span>'
+        )
+    if item.caption_text:
+        caption_parts.append(
+            f'<span class="drawings-caption-text">{html_escape(item.caption_text)}</span>'
+        )
+    caption_html = ""
+    if caption_parts:
+        active_class = " is-active" if index == 0 else ""
+        caption_html = (
+            f'\n          <figcaption class="drawings-caption{active_class}" '
+            f'data-drawings-caption="{index}">'
+            f'{" ".join(caption_parts)}</figcaption>'
+        )
+    return f"          {img_html}{caption_html}"
+
+
+def render_drawings_section(
+    works: tuple[WorkContent, ...],
+    output_html: Path,
+) -> str:
+    all_items: list[MediaItem] = []
+    for work in works:
+        all_items.extend(work.highlight_media)
+
+    if not all_items:
+        return f"""    <section class="works-index-page fade-up"
+             id="drawings"
+             data-work-category-section="drawings"
+             data-section-title="{html_escape(category_label('drawings'))}"
+             aria-label="{html_escape(category_label('drawings'))}">
+      <p class="works-index-empty">Coming soon.</p>
+    </section>"""
+
+    slide_lines = [
+        render_drawings_slide(item, output_html, i)
+        for i, item in enumerate(all_items)
+    ]
+    controls = ""
+    if len(all_items) > 1:
+        controls = """
+          <button class="drawings-control drawings-control--prev"
+                  type="button"
+                  data-drawings-control="prev"
+                  aria-label="Previous drawing">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path class="interactive-chevron interactive-chevron--left" d="M15 18l-6-6 6-6"></path>
+            </svg>
+          </button>
+          <button class="drawings-control drawings-control--next"
+                  type="button"
+                  data-drawings-control="next"
+                  aria-label="Next drawing">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path class="interactive-chevron interactive-chevron--right" d="M9 6l6 6-6 6"></path>
+            </svg>
+          </button>"""
+
+    return f"""    <section class="works-index-page fade-up"
+             id="drawings"
+             data-work-category-section="drawings"
+             data-section-title="{html_escape(category_label('drawings'))}"
+             aria-label="{html_escape(category_label('drawings'))}">
+      <div class="drawings-slideshow" data-drawings-slideshow>
+{chr(10).join(slide_lines)}{controls}
+      </div>
+    </section>"""
+
+
 def render_works_index_section(
     category: str,
     works: tuple[WorkContent, ...],
     output_html: Path,
 ) -> str:
+    if category == "drawings":
+        return render_drawings_section(works, output_html)
+
     grid_items = "\n".join(
         render_works_index_grid_item(work, output_html)
         for work in works
@@ -2805,16 +2924,13 @@ def render_works_index_section(
     if not grid_items:
         empty = '        <p class="works-index-empty">Coming soon.</p>'
 
-    grid_class = "portfolio-grid works-index-grid"
-    if category == "drawings":
-        grid_class += " portfolio-grid--drawings"
     return f"""    <section class="works-index-page fade-up"
              id="{html_escape(category)}"
              data-work-category-section="{html_escape(category)}"
              data-section-title="{html_escape(category_label(category))}"
              aria-label="{html_escape(category_label(category))}">
       <div class="works-index-grid-wrap">
-        <div class="{html_escape(grid_class)}"
+        <div class="portfolio-grid works-index-grid"
              data-grid-mode="justify"
              data-seed="{len(category)}"
              data-justify-max-items="3"
@@ -3185,6 +3301,8 @@ def generate(check: bool = False, selected_slug: str | None = None) -> int:
             fetch_vimeo_thumbnails=not check,
         )
         works.append(work)
+        if work.category == "drawings":
+            continue
         output_html = work_output_html(work)
         rendered = render_work(work, work_template, output_html)
         failures += write_or_check(output_html, rendered, check)

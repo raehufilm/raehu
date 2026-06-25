@@ -423,12 +423,49 @@
       object-fit: contain;
     }
 
-    .portfolio-grid--drawings .highlight-tile {
-      max-height: 80svh;
+    .drawing-gallery {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4rem;
+      padding: 3rem var(--page-padding);
     }
 
-    .portfolio-grid--drawings .highlight-media {
+    .drawing-gallery-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      max-width: 100%;
+    }
+
+    .drawing-gallery-image {
+      max-width: 100%;
+      max-height: 85svh;
+      height: auto;
+      width: auto;
       object-fit: contain;
+      display: block;
+    }
+
+    .drawing-caption {
+      margin-top: 0.8rem;
+      text-align: right;
+      align-self: flex-end;
+      font-family: 'EB Garamond', serif;
+      color: var(--muted-text);
+      transition: color var(--theme-transition-duration) var(--theme-transition-easing);
+    }
+
+    .drawing-caption-title {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--text-color);
+      transition: color var(--theme-transition-duration) var(--theme-transition-easing);
+    }
+
+    .drawing-caption-text {
+      font-size: 0.85rem;
+      margin-left: 0.6rem;
     }
 
     .highlight-expand-button,
