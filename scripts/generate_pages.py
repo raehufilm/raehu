@@ -157,14 +157,14 @@ class WorkContent:
     trailer_embed_url: str | None
     trailer_poster_url: str | None
     note: NoteContent | None
-    note_media: MediaItem | None
+    note_media: tuple[MediaItem, ...]
     highlight_media: tuple[MediaItem, ...]
     bts_text_html: str | None
     bts_media: tuple[MediaItem, ...]
     category: str = ""
     note_video_url: str | None = None
     note_video_position: int = 2
-    note_caption: str | None = None
+    note_captions: dict[int, str] | None = None
     trailer_media: MediaItem | None = None
     grid_preview_media: MediaItem | None = None
     grid_display_media: MediaItem | None = None
@@ -241,7 +241,7 @@ def primary_link_file_for_section(section_name: str) -> str:
 
 
 def has_note_section(work: WorkContent) -> bool:
-    return work.note is not None or work.note_media is not None or work.note_video_url is not None
+    return work.note is not None or len(work.note_media) > 0 or work.note_video_url is not None
 
 
 def has_bts_section(work: WorkContent) -> bool:
@@ -1414,12 +1414,15 @@ def _is_note_caption(path: Path) -> bool:
     return path.name.endswith(NOTE_CAPTION_SUFFIX)
 
 
-def _load_note_caption(note_dir: Path) -> str | None:
+def _load_note_captions(note_dir: Path) -> dict[int, str] | None:
+    captions: dict[int, str] = {}
     for p in note_dir.iterdir():
         if p.is_file() and _is_note_caption(p) and not is_alternate_language_path(p):
             text = p.read_text(encoding="utf-8").strip()
-            return text if text else None
-    return None
+            if text:
+                index = content_index(p, "Note caption file")
+                captions[index] = text
+    return captions if captions else None
 
 
 def note_text_files(note_dir: Path) -> tuple[Path, ...]:
@@ -1505,28 +1508,19 @@ def validate_note_content(
     note_dir: Path,
     note: NoteContent | None,
     note_media: tuple[MediaItem, ...],
-) -> MediaItem | None:
-    if len(note_media) > 1:
-        raise PageGenerationError(
-            f"{note_dir} has multiple note media files. Keep exactly one numbered image/video file."
-        )
-
+) -> tuple[MediaItem, ...]:
     if not note_media:
-        return None
+        return ()
 
-    media = note_media[0]
     if note is not None:
-        if media.index not in {1, 2}:
-            raise PageGenerationError(
-                f"{media.path} uses position {media.index}. Note media must use 1_ for the left column "
-                "or 2_ for the right column."
-            )
-        if media.index == note.index:
-            raise PageGenerationError(
-                f"{note_dir} has note text and media both using {note.index}_. "
-                "Use 1_ for the left column and 2_ for the right column so each position is used once."
-            )
-    return media
+        text_col = note.index
+        for media in note_media:
+            if media.index == text_col:
+                raise PageGenerationError(
+                    f"{note_dir} has note text and media both using {media.index}_. "
+                    "Use 1_ for the left column and 2_ for the right column so each position is used once."
+                )
+    return note_media
 
 
 def ordered_media(
@@ -2106,16 +2100,16 @@ def load_work(
         primary_links = load_primary_links(primary_dir / "additional_links.md")
     note_dir = work_dir / "note"
     note: NoteContent | None = None
-    note_media_item: MediaItem | None = None
+    note_media_items: tuple[MediaItem, ...] = ()
     note_video_url: str | None = None
     note_video_position: int = 2
-    note_caption: str | None = None
+    note_captions: dict[int, str] | None = None
     if note_dir.is_dir():
         note = load_note_content(note_dir)
         video_link_result = _load_note_video_link(note_dir)
         if video_link_result:
             note_video_url, note_video_position = video_link_result
-        note_caption = _load_note_caption(note_dir)
+        note_captions = _load_note_captions(note_dir)
         note_media = ordered_media(
             note_dir,
             write_assets=write_assets,
@@ -2123,7 +2117,7 @@ def load_work(
             check_generated_assets=check_generated_assets,
             resolve_assets=resolve_assets,
         )
-        note_media_item = validate_note_content(note_dir, note, note_media)
+        note_media_items = validate_note_content(note_dir, note, note_media)
     highlight_dir = work_dir / "highlight"
     highlight_media = ordered_media(
         highlight_dir,
@@ -2177,10 +2171,10 @@ def load_work(
         trailer_embed_url=trailer_embed_url,
         trailer_poster_url=trailer_poster_url,
         note=note,
-        note_media=note_media_item,
+        note_media=note_media_items,
         note_video_url=note_video_url,
         note_video_position=note_video_position,
-        note_caption=note_caption,
+        note_captions=note_captions,
         highlight_media=highlight_media,
         bts_text_html=bts_text_html,
         bts_media=bts_media,
@@ -2440,25 +2434,56 @@ def render_note_text_block(note: NoteContent) -> str:
         </div>"""
 
 
-def _note_caption_html(caption: str | None) -> str:
-    if not caption:
+def _note_caption_html(captions: dict[int, str] | None, index: int) -> str:
+    if not captions or index not in captions:
         return ""
-    return f'\n          <figcaption class="note-media-caption">{html_escape(caption)}</figcaption>'
+    return f'\n            <figcaption class="note-media-caption">{html_escape(captions[index])}</figcaption>'
 
 
 def _note_media_block(work: WorkContent, output_html: Path) -> tuple[int, str] | None:
-    caption = _note_caption_html(work.note_caption)
-    if work.note_media is not None:
-        media_html = media_tag(work.note_media, output_html, work.title, class_name="work-header-image", video_controls=True)
-        position = work.note_media.index
+    captions = work.note_captions
+    if len(work.note_media) == 1:
+        item = work.note_media[0]
+        media_html = media_tag(item, output_html, work.title, class_name="work-header-image", video_controls=True)
+        caption = _note_caption_html(captions, item.index)
+        position = item.index
         pos_class = "left" if position == 1 else "right"
         block = f"""        <div class="work-header-image-wrap work-header-piece--{pos_class}">
           {media_html}{caption}
         </div>"""
         return position, block
+    if len(work.note_media) > 1:
+        position = work.note_media[0].index
+        pos_class = "left" if position == 1 else "right"
+        slides = []
+        for i, item in enumerate(work.note_media):
+            active = " is-active" if i == 0 else ""
+            m_html = media_tag(item, output_html, work.title, class_name="note-slide-media", video_controls=True)
+            cap = _note_caption_html(captions, item.index)
+            slides.append(
+                f'            <div class="note-slide{active}">\n'
+                f'              {m_html}{cap}\n'
+                f'            </div>'
+            )
+        controls = ""
+        if len(work.note_media) > 1:
+            controls = """
+            <button class="note-slide-control note-slide-control--prev" type="button" data-note-slide-control="prev" aria-label="Previous">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+            </button>
+            <button class="note-slide-control note-slide-control--next" type="button" data-note-slide-control="next" aria-label="Next">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+            </button>"""
+        block = f"""        <div class="work-header-image-wrap work-header-piece--{pos_class}">
+          <div class="note-slideshow" data-note-slideshow>
+{chr(10).join(slides)}{controls}
+          </div>
+        </div>"""
+        return position, block
     if work.note_video_url is not None:
         position = work.note_video_position
         pos_class = "left" if position == 1 else "right"
+        caption = _note_caption_html(captions, 0)
         block = f"""        <div class="work-header-image-wrap work-header-piece--{pos_class}">
           <div class="note-video-embed">
             <iframe src="{html_escape(work.note_video_url)}"
