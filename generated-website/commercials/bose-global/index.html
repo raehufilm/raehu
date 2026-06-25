@@ -1499,6 +1499,19 @@
           });
         });
 
+        var keepControlsTimer = null;
+        slideshow.addEventListener('mouseenter', function () {
+          keepControlsTimer = setInterval(function () {
+            var el = slides[current];
+            if (el.tagName === 'VIDEO') {
+              el.dispatchEvent(new MouseEvent('mousemove', {bubbles: true}));
+            }
+          }, 1000);
+        });
+        slideshow.addEventListener('mouseleave', function () {
+          clearInterval(keepControlsTimer);
+        });
+
         activateVideo(slides[current]);
         startTimer();
       });
