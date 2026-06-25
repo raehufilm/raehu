@@ -164,6 +164,7 @@ class WorkContent:
     category: str = ""
     note_video_url: str | None = None
     note_video_position: int = 2
+    note_caption: str | None = None
     trailer_media: MediaItem | None = None
     grid_preview_media: MediaItem | None = None
     grid_display_media: MediaItem | None = None
@@ -1402,8 +1403,23 @@ def media_index(path: Path) -> int:
 NOTE_VIDEO_LINK_SUFFIX = "_video_link.md"
 
 
+NOTE_CAPTION_SUFFIX = "_caption.md"
+
+
 def _is_note_video_link(path: Path) -> bool:
     return path.name.endswith(NOTE_VIDEO_LINK_SUFFIX) or path.name == "video_link.md"
+
+
+def _is_note_caption(path: Path) -> bool:
+    return path.name.endswith(NOTE_CAPTION_SUFFIX)
+
+
+def _load_note_caption(note_dir: Path) -> str | None:
+    for p in note_dir.iterdir():
+        if p.is_file() and _is_note_caption(p) and not is_alternate_language_path(p):
+            text = p.read_text(encoding="utf-8").strip()
+            return text if text else None
+    return None
 
 
 def note_text_files(note_dir: Path) -> tuple[Path, ...]:
@@ -1417,6 +1433,7 @@ def note_text_files(note_dir: Path) -> tuple[Path, ...]:
             and path.suffix.lower() == ".md"
             and path.name not in IGNORED_NAMES
             and not _is_note_video_link(path)
+            and not _is_note_caption(path)
             and not path.name.startswith(".")
             and not is_alternate_language_path(path)
         )
@@ -2092,11 +2109,13 @@ def load_work(
     note_media_item: MediaItem | None = None
     note_video_url: str | None = None
     note_video_position: int = 2
+    note_caption: str | None = None
     if note_dir.is_dir():
         note = load_note_content(note_dir)
         video_link_result = _load_note_video_link(note_dir)
         if video_link_result:
             note_video_url, note_video_position = video_link_result
+        note_caption = _load_note_caption(note_dir)
         note_media = ordered_media(
             note_dir,
             write_assets=write_assets,
@@ -2161,6 +2180,7 @@ def load_work(
         note_media=note_media_item,
         note_video_url=note_video_url,
         note_video_position=note_video_position,
+        note_caption=note_caption,
         highlight_media=highlight_media,
         bts_text_html=bts_text_html,
         bts_media=bts_media,
@@ -2420,13 +2440,20 @@ def render_note_text_block(note: NoteContent) -> str:
         </div>"""
 
 
+def _note_caption_html(caption: str | None) -> str:
+    if not caption:
+        return ""
+    return f'\n          <figcaption class="note-media-caption">{html_escape(caption)}</figcaption>'
+
+
 def _note_media_block(work: WorkContent, output_html: Path) -> tuple[int, str] | None:
+    caption = _note_caption_html(work.note_caption)
     if work.note_media is not None:
         media_html = media_tag(work.note_media, output_html, work.title, class_name="work-header-image", video_controls=True)
         position = work.note_media.index
         pos_class = "left" if position == 1 else "right"
         block = f"""        <div class="work-header-image-wrap work-header-piece--{pos_class}">
-          {media_html}
+          {media_html}{caption}
         </div>"""
         return position, block
     if work.note_video_url is not None:
@@ -2438,7 +2465,7 @@ def _note_media_block(work: WorkContent, output_html: Path) -> tuple[int, str] |
                     frameborder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowfullscreen></iframe>
-          </div>
+          </div>{caption}
         </div>"""
         return position, block
     return None
