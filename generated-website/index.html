@@ -513,6 +513,10 @@
 
     .about-text p + p { margin-top: 1.25rem; }
 
+    [data-language-content="cn"].about-text {
+      font-size: 0.95rem;
+    }
+
     .about-contact-list {
       display: flex;
       flex-direction: column;
@@ -549,10 +553,11 @@
     .about-image-wrap {
       position: relative;
       width: 100%;
-      max-width: 32rem;
+      max-width: 30rem;
       justify-self: end;
       align-self: stretch;
       min-height: 100%;
+      margin-right: var(--page-padding);
       overflow: hidden;
       background: var(--tile-bg);
     }
