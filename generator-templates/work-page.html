@@ -396,6 +396,7 @@
 
     .note-slide-control {
       position: absolute;
+      top: 50%;
       transform: translateY(-50%);
       z-index: 2;
       display: flex;
@@ -1341,26 +1342,12 @@
           if (vid) { vid.pause(); vid.currentTime = 0; }
         }
 
-        var prevBtn = slideshow.querySelector('.note-slide-control--prev');
-        var nextBtn = slideshow.querySelector('.note-slide-control--next');
-
-        function positionControls() {
-          var media = slides[current].querySelector('.note-slide-media');
-          if (!media) return;
-          var sRect = slideshow.getBoundingClientRect();
-          var mRect = media.getBoundingClientRect();
-          var midY = (mRect.top - sRect.top) + mRect.height / 2;
-          if (prevBtn) prevBtn.style.top = midY + 'px';
-          if (nextBtn) nextBtn.style.top = midY + 'px';
-        }
-
         function showSlide(nextIndex) {
           pauseVideo(slides[current]);
           slides[current].classList.remove('is-active');
           current = (nextIndex + slides.length) % slides.length;
           slides[current].classList.add('is-active');
           activateVideo(slides[current]);
-          positionControls();
         }
 
         slideshow.querySelectorAll('[data-note-slide-control]').forEach(function (control) {
@@ -1371,8 +1358,6 @@
         });
 
         activateVideo(slides[current]);
-        positionControls();
-        window.addEventListener('resize', positionControls);
       });
     })();
 
