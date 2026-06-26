@@ -1759,6 +1759,7 @@ def video_tag(
     lazy: bool = True,
     preload: str = "none",
     muted: bool = True,
+    loop: bool = True,
 ) -> str:
     src = output_relative_url(output_html, item.path)
     class_attr = f' class="{class_name}"' if class_name else ""
@@ -1766,9 +1767,10 @@ def video_tag(
     controls_attr = " controls" if controls else ""
     muted_attr = " muted" if muted else ""
     autoplay_attr = " autoplay" if autoplay and not lazy else ""
+    loop_attr = " loop" if loop else ""
     src_attr = f' data-src="{src}" data-lazy-video' if lazy else f' src="{src}"'
     return (
-        f'<video{class_attr}{dimension_attrs}{src_attr}{muted_attr} playsinline{autoplay_attr} loop{controls_attr} '
+        f'<video{class_attr}{dimension_attrs}{src_attr}{muted_attr} playsinline{autoplay_attr}{loop_attr}{controls_attr} '
         f'preload="{html_escape(preload)}" '
         f'aria-label="{html_escape(label)}"></video>'
     )
@@ -1805,6 +1807,7 @@ def media_tag(
     video_preload: str = "none",
     video_controls: bool = False,
     video_muted: bool = True,
+    video_loop: bool = True,
 ) -> str:
     class_attr = ""
     if class_name:
@@ -1830,6 +1833,7 @@ def media_tag(
         preload=video_preload,
         controls=video_controls,
         muted=video_muted,
+        loop=video_loop,
     )
 
 
@@ -2688,6 +2692,7 @@ def render_bts_slideshow(work: WorkContent, output_html: Path) -> str:
             class_name="bts-slide",
             active=index == 0,
             video_controls=True,
+            video_loop=False,
         )
         for index, item in enumerate(work.bts_media)
     ]

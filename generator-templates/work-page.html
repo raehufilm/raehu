@@ -388,15 +388,10 @@
 
     .note-slide {
       display: none;
-      position: relative;
-      z-index: 0;
-      pointer-events: none;
     }
 
     .note-slide.is-active {
       display: block;
-      z-index: 1;
-      pointer-events: auto;
     }
 
     .note-slide-media {
@@ -721,31 +716,22 @@
 
     .bts-slideshow {
       position: relative;
-      min-height: calc(100vh - var(--site-header-height) - var(--page-padding-top, var(--page-padding)) - var(--page-padding));
       overflow: hidden;
       background: var(--bg-color);
     }
 
     .bts-slide {
-      position: absolute;
-      inset: 0;
-      z-index: 0;
+      display: none;
       width: 100%;
-      height: 100%;
-      object-fit: cover;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 1s ease;
+      height: auto;
     }
 
-    video.bts-slide {
-      object-fit: contain;
+    .bts-slideshow:hover video.bts-slide::-webkit-media-controls-panel {
+      opacity: 1 !important;
     }
 
     .bts-slide.is-active {
-      z-index: 1;
-      opacity: 1;
-      pointer-events: auto;
+      display: block;
     }
 
     .bts-slide-control {
@@ -956,17 +942,6 @@
 
       .bts-slideshow {
         width: 100%;
-        height: auto;
-        min-height: 0;
-        aspect-ratio: 16 / 9;
-      }
-
-      .bts-slide {
-        object-fit: cover;
-      }
-
-      video.bts-slide {
-        object-fit: contain;
       }
 
       .bts-slide-control {
@@ -1286,6 +1261,7 @@
 
         var current = 0;
         var timer = null;
+        var hovered = false;
 
         function activateVideo(el) {
           if (el.tagName !== 'VIDEO') return;
@@ -1301,44 +1277,52 @@
           if (el.tagName === 'VIDEO') { el.pause(); el.currentTime = 0; }
         }
 
+        function onVideoEnded() { if (!hovered) showSlide(current + 1); }
+
         function showSlide(nextIndex) {
-          pauseVideo(slides[current]);
-          slides[current].classList.remove('is-active');
+          var prev = slides[current];
+          if (prev.tagName === 'VIDEO') prev.removeEventListener('ended', onVideoEnded);
+          pauseVideo(prev);
+          prev.classList.remove('is-active');
           current = (nextIndex + slides.length) % slides.length;
           slides[current].classList.add('is-active');
           activateVideo(slides[current]);
+          scheduleAdvance();
         }
 
-        function startTimer() {
+        function scheduleAdvance() {
           window.clearInterval(timer);
-          timer = window.setInterval(function () {
-            showSlide(current + 1);
-          }, 3500);
+          timer = null;
+          if (hovered) return;
+          var el = slides[current];
+          if (el.tagName === 'VIDEO') {
+            el.addEventListener('ended', onVideoEnded);
+          } else {
+            timer = window.setInterval(function () { showSlide(current + 1); }, 3500);
+          }
         }
 
         slideshow.querySelectorAll('[data-bts-slide-control]').forEach(function (control) {
           control.addEventListener('click', function () {
             var direction = control.getAttribute('data-bts-slide-control');
             showSlide(current + (direction === 'next' ? 1 : -1));
-            startTimer();
           });
         });
 
-        var keepControlsTimer = null;
         slideshow.addEventListener('mouseenter', function () {
-          keepControlsTimer = setInterval(function () {
-            var el = slides[current];
-            if (el.tagName === 'VIDEO') {
-              el.dispatchEvent(new MouseEvent('mousemove', {bubbles: true}));
-            }
-          }, 1000);
+          hovered = true;
+          window.clearInterval(timer);
+          timer = null;
+          var el = slides[current];
+          if (el.tagName === 'VIDEO') el.removeEventListener('ended', onVideoEnded);
         });
         slideshow.addEventListener('mouseleave', function () {
-          clearInterval(keepControlsTimer);
+          hovered = false;
+          scheduleAdvance();
         });
 
         activateVideo(slides[current]);
-        startTimer();
+        scheduleAdvance();
       });
     })();
 

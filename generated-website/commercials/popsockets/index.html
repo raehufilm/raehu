@@ -388,15 +388,10 @@
 
     .note-slide {
       display: none;
-      position: relative;
-      z-index: 0;
-      pointer-events: none;
     }
 
     .note-slide.is-active {
       display: block;
-      z-index: 1;
-      pointer-events: auto;
     }
 
     .note-slide-media {
@@ -721,31 +716,22 @@
 
     .bts-slideshow {
       position: relative;
-      min-height: calc(100vh - var(--site-header-height) - var(--page-padding-top, var(--page-padding)) - var(--page-padding));
       overflow: hidden;
       background: var(--bg-color);
     }
 
     .bts-slide {
-      position: absolute;
-      inset: 0;
-      z-index: 0;
+      display: none;
       width: 100%;
-      height: 100%;
-      object-fit: cover;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 1s ease;
+      height: auto;
     }
 
-    video.bts-slide {
-      object-fit: contain;
+    .bts-slideshow:hover video.bts-slide::-webkit-media-controls-panel {
+      opacity: 1 !important;
     }
 
     .bts-slide.is-active {
-      z-index: 1;
-      opacity: 1;
-      pointer-events: auto;
+      display: block;
     }
 
     .bts-slide-control {
@@ -956,17 +942,6 @@
 
       .bts-slideshow {
         width: 100%;
-        height: auto;
-        min-height: 0;
-        aspect-ratio: 16 / 9;
-      }
-
-      .bts-slide {
-        object-fit: cover;
-      }
-
-      video.bts-slide {
-        object-fit: contain;
       }
 
       .bts-slide-control {
@@ -1235,9 +1210,9 @@
           <img class="bts-slide" width="1920" height="1440" data-aspect-ratio="1.333333" src="../../../editable-content/work/commercials/popsockets/bts/2_IMG_6471.webp" srcset="../../media/editable-content/work/commercials/popsockets/bts/2_IMG_6471-480.webp 480w, ../../media/editable-content/work/commercials/popsockets/bts/2_IMG_6471-960.webp 960w, ../../media/editable-content/work/commercials/popsockets/bts/2_IMG_6471-1440.webp 1440w, ../../media/editable-content/work/commercials/popsockets/bts/2_IMG_6471-1920.webp 1920w" sizes="100vw" alt="Popsockets behind the scenes" loading="lazy" decoding="async">
           <img class="bts-slide" width="1920" height="1440" data-aspect-ratio="1.333333" src="../../../editable-content/work/commercials/popsockets/bts/3_IMG_6472.webp" srcset="../../media/editable-content/work/commercials/popsockets/bts/3_IMG_6472-480.webp 480w, ../../media/editable-content/work/commercials/popsockets/bts/3_IMG_6472-960.webp 960w, ../../media/editable-content/work/commercials/popsockets/bts/3_IMG_6472-1440.webp 1440w, ../../media/editable-content/work/commercials/popsockets/bts/3_IMG_6472-1920.webp 1920w" sizes="100vw" alt="Popsockets behind the scenes" loading="lazy" decoding="async">
           <img class="bts-slide" width="1920" height="2560" data-aspect-ratio="0.750000" src="../../../editable-content/work/commercials/popsockets/bts/4_IMG_6518.webp" srcset="../../media/editable-content/work/commercials/popsockets/bts/4_IMG_6518-480.webp 480w, ../../media/editable-content/work/commercials/popsockets/bts/4_IMG_6518-960.webp 960w, ../../media/editable-content/work/commercials/popsockets/bts/4_IMG_6518-1440.webp 1440w, ../../media/editable-content/work/commercials/popsockets/bts/4_IMG_6518-1920.webp 1920w" sizes="100vw" alt="Popsockets behind the scenes" loading="lazy" decoding="async">
-          <video class="bts-slide" data-src="../../../editable-content/work/commercials/popsockets/bts/5_IMG_6480.mp4" data-lazy-video muted playsinline loop controls preload="none" aria-label="Popsockets behind the scenes"></video>
+          <video class="bts-slide" data-src="../../../editable-content/work/commercials/popsockets/bts/5_IMG_6480.mp4" data-lazy-video muted playsinline controls preload="none" aria-label="Popsockets behind the scenes"></video>
           <img class="bts-slide" width="1920" height="1440" data-aspect-ratio="1.333333" src="../../../editable-content/work/commercials/popsockets/bts/6_IMG_6509.webp" srcset="../../media/editable-content/work/commercials/popsockets/bts/6_IMG_6509-480.webp 480w, ../../media/editable-content/work/commercials/popsockets/bts/6_IMG_6509-960.webp 960w, ../../media/editable-content/work/commercials/popsockets/bts/6_IMG_6509-1440.webp 1440w, ../../media/editable-content/work/commercials/popsockets/bts/6_IMG_6509-1920.webp 1920w" sizes="100vw" alt="Popsockets behind the scenes" loading="lazy" decoding="async">
-          <video class="bts-slide" data-src="../../../editable-content/work/commercials/popsockets/bts/7_Cadrage_2023-07-19_19-02-18.mp4" data-lazy-video muted playsinline loop controls preload="none" aria-label="Popsockets behind the scenes"></video>
+          <video class="bts-slide" data-src="../../../editable-content/work/commercials/popsockets/bts/7_Cadrage_2023-07-19_19-02-18.mp4" data-lazy-video muted playsinline controls preload="none" aria-label="Popsockets behind the scenes"></video>
           <button class="bts-slide-control bts-slide-control--prev"
                   type="button"
                   data-bts-slide-control="prev"
@@ -1530,6 +1505,7 @@
 
         var current = 0;
         var timer = null;
+        var hovered = false;
 
         function activateVideo(el) {
           if (el.tagName !== 'VIDEO') return;
@@ -1545,44 +1521,52 @@
           if (el.tagName === 'VIDEO') { el.pause(); el.currentTime = 0; }
         }
 
+        function onVideoEnded() { if (!hovered) showSlide(current + 1); }
+
         function showSlide(nextIndex) {
-          pauseVideo(slides[current]);
-          slides[current].classList.remove('is-active');
+          var prev = slides[current];
+          if (prev.tagName === 'VIDEO') prev.removeEventListener('ended', onVideoEnded);
+          pauseVideo(prev);
+          prev.classList.remove('is-active');
           current = (nextIndex + slides.length) % slides.length;
           slides[current].classList.add('is-active');
           activateVideo(slides[current]);
+          scheduleAdvance();
         }
 
-        function startTimer() {
+        function scheduleAdvance() {
           window.clearInterval(timer);
-          timer = window.setInterval(function () {
-            showSlide(current + 1);
-          }, 3500);
+          timer = null;
+          if (hovered) return;
+          var el = slides[current];
+          if (el.tagName === 'VIDEO') {
+            el.addEventListener('ended', onVideoEnded);
+          } else {
+            timer = window.setInterval(function () { showSlide(current + 1); }, 3500);
+          }
         }
 
         slideshow.querySelectorAll('[data-bts-slide-control]').forEach(function (control) {
           control.addEventListener('click', function () {
             var direction = control.getAttribute('data-bts-slide-control');
             showSlide(current + (direction === 'next' ? 1 : -1));
-            startTimer();
           });
         });
 
-        var keepControlsTimer = null;
         slideshow.addEventListener('mouseenter', function () {
-          keepControlsTimer = setInterval(function () {
-            var el = slides[current];
-            if (el.tagName === 'VIDEO') {
-              el.dispatchEvent(new MouseEvent('mousemove', {bubbles: true}));
-            }
-          }, 1000);
+          hovered = true;
+          window.clearInterval(timer);
+          timer = null;
+          var el = slides[current];
+          if (el.tagName === 'VIDEO') el.removeEventListener('ended', onVideoEnded);
         });
         slideshow.addEventListener('mouseleave', function () {
-          clearInterval(keepControlsTimer);
+          hovered = false;
+          scheduleAdvance();
         });
 
         activateVideo(slides[current]);
-        startTimer();
+        scheduleAdvance();
       });
     })();
 
