@@ -411,9 +411,6 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertIn(
             "      .bts-slideshow {\n"
             "        width: 100%;\n"
-            "        height: auto;\n"
-            "        min-height: 0;\n"
-            "        aspect-ratio: 16 / 9;\n"
             "      }",
             template,
         )
@@ -431,13 +428,11 @@ class GeneratePagesTests(unittest.TestCase):
             self.assertIsNotNone(match, f"Missing CSS rule for {selector}")
             return match.group("body")
 
-        slideshow_rules = (
-            (work_template, ".note-slide", ".note-slide.is-active"),
-            (work_template, ".bts-slide", ".bts-slide.is-active"),
+        stacked_slideshow_rules = (
             (home_template, ".drawings-slide-wrap", ".drawings-slide-wrap.is-active"),
         )
 
-        for template, inactive_selector, active_selector in slideshow_rules:
+        for template, inactive_selector, active_selector in stacked_slideshow_rules:
             with self.subTest(inactive_selector=inactive_selector):
                 inactive_body = rule_body(template, inactive_selector)
                 active_body = rule_body(template, active_selector)
@@ -446,6 +441,19 @@ class GeneratePagesTests(unittest.TestCase):
                 self.assertIn("z-index: 0;", inactive_body)
                 self.assertIn("pointer-events: auto;", active_body)
                 self.assertIn("z-index: 1;", active_body)
+
+        display_slideshow_rules = (
+            (work_template, ".bts-slide", ".bts-slide.is-active"),
+            (work_template, ".note-slide", ".note-slide.is-active"),
+        )
+
+        for template, inactive_selector, active_selector in display_slideshow_rules:
+            with self.subTest(inactive_selector=inactive_selector):
+                inactive_body = rule_body(template, inactive_selector)
+                active_body = rule_body(template, active_selector)
+
+                self.assertIn("display: none;", inactive_body)
+                self.assertIn("display: block;", active_body)
 
     def test_templates_keep_justified_grid_fill_black_in_light_mode(self):
         home_template = generate_pages.read_text(generate_pages.HOME_TEMPLATE)
