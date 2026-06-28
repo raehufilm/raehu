@@ -711,19 +711,20 @@
       gap: var(--page-padding);
       min-height: calc(100vh - var(--site-header-height));
       padding: var(--page-padding-top, var(--page-padding)) var(--page-padding) var(--page-padding);
-      align-items: stretch;
+      align-items: start;
     }
 
     .bts-slideshow {
+      --bts-stage-max-height: calc(
+        100svh - var(--site-header-height) - var(--page-padding-top, var(--page-padding)) - var(--page-padding)
+      );
       position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 100%;
-      aspect-ratio: 16 / 9;
-      max-height: calc(
-        100svh - var(--site-header-height) - var(--page-padding-top, var(--page-padding)) - var(--page-padding)
-      );
+      align-self: start;
+      width: min(100%, calc(var(--bts-stage-max-height) * 1.5));
+      aspect-ratio: 3 / 2;
       overflow: hidden;
       background: transparent;
     }
@@ -965,9 +966,10 @@
       }
 
       .bts-slideshow {
-        max-height: calc(
+        --bts-stage-max-height: calc(
           100svh - var(--site-header-height) - var(--mobile-section-tracker-height) - var(--page-padding) - var(--page-padding)
         );
+        width: 100%;
       }
 
       .bts-slide-control {

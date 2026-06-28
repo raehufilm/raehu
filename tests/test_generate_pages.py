@@ -433,9 +433,10 @@ class GeneratePagesTests(unittest.TestCase):
         )
         self.assertIn(
             "      .bts-slideshow {\n"
-            "        max-height: calc(\n"
+            "        --bts-stage-max-height: calc(\n"
             "          100svh - var(--site-header-height) - var(--mobile-section-tracker-height) - var(--page-padding) - var(--page-padding)\n"
             "        );\n"
+            "        width: 100%;\n"
             "      }",
             template,
         )
@@ -458,14 +459,18 @@ class GeneratePagesTests(unittest.TestCase):
         video_slide_body = rule_body("video.bts-slide")
         control_body = rule_body(".bts-slide-control")
         tracker_link_body = rule_body(".section-tracker a")
+        layout_body = rule_body(".bts-layout")
 
+        self.assertIn("align-items: start;", layout_body)
         self.assertIn("display: flex;", slideshow_body)
         self.assertIn("align-items: center;", slideshow_body)
         self.assertIn("justify-content: center;", slideshow_body)
-        self.assertIn("width: 100%;", slideshow_body)
-        self.assertIn("aspect-ratio: 16 / 9;", slideshow_body)
-        self.assertIn("max-height: calc(", slideshow_body)
+        self.assertIn("align-self: start;", slideshow_body)
+        self.assertIn("width: min(100%, calc(var(--bts-stage-max-height) * 1.5));", slideshow_body)
+        self.assertIn("aspect-ratio: 3 / 2;", slideshow_body)
+        self.assertIn("--bts-stage-max-height: calc(", slideshow_body)
         self.assertNotRegex(slideshow_body, r"(?m)^\s*height:\s*calc\(")
+        self.assertNotRegex(slideshow_body, r"(?m)^\s*max-height:")
         self.assertNotIn("min-height:", slideshow_body)
         self.assertIn("background: transparent;", slideshow_body)
         self.assertIn("max-width: 100%;", slide_body)
