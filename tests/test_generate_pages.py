@@ -397,6 +397,29 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertIn("max-width: 100%;", inner_rule.group("body"))
         self.assertIn("min-width: 0;", inner_rule.group("body"))
 
+    def test_home_template_text_containers_have_glyph_safe_line_boxes(self):
+        template = generate_pages.read_text(generate_pages.HOME_TEMPLATE)
+
+        def rule_body(selector):
+            match = re.search(
+                rf"{re.escape(selector)}\s*{{(?P<body>[^}}]+)}}",
+                template,
+                re.DOTALL,
+            )
+            self.assertIsNotNone(match, f"Missing CSS rule for {selector}")
+            return match.group("body")
+
+        tracker_link_body = rule_body(".section-tracker a")
+        expanded_subtracker_body = rule_body(
+            '.section-tracker[data-active-section="work"] .section-subtracker'
+        )
+        works_title_body = rule_body(".works-grid-title")
+
+        self.assertIn("line-height: 1.25;", tracker_link_body)
+        self.assertIn("max-height: 5rem;", expanded_subtracker_body)
+        self.assertIn("overflow: hidden;", works_title_body)
+        self.assertIn("line-height: 1.18;", works_title_body)
+
     def test_work_template_mobile_bts_stack_does_not_keep_desktop_min_height(self):
         template = generate_pages.read_text(generate_pages.WORK_PAGE_TEMPLATE)
 
