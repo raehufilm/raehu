@@ -433,11 +433,9 @@ class GeneratePagesTests(unittest.TestCase):
         )
         self.assertIn(
             "      .bts-slideshow {\n"
-            "        width: 100%;\n"
-            "        height: calc(\n"
+            "        max-height: calc(\n"
             "          100svh - var(--site-header-height) - var(--mobile-section-tracker-height) - var(--page-padding) - var(--page-padding)\n"
             "        );\n"
-            "        min-height: 18rem;\n"
             "      }",
             template,
         )
@@ -456,22 +454,35 @@ class GeneratePagesTests(unittest.TestCase):
 
         slideshow_body = rule_body(".bts-slideshow")
         slide_body = rule_body(".bts-slide")
+        image_slide_body = rule_body("img.bts-slide")
+        video_slide_body = rule_body("video.bts-slide")
         control_body = rule_body(".bts-slide-control")
         tracker_link_body = rule_body(".section-tracker a")
 
         self.assertIn("display: flex;", slideshow_body)
         self.assertIn("align-items: center;", slideshow_body)
         self.assertIn("justify-content: center;", slideshow_body)
-        self.assertIn("height: calc(", slideshow_body)
-        self.assertIn("min-height: 28rem;", slideshow_body)
-        self.assertIn("background: var(--media-bg);", slideshow_body)
-        self.assertIn("height: 100%;", slide_body)
+        self.assertIn("width: 100%;", slideshow_body)
+        self.assertIn("aspect-ratio: 16 / 9;", slideshow_body)
+        self.assertIn("max-height: calc(", slideshow_body)
+        self.assertNotRegex(slideshow_body, r"(?m)^\s*height:\s*calc\(")
+        self.assertNotIn("min-height:", slideshow_body)
+        self.assertIn("background: transparent;", slideshow_body)
+        self.assertIn("max-width: 100%;", slide_body)
+        self.assertIn("max-height: 100%;", slide_body)
         self.assertIn("object-fit: contain;", slide_body)
         self.assertIn("object-position: center;", slide_body)
-        self.assertIn("background: var(--media-bg);", slide_body)
+        self.assertIn("background: transparent;", slide_body)
+        self.assertIn("width: 100%;", image_slide_body)
+        self.assertIn("height: 100%;", image_slide_body)
+        self.assertIn("max-width: 100%;", video_slide_body)
+        self.assertIn("max-height: 100%;", video_slide_body)
+        self.assertIn("width: auto;", video_slide_body)
+        self.assertIn("height: auto;", video_slide_body)
         self.assertIn("top: 50%;", control_body)
         self.assertIn("transform: translateY(-50%);", control_body)
         self.assertIn("color: var(--overlay-text-color);", control_body)
+        self.assertIn("filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.75));", control_body)
         self.assertIn("line-height: 1.25;", tracker_link_body)
 
     def test_slideshow_layers_only_accept_pointer_events_when_active(self):
@@ -2364,6 +2375,32 @@ console.log(JSON.stringify(results));
             self.assertIn("bts-spacer", rendered)
             self.assertIn("bts-slideshow", rendered)
             self.assertNotIn("bts-copy", rendered)
+
+    def test_bts_video_slideshow_preserves_native_controls(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_html = root / "generated-website" / "films" / "video-bts" / "index.html"
+            media = root / "editable-content" / "work" / "films" / "video-bts" / "bts" / "1_bts.mp4"
+            work = generate_pages.WorkContent(
+                slug="video-bts",
+                title="Video BTS",
+                trailer_embed_url=None,
+                trailer_poster_url=None,
+                note=None,
+                note_media=(),
+                highlight_media=(),
+                bts_text_html=None,
+                bts_media=(generate_pages.MediaItem(1, media, "video"),),
+                category="films",
+            )
+
+            rendered = generate_pages.render_bts_slideshow(work, output_html)
+
+        self.assertIn('<video class="bts-slide is-active"', rendered)
+        self.assertIn("data-lazy-video", rendered)
+        self.assertIn(" controls ", rendered)
+        self.assertIn('preload="none"', rendered)
+        self.assertNotIn(" loop", rendered)
 
     def test_generate_writes_category_source_to_public_work_page(self):
         with tempfile.TemporaryDirectory() as tmp:
