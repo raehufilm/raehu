@@ -434,9 +434,45 @@ class GeneratePagesTests(unittest.TestCase):
         self.assertIn(
             "      .bts-slideshow {\n"
             "        width: 100%;\n"
+            "        height: calc(\n"
+            "          100svh - var(--site-header-height) - var(--mobile-section-tracker-height) - var(--page-padding) - var(--page-padding)\n"
+            "        );\n"
+            "        min-height: 18rem;\n"
             "      }",
             template,
         )
+
+    def test_work_template_bts_slideshow_centers_media_in_stable_stage(self):
+        template = generate_pages.read_text(generate_pages.WORK_PAGE_TEMPLATE)
+
+        def rule_body(selector):
+            match = re.search(
+                rf"{re.escape(selector)}\s*{{(?P<body>[^}}]+)}}",
+                template,
+                re.DOTALL,
+            )
+            self.assertIsNotNone(match, f"Missing CSS rule for {selector}")
+            return match.group("body")
+
+        slideshow_body = rule_body(".bts-slideshow")
+        slide_body = rule_body(".bts-slide")
+        control_body = rule_body(".bts-slide-control")
+        tracker_link_body = rule_body(".section-tracker a")
+
+        self.assertIn("display: flex;", slideshow_body)
+        self.assertIn("align-items: center;", slideshow_body)
+        self.assertIn("justify-content: center;", slideshow_body)
+        self.assertIn("height: calc(", slideshow_body)
+        self.assertIn("min-height: 28rem;", slideshow_body)
+        self.assertIn("background: var(--media-bg);", slideshow_body)
+        self.assertIn("height: 100%;", slide_body)
+        self.assertIn("object-fit: contain;", slide_body)
+        self.assertIn("object-position: center;", slide_body)
+        self.assertIn("background: var(--media-bg);", slide_body)
+        self.assertIn("top: 50%;", control_body)
+        self.assertIn("transform: translateY(-50%);", control_body)
+        self.assertIn("color: var(--overlay-text-color);", control_body)
+        self.assertIn("line-height: 1.25;", tracker_link_body)
 
     def test_slideshow_layers_only_accept_pointer_events_when_active(self):
         work_template = generate_pages.read_text(generate_pages.WORK_PAGE_TEMPLATE)

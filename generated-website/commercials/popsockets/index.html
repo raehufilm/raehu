@@ -112,7 +112,7 @@
       display: block;
       font-family: 'EB Garamond', serif;
       font-size: 1rem;
-      line-height: 1.1;
+      line-height: 1.25;
       color: var(--soft-text);
       text-decoration: none;
       transition: color var(--theme-transition-duration) var(--theme-transition-easing);
@@ -716,14 +716,24 @@
 
     .bts-slideshow {
       position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: calc(
+        100svh - var(--site-header-height) - var(--page-padding-top, var(--page-padding)) - var(--page-padding)
+      );
+      min-height: 28rem;
       overflow: hidden;
-      background: var(--bg-color);
+      background: var(--media-bg);
     }
 
     .bts-slide {
       display: none;
       width: 100%;
-      height: auto;
+      height: 100%;
+      object-fit: contain;
+      object-position: center;
+      background: var(--media-bg);
     }
 
     .bts-slideshow:hover video.bts-slide::-webkit-media-controls-panel {
@@ -745,7 +755,7 @@
       height: 2.75rem;
       border: 0;
       background: transparent;
-      color: var(--text-color);
+      color: var(--overlay-text-color);
       cursor: pointer;
       opacity: 0;
       padding: 0;
@@ -942,6 +952,10 @@
 
       .bts-slideshow {
         width: 100%;
+        height: calc(
+          100svh - var(--site-header-height) - var(--mobile-section-tracker-height) - var(--page-padding) - var(--page-padding)
+        );
+        min-height: 18rem;
       }
 
       .bts-slide-control {
