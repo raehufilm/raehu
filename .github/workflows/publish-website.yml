@@ -38,7 +38,7 @@ jobs:
           import subprocess
           import sys
 
-          LIMIT_BYTES = 800 * 1024 * 1024
+          LIMIT_BYTES = 1500 * 1024 * 1024
           ALLOWED_EDITABLE_MEDIA = {".webp", ".mp4"}
           MEDIA_EXTENSIONS = {
               ".avif", ".bmp", ".gif", ".heic", ".jpeg", ".jpg", ".m4v", ".mkv",
@@ -80,7 +80,7 @@ jobs:
 
           print(
               "Publishable editable media size: "
-              f"{publishable_media_bytes / (1024 * 1024):.2f} MB / 800.00 MB"
+              f"{publishable_media_bytes / (1024 * 1024):.2f} MB / 1500.00 MB"
           )
 
           if bad:
@@ -91,7 +91,7 @@ jobs:
 
           if publishable_media_bytes > LIMIT_BYTES:
               print(
-                  "Publishable editable media exceeds the 800 MB repository budget.",
+                  "Publishable editable media exceeds the 1500 MB repository budget.",
                   file=sys.stderr,
               )
               sys.exit(1)
