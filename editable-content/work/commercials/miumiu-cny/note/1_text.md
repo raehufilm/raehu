@@ -6,6 +6,4 @@ In Lexie Liu and Qiu Tian's cinematic mind rendezvous, we get a familiar feeling
 
 Starring Miu Miu Ambassador #QiuTian  #LexieLiu
 
- https://www.instagram.com/p/CYrUpFYqLdo/
-
  

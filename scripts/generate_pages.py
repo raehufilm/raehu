@@ -164,6 +164,7 @@ class WorkContent:
     category: str = ""
     note_video_url: str | None = None
     note_video_position: int = 2
+    note_video_kind: str = "youtube"
     note_captions: dict[int, str] | None = None
     trailer_media: MediaItem | None = None
     grid_preview_media: MediaItem | None = None
@@ -655,6 +656,38 @@ def parse_youtube_url(raw_url: str) -> str:
 def youtube_embed_url(raw_url: str) -> str:
     video_id = parse_youtube_url(raw_url)
     return f"https://www.youtube.com/embed/{video_id}?rel=0"
+
+
+def parse_instagram_url(raw_url: str) -> tuple[str, str]:
+    raw_url = raw_url.strip()
+    parsed = urlparse(raw_url)
+    if parsed.hostname not in ("www.instagram.com", "instagram.com"):
+        raise PageGenerationError(
+            f"Could not parse Instagram URL: {raw_url!r}. "
+            "Expected a URL like https://www.instagram.com/p/SHORTCODE/ "
+            "or https://www.instagram.com/reel/SHORTCODE/"
+        )
+    parts = [p for p in parsed.path.split("/") if p]
+    if len(parts) >= 2 and parts[0] in ("p", "reel", "tv"):
+        return parts[0], parts[1]
+    raise PageGenerationError(
+        f"Could not parse Instagram URL: {raw_url!r}. "
+        "Expected a URL like https://www.instagram.com/p/SHORTCODE/ "
+        "or https://www.instagram.com/reel/SHORTCODE/"
+    )
+
+
+def instagram_embed_url(raw_url: str) -> str:
+    kind, shortcode = parse_instagram_url(raw_url)
+    return f"https://www.instagram.com/{kind}/{shortcode}/embed/captioned/"
+
+
+def _is_instagram_url(raw_url: str) -> bool:
+    try:
+        parsed = urlparse(raw_url.strip())
+        return parsed.hostname in ("www.instagram.com", "instagram.com")
+    except Exception:
+        return False
 
 
 def read_vimeo_thumbnail_cache(path: Path = VIMEO_THUMBNAIL_CACHE) -> dict[str, str]:
@@ -1480,7 +1513,7 @@ def load_note_content(note_dir: Path) -> NoteContent | None:
     return load_localized_note_content(path, index=index)
 
 
-def _load_note_video_link(note_dir: Path) -> tuple[str, int] | None:
+def _load_note_video_link(note_dir: Path) -> tuple[str, int, str] | None:
     candidates = [
         p for p in note_dir.iterdir()
         if p.is_file() and _is_note_video_link(p)
@@ -1501,7 +1534,9 @@ def _load_note_video_link(note_dir: Path) -> tuple[str, int] | None:
         raise PageGenerationError(
             f"{path} uses position {index}. Note video link must use 1_ or 2_."
         )
-    return youtube_embed_url(raw), index
+    if _is_instagram_url(raw):
+        return instagram_embed_url(raw), index, "instagram"
+    return youtube_embed_url(raw), index, "youtube"
 
 
 def validate_note_content(
@@ -2109,12 +2144,13 @@ def load_work(
     note_media_items: tuple[MediaItem, ...] = ()
     note_video_url: str | None = None
     note_video_position: int = 2
+    note_video_kind: str = "youtube"
     note_captions: dict[int, str] | None = None
     if note_dir.is_dir():
         note = load_note_content(note_dir)
         video_link_result = _load_note_video_link(note_dir)
         if video_link_result:
-            note_video_url, note_video_position = video_link_result
+            note_video_url, note_video_position, note_video_kind = video_link_result
         note_captions = _load_note_captions(note_dir)
         note_media = ordered_media(
             note_dir,
@@ -2180,6 +2216,7 @@ def load_work(
         note_media=note_media_items,
         note_video_url=note_video_url,
         note_video_position=note_video_position,
+        note_video_kind=note_video_kind,
         note_captions=note_captions,
         highlight_media=highlight_media,
         bts_text_html=bts_text_html,
@@ -2494,12 +2531,24 @@ def _note_media_block(work: WorkContent, output_html: Path) -> tuple[int, str] |
         position = work.note_video_position
         pos_class = "left" if position == 1 else "right"
         caption = _note_caption_html(captions, 0)
+        kind = work.note_video_kind
+        kind_class = f" note-video-embed--{kind}"
+        if kind == "instagram":
+            iframe_attrs = (
+                f'src="{html_escape(work.note_video_url)}"\n'
+                '                    frameborder="0"\n'
+                '                    sandbox="allow-scripts allow-same-origin allow-popups"'
+            )
+        else:
+            iframe_attrs = (
+                f'src="{html_escape(work.note_video_url)}"\n'
+                '                    frameborder="0"\n'
+                '                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"\n'
+                '                    allowfullscreen'
+            )
         block = f"""        <div class="work-header-image-wrap work-header-piece--{pos_class}">
-          <div class="note-video-embed">
-            <iframe src="{html_escape(work.note_video_url)}"
-                    frameborder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowfullscreen></iframe>
+          <div class="note-video-embed{kind_class}">
+            <iframe {iframe_attrs}></iframe>
           </div>{caption}
         </div>"""
         return position, block
