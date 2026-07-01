@@ -449,6 +449,12 @@
 
     .note-video-embed--instagram {
       padding-bottom: 0;
+      height: auto;
+    }
+
+    .note-video-embed--instagram iframe {
+      position: static;
+      width: 100%;
       height: min(75vh, 600px);
     }
 
@@ -944,6 +950,12 @@
 
       .note-video-embed--instagram {
         padding-bottom: 0;
+        height: auto;
+      }
+
+      .note-video-embed--instagram iframe {
+        position: static;
+        width: 100%;
         height: min(75vh, 500px);
       }
 
@@ -1141,8 +1153,7 @@
         <div class="work-header-image-wrap work-header-piece--right">
           <div class="note-video-embed note-video-embed--instagram">
             <iframe src="https://www.instagram.com/p/CYrUpFYqLdo/embed/captioned/"
-                    frameborder="0"
-                    sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
+                    frameborder="0"></iframe>
           </div>
         </div>
       </div>

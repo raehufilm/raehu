@@ -2536,8 +2536,7 @@ def _note_media_block(work: WorkContent, output_html: Path) -> tuple[int, str] |
         if kind == "instagram":
             iframe_attrs = (
                 f'src="{html_escape(work.note_video_url)}"\n'
-                '                    frameborder="0"\n'
-                '                    sandbox="allow-scripts allow-same-origin allow-popups"'
+                '                    frameborder="0"'
             )
         else:
             iframe_attrs = (
