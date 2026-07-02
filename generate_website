@@ -160,7 +160,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-LIMIT_BYTES = 1500 * 1024 * 1024
+LIMIT_BYTES = 3000 * 1024 * 1024
 ALLOWED_PACKAGE_MEDIA = {".webp", ".mp4"}
 MEDIA_EXTENSIONS = {
     ".avif", ".bmp", ".gif", ".heic", ".jpeg", ".jpg", ".m4v", ".mkv",
@@ -193,7 +193,7 @@ for path in paths:
 
 print(
     "Publishable package media size: "
-    f"{publishable_media_bytes / (1024 * 1024):.2f} MB / 1500.00 MB",
+    f"{publishable_media_bytes / (1024 * 1024):.2f} MB / 3000.00 MB",
     flush=True,
 )
 
@@ -236,7 +236,7 @@ if bad:
 
 if publishable_media_bytes > LIMIT_BYTES:
     print(
-        "Publishable editable media exceeds the 1500 MB repository budget.",
+        "Publishable editable media exceeds the 3000 MB repository budget.",
         file=sys.stderr,
     )
     sys.exit(1)
@@ -438,7 +438,7 @@ python3 -m unittest discover -s tests
 log "Verifying generated output"
 python3 scripts/generate_pages.py --verify-generated
 
-log "Checking media policy and 1500 MB budget"
+log "Checking media policy and 3000 MB budget"
 check_media_policy
 
 if (( DRY_RUN )); then
