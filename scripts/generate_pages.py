@@ -3020,12 +3020,14 @@ def render_works_index_grid_item(work: WorkContent, output_html: Path) -> str:
 def render_drawings_slide(
     item: MediaItem, output_html: Path, index: int, total: int,
 ) -> str:
-    img_html = image_tag(
+    img_html = media_tag(
         item,
         output_html,
         item.caption_title or "Drawing",
         class_name="drawings-slide",
-        loading="lazy" if index > 0 else "eager",
+        image_loading="lazy" if index > 0 else "eager",
+        video_controls=True,
+        video_loop=False,
     )
     caption_parts = []
     if item.caption_title:
